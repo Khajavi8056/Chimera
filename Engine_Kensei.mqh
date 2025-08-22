@@ -4,11 +4,13 @@
 #ifndef ENGINE_KENSEI_MQH  // بررسی برای جلوگیری از تعریف مجدد هدر - جلوگیری از کامپایل چندباره
 #define ENGINE_KENSEI_MQH  // تعریف گارد برای جلوگیری از تعریف مجدد
 
-#include <Settings.mqh>  // شامل کردن تنظیمات - دسترسی به پارامترهای ورودی
-#include <Logging.mqh>  // شامل کردن سیستم لاگ - برای لاگینگ رویدادها
+
+#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
+#include "Logging.mqh"  // شامل لاگ - سیستم لاگینگ
+#include "MoneyManagement.mqh"  // شامل مدیریت پول - مدیریت ریسک
+#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite - موتور دفاعی
 
 // تعریف enum برای سیگنال‌ها - enum برای انواع سیگنال
-enum SIGNAL { SIGNAL_NONE, SIGNAL_LONG, SIGNAL_SHORT };  // سیگنال هیچ، خرید، فروش - انواع سیگنال ممکن
 
 // تابع برای دریافت سیگنال Kensei - تولید سیگنال بر اساس شرایط ایچیموکو، هندل‌ها را به عنوان ورودی دریافت می‌کند
 SIGNAL GetKenseiSignal(string symbol, int ichi_handle, int atr_handle)
