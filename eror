@@ -1,0 +1,119 @@
+'SELECT_BY_TICKET' - undeclared identifier	Engine_Hoplite.mqh	55	29
+wrong parameters count	Engine_Hoplite.mqh	55	9
+   built-in: bool OrderSelect(ulong)	Engine_Hoplite.mqh	55	9
+'OrderSymbol' - undeclared identifier	Engine_Hoplite.mqh	56	20
+')' - expression expected	Engine_Hoplite.mqh	56	32
+implicit conversion from 'unknown' to 'string'	Engine_Hoplite.mqh	56	20
+'OrderType' - undeclared identifier	Engine_Hoplite.mqh	57	15
+')' - expression expected	Engine_Hoplite.mqh	57	25
+'OP_BUY' - undeclared identifier	Engine_Hoplite.mqh	63	39
+'OP_BUY' - undeclared identifier	Engine_Hoplite.mqh	64	34
+'OP_SELL' - undeclared identifier	Engine_Hoplite.mqh	64	84
+'OP_BUY' - undeclared identifier	Engine_Hoplite.mqh	67	40
+'OrderClose' - undeclared identifier	Engine_Hoplite.mqh	68	14
+',' - unexpected token	Engine_Hoplite.mqh	68	31
+'ticket' - some operator expected	Engine_Hoplite.mqh	68	25
+'(' - unbalanced left parenthesis	Engine_Hoplite.mqh	68	13
+'OrderLots' - undeclared identifier	Engine_Hoplite.mqh	68	33
+')' - expression expected	Engine_Hoplite.mqh	68	43
+',' - unexpected token	Engine_Hoplite.mqh	68	44
+',' - unexpected token	Engine_Hoplite.mqh	68	57
+expression has no effect	Engine_Hoplite.mqh	68	46
+',' - unexpected token	Engine_Hoplite.mqh	68	60
+expression has no effect	Engine_Hoplite.mqh	68	59
+')' - unexpected token	Engine_Hoplite.mqh	68	68
+expression has no effect	Engine_Hoplite.mqh	68	62
+')' - unexpected token	Engine_Hoplite.mqh	68	69
+illegal 'else' without matching 'if'	Engine_Hoplite.mqh	70	10
+'[' - invalid index value	Engine_Kensei.mqh	33	21
+'[' - invalid index value	Engine_Kensei.mqh	34	20
+'SELECT_BY_TICKET' - undeclared identifier	Engine_Kensei.mqh	66	29
+wrong parameters count	Engine_Kensei.mqh	66	9
+   built-in: bool OrderSelect(ulong)	Engine_Kensei.mqh	66	9
+'OrderSymbol' - undeclared identifier	Engine_Kensei.mqh	67	20
+')' - expression expected	Engine_Kensei.mqh	67	32
+implicit conversion from 'unknown' to 'string'	Engine_Kensei.mqh	67	20
+'OrderType' - undeclared identifier	Engine_Kensei.mqh	68	15
+')' - expression expected	Engine_Kensei.mqh	68	25
+'OrderStopLoss' - undeclared identifier	Engine_Kensei.mqh	74	27
+')' - expression expected	Engine_Kensei.mqh	74	41
+'OP_BUY' - undeclared identifier	Engine_Kensei.mqh	77	19
+'OP_SELL' - undeclared identifier	Engine_Kensei.mqh	78	24
+'OrderModify' - undeclared identifier	Engine_Kensei.mqh	81	14
+',' - unexpected token	Engine_Kensei.mqh	81	32
+'ticket' - some operator expected	Engine_Kensei.mqh	81	26
+'(' - unbalanced left parenthesis	Engine_Kensei.mqh	81	13
+'OrderOpenPrice' - undeclared identifier	Engine_Kensei.mqh	81	34
+')' - expression expected	Engine_Kensei.mqh	81	49
+',' - unexpected token	Engine_Kensei.mqh	81	50
+',' - unexpected token	Engine_Kensei.mqh	81	58
+expression has no effect	Engine_Kensei.mqh	81	52
+'OrderTakeProfit' - undeclared identifier	Engine_Kensei.mqh	81	60
+')' - expression expected	Engine_Kensei.mqh	81	76
+',' - unexpected token	Engine_Kensei.mqh	81	77
+',' - unexpected token	Engine_Kensei.mqh	81	80
+expression has no effect	Engine_Kensei.mqh	81	79
+')' - unexpected token	Engine_Kensei.mqh	81	89
+expression has no effect	Engine_Kensei.mqh	81	82
+')' - unexpected token	Engine_Kensei.mqh	81	90
+illegal 'else' without matching 'if'	Engine_Kensei.mqh	83	10
+'OP_BUY' - undeclared identifier	MoneyManagement.mqh	90	37
+'OP_SELL' - undeclared identifier	MoneyManagement.mqh	90	46
+'OP_BUY' - undeclared identifier	MoneyManagement.mqh	91	32
+'OP_BUY' - undeclared identifier	MoneyManagement.mqh	92	24
+'OP_BUY' - undeclared identifier	MoneyManagement.mqh	96	20
+'OP_BUY' - undeclared identifier	MoneyManagement.mqh	102	15
+wrong parameters count, 10 passed, but 7 requires	MoneyManagement.mqh	104	17
+   bool CTrade::PositionOpen(const string,const ENUM_ORDER_TYPE,const double,const double,const double,const double,const string)	Trade.mqh	97	22
+wrong parameters count, 10 passed, but 7 requires	MoneyManagement.mqh	111	17
+   bool CTrade::PositionOpen(const string,const ENUM_ORDER_TYPE,const double,const double,const double,const double,const string)	Trade.mqh	97	22
+'SELECT_BY_POS' - undeclared identifier	Chimera_V2_EA.mq5	163	26
+'MODE_TRADES' - undeclared identifier	Chimera_V2_EA.mq5	163	41
+wrong parameters count	Chimera_V2_EA.mq5	163	11
+   built-in: bool OrderSelect(ulong)	Chimera_V2_EA.mq5	163	11
+'OrderMagicNumber' - undeclared identifier	Chimera_V2_EA.mq5	165	24
+')' - expression expected	Chimera_V2_EA.mq5	165	41
+'OrderSymbol' - undeclared identifier	Chimera_V2_EA.mq5	166	26
+')' - expression expected	Chimera_V2_EA.mq5	166	38
+implicit conversion from 'unknown' to 'string'	Chimera_V2_EA.mq5	166	26
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	176	33
+')' - expression expected	Chimera_V2_EA.mq5	176	45
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	180	100
+')' - expression expected	Chimera_V2_EA.mq5	180	112
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	192	34
+')' - expression expected	Chimera_V2_EA.mq5	192	46
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	196	101
+')' - expression expected	Chimera_V2_EA.mq5	196	113
+'SELECT_BY_POS' - undeclared identifier	Chimera_V2_EA.mq5	214	26
+'MODE_TRADES' - undeclared identifier	Chimera_V2_EA.mq5	214	41
+wrong parameters count	Chimera_V2_EA.mq5	214	11
+   built-in: bool OrderSelect(ulong)	Chimera_V2_EA.mq5	214	11
+'OrderType' - undeclared identifier	Chimera_V2_EA.mq5	216	21
+')' - expression expected	Chimera_V2_EA.mq5	216	31
+'OP_BUY' - undeclared identifier	Chimera_V2_EA.mq5	217	40
+'OrderSymbol' - undeclared identifier	Chimera_V2_EA.mq5	217	67
+')' - expression expected	Chimera_V2_EA.mq5	217	79
+implicit conversion from 'number' to 'string'	Chimera_V2_EA.mq5	217	67
+'OrderSymbol' - undeclared identifier	Chimera_V2_EA.mq5	217	113
+')' - expression expected	Chimera_V2_EA.mq5	217	125
+implicit conversion from 'number' to 'string'	Chimera_V2_EA.mq5	217	113
+'OrderClose' - undeclared identifier	Chimera_V2_EA.mq5	218	14
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	218	25
+')' - expression expected	Chimera_V2_EA.mq5	218	37
+',' - unexpected token	Chimera_V2_EA.mq5	218	38
+'OrderTicket' - some operator expected	Chimera_V2_EA.mq5	218	25
+'(' - unbalanced left parenthesis	Chimera_V2_EA.mq5	218	13
+'OrderLots' - undeclared identifier	Chimera_V2_EA.mq5	218	40
+')' - expression expected	Chimera_V2_EA.mq5	218	50
+',' - unexpected token	Chimera_V2_EA.mq5	218	51
+',' - unexpected token	Chimera_V2_EA.mq5	218	64
+expression has no effect	Chimera_V2_EA.mq5	218	53
+',' - unexpected token	Chimera_V2_EA.mq5	218	67
+expression has no effect	Chimera_V2_EA.mq5	218	66
+')' - unexpected token	Chimera_V2_EA.mq5	218	75
+expression has no effect	Chimera_V2_EA.mq5	218	69
+')' - unexpected token	Chimera_V2_EA.mq5	218	76
+'OrderTicket' - undeclared identifier	Chimera_V2_EA.mq5	219	27
+')' - expression expected	Chimera_V2_EA.mq5	219	39
+illegal 'else' without matching 'if'	Chimera_V2_EA.mq5	220	10
+98 errors, 14 warnings		98	14
