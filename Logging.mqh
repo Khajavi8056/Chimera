@@ -4,7 +4,11 @@
 #ifndef LOGGING_MQH  // بررسی برای جلوگیری از تعریف مجدد هدر - جلوگیری از کامپایل چندباره
 #define LOGGING_MQH  // تعریف گارد برای جلوگیری از تعریف مجدد
 
-#include <Settings.mqh>  // شامل کردن تنظیمات برای دسترسی به پارامترها اگر لازم - دسترسی به Inp_EnableLogging
+#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
+#include "MoneyManagement.mqh"  // شامل مدیریت پول - مدیریت ریسک
+#include "Engine_Kensei.mqh"  // شامل موتور Kensei - موتور تهاجمی
+#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite - موتور دفاعی
+
 
 // متغیرهای جهانی برای لاگینگ - متغیرهای مورد نیاز برای سیستم لاگ
 string LogFileName = "ChimeraV2_Log.txt";  // نام فایل لاگ (در فولدر Files متاتریدر) - نام فایل ذخیره لاگ
