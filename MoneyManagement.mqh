@@ -4,10 +4,11 @@
 #ifndef MONEY_MANAGEMENT_MQH  // بررسی برای جلوگیری از تعریف مجدد هدر - جلوگیری از کامپایل چندباره
 #define MONEY_MANAGEMENT_MQH  // تعریف گارد برای جلوگیری از تعریف مجدد
 
-#include <Settings.mqh>  // شامل کردن تنظیمات - دسترسی به پارامترها
-#include <Logging.mqh>  // شامل کردن سیستم لاگ - برای لاگینگ
-#include <Engine_Kensei.mqh>  // شامل موتور Kensei - برای SIGNAL
-#include <Engine_Hoplite.mqh>  // شامل موتور Hoplite - برای SIGNAL
+#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
+#include "Logging.mqh"  // شامل لاگ - سیستم لاگینگ
+#include "Engine_Kensei.mqh"  // شامل موتور Kensei - موتور تهاجمی
+#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite - موتور دفاعی
+
 #include <Trade\Trade.mqh>  // شامل کتابخانه CTrade - برای ارسال معاملات رسمی
 
 extern double g_peak_equity;  // اعلام متغیر سراسری g_peak_equity - تعریف شده در فایل اصلی
