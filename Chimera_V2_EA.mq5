@@ -5,11 +5,11 @@
 #property version   "2.00"  // نسخه - نسخه EA
 #property strict  // حالت دقیق - strict mode
 
-#include <Settings.mqh>  // شامل تنظیمات - دسترسی به ورودی‌ها
-#include <Logging.mqh>  // شامل لاگ - سیستم لاگینگ
-#include <MoneyManagement.mqh>  // شامل مدیریت پول - مدیریت ریسک
-#include <Engine_Kensei.mqh>  // شامل موتور Kensei - موتور تهاجمی
-#include <Engine_Hoplite.mqh>  // شامل موتور Hoplite - موتور دفاعی
+#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
+#include "Logging.mqh"  // شامل لاگ - سیستم لاگینگ
+#include "MoneyManagement.mqh"  // شامل مدیریت پول - مدیریت ریسک
+#include "Engine_Kensei.mqh"  // شامل موتور Kensei - موتور تهاجمی
+#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite - موتور دفاعی
 
 // متغیرهای جهانی - متغیرهای سراسری EA
 string kensei_syms[];  // آرایه نمادهای Kensei - لیست نمادها
