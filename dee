@@ -1,679 +1,885 @@
 ```mqh
 // Settings.mqh
-// این فایل به عنوان پنل کنترل مرکزی عمل می‌کند و تمام پارامترهای ورودی کاربر و ثابت‌های سیستم را تعریف می‌کند. این فایل برای جلوگیری از پراکندگی تنظیمات در کدهای دیگر استفاده می‌شود.
+// این فایل به عنوان پنل کنترل مرکزی عمل می‌کند و تمام پارامترهای ورودی کاربر (inputs) و ثابت‌های سیستم را تعریف می‌کند.
+// این تنظیمات اجازه می‌دهد تا کاربر سیستم را سفارشی‌سازی کند بدون نیاز به تغییر کد اصلی.
+// تمام پارامترها با پیشوند Inp_ شروع می‌شوند تا به راحتی شناسایی شوند.
+// این فایل برای بهینه‌سازی در متاتریدر ۵ طراحی شده و از enumها برای گزینه‌های انتخابی استفاده می‌کند تا خطای انسانی کاهش یابد.
 
-// جلوگیری از تعریف مجدد هدر فایل برای جلوگیری از خطاهای کامپایل چندباره
-#ifndef SETTINGS_MQH  // اگر SETTINGS_MQH قبلاً تعریف نشده باشد
-#define SETTINGS_MQH  // تعریف SETTINGS_MQH برای علامت‌گذاری اینکه این هدر قبلاً شامل شده است
+// جلوگیری از تکرار تعریف هدر با استفاده از گارد پیش‌پردازنده برای جلوگیری از کامپایل چندباره
+#ifndef SETTINGS_MQH
+#define SETTINGS_MQH
 
-// تعریف enum برای انواع منطق خروج معاملات، که به کاربر اجازه انتخاب بین خروج دینامیک یا مبتنی بر نسبت ریسک به ریوارد را می‌دهد
-enum ENUM_EXIT_LOGIC  // تعریف یک نوع شمارش‌شده (enum) برای منطق خروج
+// تعریف enum برای منطق خروج از معامله - این enum گزینه‌های خروج را محدود می‌کند تا کاربر گزینه اشتباه انتخاب نکند
+enum ENUM_EXIT_LOGIC
 {
-   EXIT_DYNAMIC,    // خروج دینامیک: بر اساس اندیکاتورها مانند کیجون-سن یا خط میانی بولینگر - مناسب برای بازارهای پویا
-   EXIT_RRR         // خروج مبتنی بر نسبت ریسک به ریوارد ثابت: خروج وقتی سود به نسبت مشخصی از ریسک برسد - مناسب برای استراتژی‌های ثابت
+   EXIT_DYNAMIC,    // خروج دینامیک: بر اساس اندیکاتورها مانند کیجون-سن (برای کنسی) یا خط میانی بولینگر (برای هاپلیت) - مناسب برای بازارهای پویا
+   EXIT_RRR         // خروج ثابت: بر اساس نسبت ریسک به ریوارد (RRR) - مناسب برای استراتژی‌های ثابت و کنترل‌شده
 };
 
-// تعریف enum برای انواع سیگنال‌ها، که نشان‌دهنده هیچ سیگنال، سیگنال خرید یا فروش است - این enum در موتورهای معاملاتی استفاده می‌شود
-enum SIGNAL { SIGNAL_NONE, SIGNAL_LONG, SIGNAL_SHORT };  // SIGNAL_NONE: بدون سیگنال، SIGNAL_LONG: سیگنال خرید، SIGNAL_SHORT: سیگنال فروش
+// تعریف enum برای انواع سیگنال‌ها - SIGNAL_NONE نشان‌دهنده عدم سیگنال است تا در کد به راحتی چک شود
+enum SIGNAL { SIGNAL_NONE, SIGNAL_LONG, SIGNAL_SHORT };
 
-// بخش پارامترهای ورودی کاربر شروع می‌شود - این ورودی‌ها در پنل تنظیمات EA در متاتریدر قابل تغییر هستند
-input double Inp_TotalInitialCapital = 10000.0; // سرمایه اولیه مجازی: برای محاسبه حجم معاملات و درصد افت سرمایه استفاده می‌شود - این مقدار برای شبیه‌سازی ریسک بدون تأثیر بر حساب واقعی است
-input double Inp_Kensei_Weight = 0.60; // وزن تخصیص سرمایه به موتور Kensei: بین 0.0 تا 1.0 - درصد سرمایه اختصاصی به موتور تهاجمی Kensei
-input double Inp_Hoplite_Weight = 0.40; // وزن تخصیص سرمایه به موتور Hoplite: بین 0.0 تا 1.0 - درصد سرمایه اختصاصی به موتور دفاعی Hoplite
-input double Inp_MaxPortfolioDrawdown = 0.09; // حداکثر افت سرمایه مجاز برای کل پورتفولیو: به صورت درصد (مثلاً 0.09 یعنی 9%) - اگر افت بیشتر شود، تمام معاملات بسته می‌شوند
-input ulong  Inp_BaseMagicNumber = 12345; // شماره مجیک پایه: برای تمایز معاملات این EA از سایر EAها - مجیک نامبر منحصر به فرد برای شناسایی معاملات
+// پارامترهای ورودی کاربر - این بخش اجازه سفارشی‌سازی را می‌دهد
+// سرمایه اولیه مجازی برای محاسبات
+input double Inp_TotalInitialCapital = 10000.0; // سرمایه اولیه مجازی: برای محاسبات حجم لات و افت سرمایه استفاده می‌شود - این مقدار واقعی نیست، بلکه مبنای محاسباتی است
 
-input string Inp_Kensei_Symbols = "EURUSD,GBPUSD,XAUUSD"; // لیست نمادهای معاملاتی برای موتور Kensei: جدا شده با کاما - نمادهایی که Kensei روی آن‌ها معامله می‌کند
-input bool   Inp_Kensei_IsActive = true; // فعال‌سازی موتور Kensei: true برای فعال، false برای غیرفعال - کلید اصلی برای روشن/خاموش کردن موتور تهاجمی
-input ENUM_TIMEFRAMES Inp_Kensei_Timeframe = PERIOD_H1; // تایم‌فریم عملیاتی برای Kensei: مثلاً PERIOD_H1 برای ساعتی - تایم‌فریم محاسبات اندیکاتورها
-input int    Inp_Kensei_Tenkan = 9; // دوره تنکان-سن در ایچیموکو: معمولاً 9 - برای محاسبه خط تنکان-سن
-input int    Inp_Kensei_Kijun = 26; // دوره کیجون-سن در ایچیموکو: معمولاً 26 - برای محاسبه خط کیجون-سن
-input int    Inp_Kensei_SenkouB = 52; // دوره سنکو اسپن B در ایچیموکو: معمولاً 52 - برای محاسبه ابر کومو
-input int    Inp_Kensei_ATR_Period = 14; // دوره ATR برای حد ضرر در Kensei: معمولاً 14 - برای محاسبه نوسان بازار
-input double Inp_Kensei_ATR_Multiplier = 3.0; // ضریب ATR برای فاصله حد ضرر: مثلاً 3.0 - تنظیم حساسیت حد ضرر
-input int    Inp_Kensei_Chikou_OpenSpace = 12; // تعداد کندل‌های گذشته برای چک فضای باز چیکو: مثلاً 12 - برای شرط ورود معامله
+// وزن‌های تخصیص سرمایه به موتورها - مجموع باید ۱.۰ باشد، اما سیستم نرمال‌سازی دارد تا خطای انسانی را مدیریت کند
+input double Inp_Kensei_Weight = 0.60; // وزن تخصیص سرمایه برای موتور کنسی (از ۰.۰ تا ۱.۰) - موتور تهاجمی برای روندها
+input double Inp_Hoplite_Weight = 0.40; // وزن تخصیص سرمایه برای موتور هاپلیت (از ۰.۰ تا ۱.۰) - موتور دفاعی برای رنج‌ها
 
-input string Inp_Hoplite_Symbols = "EURUSD,GBPUSD,XAUUSD"; // لیست نمادهای معاملاتی برای موتور Hoplite: جدا شده با کاما - نمادهایی که Hoplite روی آن‌ها معامله می‌کند
-input bool   Inp_Hoplite_IsActive = true; // فعال‌سازی موتور Hoplite: true برای فعال، false برای غیرفعال - کلید اصلی برای روشن/خاموش کردن موتور دفاعی
-input ENUM_TIMEFRAMES Inp_Hoplite_Timeframe = PERIOD_H1; // تایم‌فریم عملیاتی برای Hoplite: مثلاً PERIOD_H1 - تایم‌فریم محاسبات اندیکاتورها
-input int    Inp_Hoplite_BB_Period = 20; // دوره باندهای بولینگر در Hoplite: معمولاً 20 - برای محاسبه باندها
-input double Inp_Hoplite_BB_Deviation = 2.5; // انحراف استاندارد برای باندهای بولینگر: مثلاً 2.5 - تنظیم عرض باندها
-input int    Inp_Hoplite_RSI_Period = 14; // دوره RSI در Hoplite: معمولاً 14 - برای محاسبه شاخص قدرت نسبی
-input double Inp_Hoplite_RSI_Overbought = 75.0; // سطح اشباع خرید RSI: مثلاً 75.0 - شرط ورود فروش
-input double Inp_Hoplite_RSI_Oversold = 25.0; // سطح اشباع فروش RSI: مثلاً 25.0 - شرط ورود خرید
-input int    Inp_Hoplite_ADX_Period = 14; // دوره ADX در Hoplite: معمولاً 14 - برای فیلتر رژیم بازار (رونددار یا رنج)
-input double Inp_Hoplite_ADX_Threshold = 25.0; // آستانه ADX برای تشخیص بازار رونددار: مثلاً 25.0 - اگر ADX بالاتر باشد، بازار رونددار است
-input double Inp_Hoplite_StopLoss_ATR_Multiplier = 2.0; // ضریب ATR برای حد ضرر در Hoplite: مثلاً 2.0 - تنظیم فاصله SL
+// مدیریت ریسک پورتفولیو
+input double Inp_MaxPortfolioDrawdown = 0.09; // حداکثر درصد افت سرمایه پورتفولیو (مثلاً ۰.۰۹ = ۹٪) - اگر بیش از این شود، تمام پوزیشن‌ها بسته می‌شوند
+input double Inp_Risk_Percent_Per_Trade=1;
+// شناسایی معاملات
+input ulong  Inp_BaseMagicNumber = 12345; // شماره جادویی پایه: برای شناسایی معاملات اکسپرت در متاتریدر استفاده می‌شود - باید منحصر به فرد باشد
 
-input ENUM_EXIT_LOGIC Inp_ExitLogic = EXIT_DYNAMIC; // نوع منطق خروج: EXIT_DYNAMIC یا EXIT_RRR - انتخاب روش خروج معاملات
-input double Inp_RiskRewardRatio = 3.0; // نسبت ریسک به ریوارد برای خروج RRR: مثلاً 3.0 یعنی TP سه برابر SL
+// تنظیمات موتور کنسی (Kensei) - موتور روندگیر بر اساس ایچیموکو
+input string Inp_Kensei_Symbols = "EURUSD,GBPUSD,XAUUSD"; // نمادهای معاملاتی کنسی: جدا شده با کاما - مثلاً EURUSD برای جفت ارز یورو دلار
+input bool   Inp_Kensei_IsActive = true; // فعال کردن موتور کنسی: true برای فعال، false برای غیرفعال
+input ENUM_TIMEFRAMES Inp_Kensei_Timeframe = PERIOD_H1; // تایم‌فریم کنسی: مثلاً PERIOD_H1 برای ساعتی
+input int    Inp_Kensei_Tenkan = 9; // دوره تنکان-سن در ایچیموکو: میانگین کوتاه‌مدت
+input int    Inp_Kensei_Kijun = 26; // دوره کیجون-سن در ایچیموکو: میانگین میان‌مدت، برای خروج دینامیک استفاده می‌شود
+input int    Inp_Kensei_SenkouB = 52; // دوره سنکو اسپن بی در ایچیموکو: برای ابر کومو
+input int    Inp_Kensei_ATR_Period = 14; // دوره ATR برای محاسبه حد ضرر کنسی
+input double Inp_Kensei_ATR_Multiplier = 3.0; // ضریب ATR برای فاصله حد ضرر کنسی - مثلاً ۳ برابر ATR
+input int    Inp_Kensei_Chikou_OpenSpace = 12; // دوره فضای باز چیکو اسپن: برای چک فضای باز گذشته - نکته: بلوپرینت ۱۲، اما ممکن است ۱۲۰ بهتر باشد، با بک‌تست چک کنید
 
-input bool Inp_Show_Kensei_Indicators = false; // نمایش اندیکاتورهای Kensei روی چارت: true برای نمایش - مفید برای توسعه‌دهنده
-input bool Inp_Show_Hoplite_Indicators = false; // نمایش اندیکاتورهای Hoplite روی چارت: true برای نمایش - مفید برای توسعه‌دهنده
-input bool Inp_Show_OnChart_Display = true; // نمایش پنل اطلاعاتی روی چارت: true برای نمایش - پنل وضعیت EA
-input bool Inp_EnableLogging = true; // فعال‌سازی سیستم لاگ: true برای ثبت لاگ‌ها - مفید برای دیباگ
+// تنظیمات موتور هاپلیت (Hoplite) - موتور بازگشت به میانگین بر اساس بولینگر، RSI و ADX
+input string Inp_Hoplite_Symbols = "EURUSD,GBPUSD,XAUUSD"; // نمادهای معاملاتی هاپلیت: جدا شده با کاما
+input bool   Inp_Hoplite_IsActive = true; // فعال کردن موتور هاپلیت: true برای فعال
+input ENUM_TIMEFRAMES Inp_Hoplite_Timeframe = PERIOD_H1; // تایم‌فریم هاپلیت
+input int    Inp_Hoplite_BB_Period = 20; // دوره بولینگر بندز: برای محاسبه باندها
+input double Inp_Hoplite_BB_Deviation = 2.5; // انحراف استاندارد بولینگر بندز: برای عرض باندها
+input int    Inp_Hoplite_RSI_Period = 14; // دوره RSI: برای تشخیص بیش‌خرید/بیش‌فروش
+input double Inp_Hoplite_RSI_Overbought = 75.0; // سطح بیش‌خرید RSI: بالای این مقدار فروش
+input double Inp_Hoplite_RSI_Oversold = 25.0; // سطح بیش‌فروش RSI: پایین این مقدار خرید
+input int    Inp_Hoplite_ADX_Period = 14; // دوره ADX: برای تشخیص روند
+input double Inp_Hoplite_ADX_Threshold = 25.0; // آستانه ADX: بالای این مقدار بازار رونددار است و سیگنال نمی‌دهد
+input double Inp_Hoplite_StopLoss_ATR_Multiplier = 2.0; // ضریب ATR برای حد ضرر هاپلیت
 
-// بخش ثابت‌ها شروع می‌شود - این مقادیر تغییر نمی‌کنند و در سراسر کد استفاده می‌شوند
-const string COMMENT_PREFIX = "[ChimeraV2] "; // پیشوند کامنت معاملات: برای شناسایی آسان معاملات این EA در لیست معاملات
+// منطق خروج عمومی
+input ENUM_EXIT_LOGIC Inp_ExitLogic = EXIT_DYNAMIC; // نوع منطق خروج: دینامیک یا RRR
+input double Inp_RiskRewardRatio = 3.0; // نسبت ریسک به ریوارد برای خروج RRR: مثلاً ۳ یعنی TP سه برابر SL
 
-#endif  // پایان گارد تعریف - پایان هدر فایل، تمام تعاریف در اینجا به پایان می‌رسد
-```
+// نمایش و لاگینگ
+input bool Inp_Show_Kensei_Indicators = false; // نمایش اندیکاتورهای کنسی روی چارت: برای دیباگینگ
+input bool Inp_Show_Hoplite_Indicators = false; // نمایش اندیکاتورهای هاپلیت روی چارت
+input bool Inp_Show_OnChart_Display = true; // نمایش پنل اطلاعات روی چارت: برای نظارت زنده
+input bool Inp_EnableLogging = true; // فعال کردن سیستم لاگینگ: برای ثبت رویدادها در فایل
 
-```mq5
+// ثابت‌های سیستم - این‌ها تغییر نمی‌کنند
+const string COMMENT_PREFIX = "[ChimeraV2] "; // پیشوند کامنت معاملات: برای شناسایی در لیست معاملات متاتریدر
+
+// پایان گارد پیش‌پردازنده
+#endif
+
+
+
 // Chimera_V2_EA.mq5
-// این فایل اصلی اکسپرت است که نقش رهبر ارکستر را ایفا می‌کند و تمام اجزای سیستم را هماهنگ می‌نماید. تمام موتورها و مدیریت‌ها از اینجا فراخوانی می‌شوند.
+// این فایل اصلی اکسپرت است که تمام اجزا را هماهنگ می‌کند. این اکسپرت برای متاتریدر ۵ بهینه‌سازی شده و از تایمر برای چک دوره‌ای استفاده می‌کند.
+// سیستم دو موتور دارد: کنسی (تهاجمی، روندگیر) و هاپلیت (دفاعی، بازگشت به میانگین).
+// تمام عملیات با لاگینگ دقیق همراه است تا برای دیباگینگ و آموزش مناسب باشد.
+// برای مقاومت در برابر خطای انسانی، وزن‌ها نرمال‌سازی می‌شوند.
 
-#property copyright "Chimera V2.0"  // حقوق کپی‌رایت: نام و نسخه EA برای نمایش در متاتریدر
-#property version   "2.00"  // نسخه EA: برای پیگیری تغییرات نسخه
-#property strict  // حالت دقیق: فعال کردن بررسی‌های سخت‌گیرانه کامپایلر برای جلوگیری از خطاها
+// مشخصات کپی‌رایت و نسخه برای شناسایی در متاتریدر
+#property copyright "Chimera V2.0" // کپی‌رایت اکسپرت
+#property version   "2.00" // نسخه اکسپرت - برای پیگیری به‌روزرسانی‌ها
+#property strict // حالت strict: برای کامپایل دقیق و جلوگیری از اشتباهات قدیمی MQL4
 
-#include "Settings.mqh"  // شامل فایل تنظیمات: دسترسی به تمام ورودی‌ها و ثابت‌ها
-#include "Logging.mqh"  // شامل فایل لاگینگ: برای ثبت رویدادها و خطاها
-#include "MoneyManagement.mqh"  // شامل فایل مدیریت پول: برای محاسبه حجم و ریسک
-#include "Engine_Kensei.mqh"  // شامل موتور Kensei: موتور تهاجمی روندگرا
-#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite: موتور دفاعی بازگشت به میانگین
+// اینکلود فایل‌های هدر لازم - هر فایل مسئولیت خاصی دارد
+#include "Settings.mqh" // تنظیمات ورودی کاربر و ثابت‌ها
+#include "Logging.mqh" // سیستم لاگینگ برای ثبت رویدادها
+#include "MoneyManagement.mqh" // مدیریت پول، ریسک و باز کردن معاملات
+#include "Engine_Kensei.mqh" // موتور کنسی برای سیگنال‌های روند
+#include "Engine_Hoplite.mqh" // موتور هاپلیت برای سیگنال‌های رنج
 
-// متغیرهای جهانی شروع می‌شوند - این متغیرها در سراسر EA قابل دسترسی هستند
-string kensei_syms[];  // آرایه نمادهای Kensei: لیست نمادهایی که موتور Kensei روی آن‌ها کار می‌کند
-datetime last_kensei_times[];  // آرایه زمان آخرین بررسی برای هر نماد Kensei: برای تشخیص بار جدید
-string hoplite_syms[];  // آرایه نمادهای Hoplite: لیست نمادهایی که موتور Hoplite روی آن‌ها کار می‌کند
-datetime last_hoplite_times[];  // آرایه زمان آخرین بررسی برای هر نماد Hoplite: برای تشخیص بار جدید
-double g_peak_equity = 0;  // اوج اکویتی: برای محاسبه حداکثر افت سرمایه (drawdown)
-
-// آرایه‌های هندل اندیکاتورها - هندل‌ها یک بار ساخته می‌شوند تا عملکرد بهینه شود
-int g_kensei_ichi_handles[];  // آرایه هندل‌های ایچیموکو برای نمادهای Kensei: ذخیره هندل‌ها برای دسترسی سریع
-int g_kensei_atr_handles[];  // آرایه هندل‌های ATR برای نمادهای Kensei: ذخیره هندل‌ها
-int g_hoplite_bb_handles[];  // آرایه هندل‌های بولینگر باند برای نمادهای Hoplite: ذخیره هندل‌ها
-int g_hoplite_rsi_handles[];  // آرایه هندل‌های RSI برای نمادهای Hoplite: ذخیره هندل‌ها
-int g_hoplite_adx_handles[];  // آرایه هندل‌های ADX برای نمادهای Hoplite: ذخیره هندل‌ها
-int g_hoplite_atr_handles[];  // آرایه هندل‌های ATR برای نمادهای Hoplite: ذخیره هندل‌ها
-
-// تابع OnInit: این تابع هنگام شروع EA فراخوانی می‌شود و تمام ابتدایی‌سازی‌ها را انجام می‌دهد
-int OnInit()  // بازگشت int: INIT_SUCCEEDED برای موفقیت، INIT_FAILED برای شکست
+// متغیرهای جهانی - این‌ها در سراسر اکسپرت قابل دسترسی هستند
+// آرایه‌ها برای نمادها و زمان‌های آخرین بار - برای تشخیص بار جدید
+string kensei_syms[]; // آرایه نمادهای موتور کنسی - از ورودی کاربر پر می‌شود
+datetime last_kensei_times[]; // آرایه زمان آخرین بار برای هر نماد کنسی - برای جلوگیری از پردازش تکراری
+string hoplite_syms[]; // آرایه نمادهای موتور هاپلیت
+datetime last_hoplite_times[]; // آرایه زمان آخرین بار برای هر نماد هاپلیت
+// هندل‌های اندیکاتورها - برای دسترسی سریع به داده‌های اندیکاتور
+int g_kensei_ichi_handles[]; // هندل‌های ایچیموکو برای کنسی - یکی برای هر نماد
+int g_kensei_atr_handles[]; // هندل‌های ATR برای کنسی
+int g_hoplite_bb_handles[]; // هندل‌های بولینگر برای هاپلیت
+int g_hoplite_rsi_handles[]; // هندل‌های RSI برای هاپلیت
+int g_hoplite_adx_handles[]; // هندل‌های ADX برای هاپلیت
+int g_hoplite_atr_handles[]; // هندل‌های ATR برای هاپلیت
+// متغیرهای جهانی برای تنظیمات نرمال‌شده - برای مدیریت خطای انسانی در ورودی‌ها
+double g_Kensei_Weight; // وزن نرمال‌شده کنسی
+double g_Hoplite_Weight; // وزن نرمال‌شده هاپلیت
+bool g_Kensei_IsActive; // وضعیت فعال کنسی - ممکن است در نرمال‌سازی تغییر کند
+bool g_Hoplite_IsActive; // وضعیت فعال هاپلیت
+double g_peak_equity = 0.0;
+// تابع OnInit: راه‌اندازی اولیه اکسپرت - این تابع هنگام لود اکسپرت فراخوانی می‌شود
+int OnInit()
 {
-   Log("شروع اکسپرت Chimera V2.0");  // ثبت لاگ شروع EA: برای اطلاع از راه‌اندازی موفق
-   LogInit();  // فراخوانی تابع ابتدایی‌سازی لاگ: باز کردن فایل لاگ
-   int kensei_count = StringSplit(Inp_Kensei_Symbols, ',', kensei_syms);  // تقسیم لیست نمادهای Kensei به آرایه: تعداد نمادها را برمی‌گرداند
-   if (kensei_count <= 0) { LogError("خطا در تقسیم نمادهای Kensei: " + Inp_Kensei_Symbols); return INIT_FAILED; }  // چک خطا در تقسیم: اگر شکست، EA را متوقف کن
-   ArrayResize(last_kensei_times, kensei_count);  // تغییر اندازه آرایه زمان‌ها به تعداد نمادها: برای ذخیره زمان آخرین چک هر نماد
-   ArrayInitialize(last_kensei_times, 0);  // مقداردهی اولیه آرایه زمان‌ها به 0: یعنی هیچ چک قبلی وجود ندارد
-   int hoplite_count = StringSplit(Inp_Hoplite_Symbols, ',', hoplite_syms);  // تقسیم لیست نمادهای Hoplite به آرایه: مشابه Kensei
-   if (hoplite_count <= 0) { LogError("خطا در تقسیم نمادهای Hoplite: " + Inp_Hoplite_Symbols); return INIT_FAILED; }  // چک خطا در تقسیم Hoplite
-   ArrayResize(last_hoplite_times, hoplite_count);  // تغییر اندازه آرایه زمان‌ها برای Hoplite
-   ArrayInitialize(last_hoplite_times, 0);  // مقداردهی اولیه به 0
-   // ابتدایی‌سازی هندل‌های Kensei شروع می‌شود
-   ArrayResize(g_kensei_ichi_handles, kensei_count);  // تغییر اندازه آرایه هندل ایچیموکو به تعداد نمادها
-   ArrayResize(g_kensei_atr_handles, kensei_count);  // تغییر اندازه آرایه هندل ATR
-   for (int i = 0; i < kensei_count; i++)  // لوپ روی تمام نمادهای Kensei: برای ایجاد هندل هر نماد
+   Log("شروع Chimera V2.0"); // لاگ شروع سیستم برای ثبت در فایل و ترمینال
+   LogInit(); // راه‌اندازی سیستم لاگینگ - باز کردن فایل لاگ
+   
+   // تقسیم رشته نمادها به آرایه - برای پردازش چند نماد
+   int kensei_count = StringSplit(Inp_Kensei_Symbols, ',', kensei_syms); // تقسیم نمادهای کنسی
+   if (kensei_count <= 0) { LogError("خطا در تقسیم نمادهای کنسی: " + Inp_Kensei_Symbols); return INIT_FAILED; } // چک خطا و بازگشت شکست
+   ArrayResize(last_kensei_times, kensei_count); // تنظیم اندازه آرایه زمان‌ها
+   ArrayInitialize(last_kensei_times, 0); // مقداردهی اولیه به صفر (زمان نامعتبر)
+   
+   int hoplite_count = StringSplit(Inp_Hoplite_Symbols, ',', hoplite_syms); // تقسیم نمادهای هاپلیت
+   if (hoplite_count <= 0) { LogError("خطا در تقسیم نمادهای هاپلیت: " + Inp_Hoplite_Symbols); return INIT_FAILED; } // چک خطا
+   ArrayResize(last_hoplite_times, hoplite_count); // تنظیم اندازه
+   ArrayInitialize(last_hoplite_times, 0); // مقداردهی اولیه
+   
+   // --- مقاوم‌سازی در برابر خطای انسانی: نرمال‌سازی وزن‌ها ---
+   // این بخش وزن‌ها را چک و نرمال می‌کند تا مجموع همیشه ۱.۰ باشد
+   g_Kensei_Weight = Inp_Kensei_Weight; // مقدار اولیه از ورودی
+   g_Hoplite_Weight = Inp_Hoplite_Weight; // مقدار اولیه
+   g_Kensei_IsActive = Inp_Kensei_IsActive; // وضعیت اولیه
+   g_Hoplite_IsActive = Inp_Hoplite_IsActive; // وضعیت اولیه
+   double total_weight = g_Kensei_Weight + g_Hoplite_Weight; // محاسبه مجموع
+   if (total_weight <= 0) // اگر مجموع نامعتبر (صفر یا منفی)
    {
-      g_kensei_ichi_handles[i] = iIchimoku(kensei_syms[i], Inp_Kensei_Timeframe, Inp_Kensei_Tenkan, Inp_Kensei_Kijun, Inp_Kensei_SenkouB);  // ایجاد هندل ایچیموکو برای نماد فعلی
-      g_kensei_atr_handles[i] = iATR(kensei_syms[i], Inp_Kensei_Timeframe, Inp_Kensei_ATR_Period);  // ایجاد هندل ATR برای نماد فعلی
-      if (g_kensei_ichi_handles[i] == INVALID_HANDLE || g_kensei_atr_handles[i] == INVALID_HANDLE)  // چک validity هندل‌ها: اگر نامعتبر، خطا
+      LogError("مجموع وزن‌های تخصیص یافته صفر یا منفی است. موتورها غیرفعال می‌شوند."); // لاگ خطا
+      g_Kensei_IsActive = false; // غیرفعال کردن موتورها
+      g_Hoplite_IsActive = false; // غیرفعال کردن
+   }
+   else if (total_weight != 1.0) // اگر مجموع دقیقاً ۱.۰ نیست (برای جلوگیری از ریسک بیش از حد)
+   {
+      Log("هشدار: مجموع وزن‌ها (" + DoubleToString(total_weight, 2) + ") برابر با ۱.۰ نیست. نرمال‌سازی انجام می‌شود."); // لاگ هشدار
+      // نرمال‌سازی: تقسیم هر وزن بر مجموع برای حفظ نسبت
+      g_Kensei_Weight = g_Kensei_Weight / total_weight; // وزن جدید کنسی
+      g_Hoplite_Weight = g_Hoplite_Weight / total_weight; // وزن جدید هاپلیت
+      Log("وزن جدید کنسی: " + DoubleToString(g_Kensei_Weight, 2) + ", وزن جدید هاپلیت: " + DoubleToString(g_Hoplite_Weight, 2)); // لاگ وزن‌های جدید
+   }
+   // --- پایان نرمال‌سازی وزن‌ها ---
+   
+   // ایجاد هندل‌های اندیکاتور برای کنسی
+   ArrayResize(g_kensei_ichi_handles, kensei_count); // تنظیم اندازه آرایه هندل‌ها
+   ArrayResize(g_kensei_atr_handles, kensei_count); // تنظیم اندازه
+   for (int i = 0; i < kensei_count; i++) // حلقه برای هر نماد
+   {
+      g_kensei_ichi_handles[i] = iIchimoku(kensei_syms[i], Inp_Kensei_Timeframe, Inp_Kensei_Tenkan, Inp_Kensei_Kijun, Inp_Kensei_SenkouB); // ایجاد هندل ایچیموکو
+      g_kensei_atr_handles[i] = iATR(kensei_syms[i], Inp_Kensei_Timeframe, Inp_Kensei_ATR_Period); // ایجاد هندل ATR
+      if (g_kensei_ichi_handles[i] == INVALID_HANDLE || g_kensei_atr_handles[i] == INVALID_HANDLE) // چک هندل نامعتبر
       {
-         LogError("خطا در ایجاد هندل Kensei برای نماد: " + kensei_syms[i]);  // ثبت خطا
-         return INIT_FAILED;  // بازگشت شکست ابتدایی‌سازی
+         LogError("خطا در ایجاد هندل کنسی برای نماد: " + kensei_syms[i]); // لاگ خطا
+         return INIT_FAILED; // بازگشت با شکست ابتدایی
       }
    }
-   // ابتدایی‌سازی هندل‌های Hoplite شروع می‌شود
-   ArrayResize(g_hoplite_bb_handles, hoplite_count);  // تغییر اندازه آرایه هندل BB
-   ArrayResize(g_hoplite_rsi_handles, hoplite_count);  // تغییر اندازه آرایه هندل RSI
-   ArrayResize(g_hoplite_adx_handles, hoplite_count);  // تغییر اندازه آرایه هندل ADX
-   ArrayResize(g_hoplite_atr_handles, hoplite_count);  // تغییر اندازه آرایه هندل ATR
-   for (int i = 0; i < hoplite_count; i++)  // لوپ روی تمام نمادهای Hoplite
+   
+   // ایجاد هندل‌های اندیکاتور برای هاپلیت
+   ArrayResize(g_hoplite_bb_handles, hoplite_count); // تنظیم اندازه
+   ArrayResize(g_hoplite_rsi_handles, hoplite_count); // تنظیم اندازه
+   ArrayResize(g_hoplite_adx_handles, hoplite_count); // تنظیم اندازه
+   ArrayResize(g_hoplite_atr_handles, hoplite_count); // تنظیم اندازه
+   for (int i = 0; i < hoplite_count; i++) // حلقه برای هر نماد
    {
-      g_hoplite_bb_handles[i] = iBands(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_BB_Period, 0, Inp_Hoplite_BB_Deviation, PRICE_CLOSE);  // ایجاد هندل BB
-      g_hoplite_rsi_handles[i] = iRSI(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_RSI_Period, PRICE_CLOSE);  // ایجاد هندل RSI
-      g_hoplite_adx_handles[i] = iADX(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_ADX_Period);  // ایجاد هندل ADX
-      g_hoplite_atr_handles[i] = iATR(hoplite_syms[i], Inp_Hoplite_Timeframe, 14);  // ایجاد هندل ATR با دوره ثابت 14
-      if (g_hoplite_bb_handles[i] == INVALID_HANDLE || g_hoplite_rsi_handles[i] == INVALID_HANDLE || g_hoplite_adx_handles[i] == INVALID_HANDLE || g_hoplite_atr_handles[i] == INVALID_HANDLE)  // چک validity
+      g_hoplite_bb_handles[i] = iBands(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_BB_Period, 0, Inp_Hoplite_BB_Deviation, PRICE_CLOSE); // ایجاد هندل بولینگر
+      g_hoplite_rsi_handles[i] = iRSI(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_RSI_Period, PRICE_CLOSE); // ایجاد هندل RSI
+      g_hoplite_adx_handles[i] = iADX(hoplite_syms[i], Inp_Hoplite_Timeframe, Inp_Hoplite_ADX_Period); // ایجاد هندل ADX
+      g_hoplite_atr_handles[i] = iATR(hoplite_syms[i], Inp_Hoplite_Timeframe, 14); // ایجاد هندل ATR (دوره ثابت ۱۴)
+      if (g_hoplite_bb_handles[i] == INVALID_HANDLE || g_hoplite_rsi_handles[i] == INVALID_HANDLE || 
+          g_hoplite_adx_handles[i] == INVALID_HANDLE || g_hoplite_atr_handles[i] == INVALID_HANDLE) // چک هندل نامعتبر
       {
-         LogError("خطا در ایجاد هندل Hoplite برای نماد: " + hoplite_syms[i]);  // ثبت خطا
-         return INIT_FAILED;  // بازگشت شکست
+         LogError("خطا در ایجاد هندل هاپلیت برای نماد: " + hoplite_syms[i]); // لاگ خطا
+         return INIT_FAILED; // بازگشت شکست
       }
    }
-   if (Inp_Show_Kensei_Indicators)  // اگر نمایش اندیکاتورهای Kensei فعال باشد
+   
+   // نمایش اندیکاتورها روی چارت اگر فعال باشد - فقط برای نماد فعلی چارت
+   if (Inp_Show_Kensei_Indicators) // چک گزینه نمایش کنسی
    {
-      iIchimoku(_Symbol, Inp_Kensei_Timeframe, Inp_Kensei_Tenkan, Inp_Kensei_Kijun, Inp_Kensei_SenkouB);  // اضافه کردن ایچیموکو به چارت فعلی
-      Log("اندیکاتورهای Kensei نمایش داده شد");  // ثبت لاگ نمایش
+      iIchimoku(_Symbol, Inp_Kensei_Timeframe, Inp_Kensei_Tenkan, Inp_Kensei_Kijun, Inp_Kensei_SenkouB); // نمایش ایچیموکو
+      Log("اندیکاتورهای کنسی نمایش داده شد"); // لاگ نمایش
    }
-   if (Inp_Show_Hoplite_Indicators)  // اگر نمایش اندیکاتورهای Hoplite فعال باشد
+   if (Inp_Show_Hoplite_Indicators) // چک گزینه نمایش هاپلیت
    {
-      iBands(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_BB_Period, 0, Inp_Hoplite_BB_Deviation, PRICE_CLOSE);  // اضافه کردن BB به چارت
-      iRSI(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_RSI_Period, PRICE_CLOSE);  // اضافه کردن RSI به چارت
-      iADX(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_ADX_Period);  // اضافه کردن ADX به چارت
-      Log("اندیکاتورهای Hoplite نمایش داده شد");  // ثبت لاگ نمایش
+      iBands(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_BB_Period, 0, Inp_Hoplite_BB_Deviation, PRICE_CLOSE); // نمایش بولینگر
+      iRSI(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_RSI_Period, PRICE_CLOSE); // نمایش RSI
+      iADX(_Symbol, Inp_Hoplite_Timeframe, Inp_Hoplite_ADX_Period); // نمایش ADX
+      Log("اندیکاتورهای هاپلیت نمایش داده شد"); // لاگ نمایش
    }
-   if (Inp_Show_OnChart_Display)  // اگر نمایش پنل روی چارت فعال باشد
+   if (Inp_Show_OnChart_Display) // چک نمایش پنل
    {
-      Log("پنل اطلاعاتی روی چارت نمایش داده شد");  // ثبت لاگ (پیاده‌سازی پنل در کد فرض شده است)
+      Log("پنل اطلاعات روی چارت نمایش داده شد"); // لاگ نمایش (پنل واقعی باید پیاده شود اگر لازم)
    }
-   g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY);  // تنظیم اوج اکویتی اولیه بر اساس اکویتی فعلی حساب
-   Log("اوج اکویتی اولیه تنظیم شد: " + DoubleToString(g_peak_equity, 2));  // ثبت لاگ مقدار اولیه
-   EventSetTimer(1);  // تنظیم تایمر برای فراخوانی OnTimer هر 1 ثانیه: برای چک دوره‌ای
-   return(INIT_SUCCEEDED);  // بازگشت موفقیت ابتدایی‌سازی: EA آماده کار است
+   g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY); // تنظیم اوج اکویتی اولیه برای محاسبه افت
+   Log("اوج اکویتی اولیه تنظیم شد: " + DoubleToString(g_peak_equity, 2)); // لاگ مقدار
+   EventSetTimer(1); // تنظیم تایمر هر ۱ ثانیه برای چک دوره‌ای - بهینه برای متاتریدر
+   return(INIT_SUCCEEDED); // بازگشت موفق ابتدایی
 }
 
-// تابع OnDeinit: این تابع هنگام توقف EA فراخوانی می‌شود و منابع را آزاد می‌کند
-void OnDeinit(const int reason)  // پارامتر reason: دلیل توقف (مثلاً تغییر تنظیمات)
+// تابع OnDeinit: خاموش کردن اکسپرت - هنگام unload فراخوانی می‌شود
+void OnDeinit(const int reason)
 {
-   Log("پایان اکسپرت Chimera V2.0 با دلیل: " + IntegerToString(reason));  // ثبت لاگ پایان با دلیل
-   EventKillTimer();  // خاموش کردن تایمر: جلوگیری از فراخوانی‌های بیشتر
-   // آزاد کردن هندل‌های Kensei شروع می‌شود
-   for (int i = 0; i < ArraySize(g_kensei_ichi_handles); i++)  // لوپ روی تمام هندل‌های Kensei
+   Log("توقف Chimera V2.0 با دلیل: " + IntegerToString(reason)); // لاگ دلیل توقف (reason کد متاتریدر است)
+   EventKillTimer(); // خاموش کردن تایمر برای جلوگیری از فراخوانی OnTimer
+   // آزاد کردن هندل‌های اندیکاتور برای مدیریت حافظه
+   for (int i = 0; i < ArraySize(g_kensei_ichi_handles); i++) // حلقه برای کنسی
    {
-      if (g_kensei_ichi_handles[i] != INVALID_HANDLE) IndicatorRelease(g_kensei_ichi_handles[i]);  // آزاد کردن هندل ایچیموکو اگر معتبر باشد
-      if (g_kensei_atr_handles[i] != INVALID_HANDLE) IndicatorRelease(g_kensei_atr_handles[i]);  // آزاد کردن هندل ATR
+      if (g_kensei_ichi_handles[i] != INVALID_HANDLE) IndicatorRelease(g_kensei_ichi_handles[i]); // آزاد کردن ایچیموکو
+      if (g_kensei_atr_handles[i] != INVALID_HANDLE) IndicatorRelease(g_kensei_atr_handles[i]); // آزاد کردن ATR
    }
-   // آزاد کردن هندل‌های Hoplite
-   for (int i = 0; i < ArraySize(g_hoplite_bb_handles); i++)  // لوپ روی تمام هندل‌های Hoplite
+   for (int i = 0; i < ArraySize(g_hoplite_bb_handles); i++) // حلقه برای هاپلیت
    {
-      if (g_hoplite_bb_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_bb_handles[i]);  // آزاد کردن هندل BB
-      if (g_hoplite_rsi_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_rsi_handles[i]);  // آزاد کردن هندل RSI
-      if (g_hoplite_adx_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_adx_handles[i]);  // آزاد کردن هندل ADX
-      if (g_hoplite_atr_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_atr_handles[i]);  // آزاد کردن هندل ATR
+      if (g_hoplite_bb_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_bb_handles[i]); // آزاد کردن بولینگر
+      if (g_hoplite_rsi_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_rsi_handles[i]); // آزاد کردن RSI
+      if (g_hoplite_adx_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_adx_handles[i]); // آزاد کردن ADX
+      if (g_hoplite_atr_handles[i] != INVALID_HANDLE) IndicatorRelease(g_hoplite_atr_handles[i]); // آزاد کردن ATR
    }
-   LogDeinit();  // فراخوانی تابع پایان لاگ: بستن فایل لاگ
+   LogDeinit(); // خاموش کردن لاگینگ - بستن فایل
 }
 
-// تابع OnTimer: این تابع هر 1 ثانیه فراخوانی می‌شود و چک‌های دوره‌ای را انجام می‌دهد
-void OnTimer()  // بدون پارامتر و بازگشت void: فقط عملیات چک را انجام می‌دهد
+// تابع OnTimer: چک دوره‌ای هر ۱ ثانیه - برای تشخیص بار جدید و مدیریت
+void OnTimer()
 {
-   Log("چک تایمر - بررسی وضعیت پورتفولیو و سیگنال‌ها");  // ثبت لاگ هر چک تایمر
-   if (IsPortfolioDrawdownExceeded())  // چک اگر افت سرمایه بیش از حد مجاز باشد
+   Log("چک تایمر - ارزیابی پورتفولیو و سیگنال‌ها"); // لاگ هر چک برای پیگیری عملکرد
+   if (IsPortfolioDrawdownExceeded()) // چک افت سرمایه بیش از حد
    {
-      Log("افت سرمایه بیش از حد - بستن تمام موقعیت‌ها");  // ثبت لاگ هشدار
-      CloseAllPositions();  // فراخوانی تابع بستن تمام موقعیت‌ها
-      return;  // خروج زودرس از تابع: اگر DD بیش از حد، بقیه چک‌ها را انجام نده
+      Log("افت سرمایه بیش از حد تشخیص داده شد - بستن تمام پوزیشن‌ها"); // لاگ اقدام اضطراری
+      CloseAllPositions(); // بستن تمام پوزیشن‌ها برای حفاظت سرمایه
+      return; // بازگشت زود برای جلوگیری از باز کردن معاملات جدید
    }
-   if (Inp_Kensei_IsActive)  // اگر موتور Kensei فعال باشد
+   if (g_Kensei_IsActive) // چک فعال بودن کنسی (پس از نرمال‌سازی)
    {
-      for (int i = 0; i < ArraySize(kensei_syms); i++)  // لوپ روی تمام نمادهای Kensei
+      for (int i = 0; i < ArraySize(kensei_syms); i++) // حلقه برای هر نماد کنسی
       {
-         datetime current_time = iTime(kensei_syms[i], Inp_Kensei_Timeframe, 0);  // دریافت زمان کندل فعلی نماد
-         if (current_time > last_kensei_times[i])  // چک اگر بار جدید تشکیل شده باشد (زمان جدید > زمان آخرین)
+         datetime current_time = iTime(kensei_syms[i], Inp_Kensei_Timeframe, 0); // زمان بار فعلی
+         if (current_time > last_kensei_times[i]) // اگر بار جدید (برای جلوگیری از پردازش تکراری)
          {
-            Log("بار جدید در تایم‌فریم Kensei برای نماد " + kensei_syms[i]);  // ثبت لاگ بار جدید
-            last_kensei_times[i] = current_time;  // بروزرسانی زمان آخرین چک
-            SIGNAL sig = GetKenseiSignal(kensei_syms[i], g_kensei_ichi_handles[i], g_kensei_atr_handles[i]);  // دریافت سیگنال از موتور Kensei
-            OpenTrade(kensei_syms[i], sig, 1, g_kensei_atr_handles[i]);  // باز کردن معامله اگر سیگنال وجود داشته باشد (1 برای ID موتور Kensei)
+            Log("بار جدید در تایم‌فریم کنسی برای نماد " + kensei_syms[i]); // لاگ بار جدید
+            last_kensei_times[i] = current_time; // به‌روزرسانی زمان
+            SIGNAL sig = GetKenseiSignal(kensei_syms[i], g_kensei_ichi_handles[i], g_kensei_atr_handles[i]); // گرفتن سیگنال
+            OpenTrade(kensei_syms[i], sig, 1, g_kensei_atr_handles[i]); // باز کردن معامله اگر سیگنال باشد
          }
       }
    }
-   if (Inp_Hoplite_IsActive)  // اگر موتور Hoplite فعال باشد
+   if (g_Hoplite_IsActive) // چک فعال بودن هاپلیت
    {
-      for (int i = 0; i < ArraySize(hoplite_syms); i++)  // لوپ روی تمام نمادهای Hoplite
+      for (int i = 0; i < ArraySize(hoplite_syms); i++) // حلقه برای هر نماد
       {
-         datetime current_time = iTime(hoplite_syms[i], Inp_Hoplite_Timeframe, 0);  // دریافت زمان کندل فعلی
-         if (current_time > last_hoplite_times[i])  // چک بار جدید
+         datetime current_time = iTime(hoplite_syms[i], Inp_Hoplite_Timeframe, 0); // زمان بار فعلی
+         if (current_time > last_hoplite_times[i]) // بار جدید
          {
-            Log("بار جدید در تایم‌فریم Hoplite برای نماد " + hoplite_syms[i]);  // ثبت لاگ
-            last_hoplite_times[i] = current_time;  // بروزرسانی زمان
-            SIGNAL sig = GetHopliteSignal(hoplite_syms[i], g_hoplite_bb_handles[i], g_hoplite_rsi_handles[i], g_hoplite_adx_handles[i]);  // دریافت سیگنال از Hoplite
-            OpenTrade(hoplite_syms[i], sig, 2, g_hoplite_atr_handles[i]);  // باز کردن معامله (2 برای ID موتور Hoplite)
+            Log("بار جدید در تایم‌فریم هاپلیت برای نماد " + hoplite_syms[i]); // لاگ
+            last_hoplite_times[i] = current_time; // به‌روزرسانی
+            SIGNAL sig = GetHopliteSignal(hoplite_syms[i], g_hoplite_bb_handles[i], g_hoplite_rsi_handles[i], g_hoplite_adx_handles[i]); // سیگنال
+            OpenTrade(hoplite_syms[i], sig, 2, g_hoplite_atr_handles[i]); // باز کردن
          }
       }
    }
-   ManageTrades();  // فراخوانی مدیریت معاملات موجود: چک خروج‌ها و بروزرسانی‌ها
+   ManageTrades(); // مدیریت پوزیشن‌های باز - چک خروج
 }
 
-// تابع ManageTrades: مدیریت معاملات باز، مانند چک شرط خروج
-void ManageTrades()  // بدون پارامتر، فقط لوپ روی موقعیت‌ها
+// تابع ManageTrades: مدیریت پوزیشن‌های باز - چک شرایط خروج برای هر موتور
+void ManageTrades()
 {
-   Log("شروع مدیریت معاملات موجود");  // ثبت لاگ شروع مدیریت
-   for (int i = PositionsTotal() - 1; i >= 0; i--)  // لوپ معکوس روی تمام موقعیت‌ها: از آخر به اول برای ایمنی در بستن
+   Log("شروع مدیریت معاملات باز"); // لاگ شروع
+   for (int i = PositionsTotal() - 1; i >= 0; i--) // حلقه از آخرین پوزیشن (برای جلوگیری از مشکلات ایندکس)
    {
-      ulong ticket = PositionGetTicket(i);  // دریافت تیکت موقعیت i
-      if (ticket == 0) continue;  // اگر تیکت نامعتبر، رد شو به موقعیت بعدی
-      ulong magic = PositionGetInteger(POSITION_MAGIC);  // دریافت مجیک نامبر موقعیت
-      string symbol = PositionGetString(POSITION_SYMBOL);  // دریافت نماد موقعیت
-      if (magic == Inp_BaseMagicNumber + 1)  // اگر مجیک مربوط به Kensei باشد
+      ulong ticket = PositionGetTicket(i); // گرفتن تیکت
+      if (ticket == 0) continue; // اگر نامعتبر، رد شود
+      ulong magic = PositionGetInteger(POSITION_MAGIC); // شماره جادویی برای شناسایی موتور
+      string symbol = PositionGetString(POSITION_SYMBOL); // نماد پوزیشن
+      if (magic == Inp_BaseMagicNumber + 1) // اگر کنسی
       {
-         int sym_index = -1;  // ایندکس اولیه -1 (یعنی یافت نشد)
-         for (int j = 0; j < ArraySize(kensei_syms); j++)  // لوپ برای پیدا کردن ایندکس نماد در لیست Kensei
+         int sym_index = -1; // جستجو برای ایندکس نماد
+         for (int j = 0; j < ArraySize(kensei_syms); j++)
          {
-            if (kensei_syms[j] == symbol) { sym_index = j; break; }  // اگر یافت شد، ایندکس را تنظیم کن و لوپ را قطع کن
+            if (kensei_syms[j] == symbol) { sym_index = j; break; } // پیدا کردن ایندکس
          }
-         if (sym_index != -1)  // اگر نماد یافت شد
+         if (sym_index != -1) // اگر پیدا شد
          {
-            ManageKenseiExit(ticket, g_kensei_ichi_handles[sym_index]);  // فراخوانی مدیریت خروج Kensei با تیکت و هندل مربوطه
+            ManageKenseiExit(ticket, g_kensei_ichi_handles[sym_index]); // مدیریت خروج کنسی
+         }
+         else // اگر نه
+         {
+            LogError("نماد " + symbol + " در لیست کنسی برای تیکت " + IntegerToString(ticket) + " پیدا نشد"); // لاگ خطا
+         }
+      }
+      else if (magic == Inp_BaseMagicNumber + 2) // اگر هاپلیت
+      {
+         int sym_index = -1;
+         for (int j = 0; j < ArraySize(hoplite_syms); j++)
+         {
+            if (hoplite_syms[j] == symbol) { sym_index = j; break; }
+         }
+         if (sym_index != -1)
+         {
+            ManageHopliteExit(ticket, g_hoplite_bb_handles[sym_index]); // مدیریت خروج هاپلیت
          }
          else
          {
-            LogError("نماد " + symbol + " در لیست Kensei یافت نشد برای تیکت " + IntegerToString(ticket));  // ثبت خطا اگر نماد یافت نشود
-         }
-      }
-      else if (magic == Inp_BaseMagicNumber + 2)  // اگر مجیک مربوط به Hoplite باشد
-      {
-         int sym_index = -1;  // ایندکس اولیه -1
-         for (int j = 0; j < ArraySize(hoplite_syms); j++)  // لوپ برای پیدا کردن ایندکس در لیست Hoplite
-         {
-            if (hoplite_syms[j] == symbol) { sym_index = j; break; }  // تنظیم ایندکس اگر یافت شد
-         }
-         if (sym_index != -1)  // اگر یافت شد
-         {
-            ManageHopliteExit(ticket, g_hoplite_bb_handles[sym_index]);  // فراخوانی مدیریت خروج Hoplite
-         }
-         else
-         {
-            LogError("نماد " + symbol + " در لیست Hoplite یافت نشد برای تیکت " + IntegerToString(ticket));  // ثبت خطا
+            LogError("نماد " + symbol + " در لیست هاپلیت برای تیکت " + IntegerToString(ticket) + " پیدا نشد"); // لاگ خطا
          }
       }
    }
-   Log("پایان مدیریت معاملات");  // ثبت لاگ پایان مدیریت
+   Log("پایان مدیریت معاملات"); // لاگ پایان
 }
 
-// تابع CloseAllPositions: بستن تمام موقعیت‌های باز در موارد اضطراری مانند DD بیش از حد
-void CloseAllPositions()  // بدون پارامتر، لوپ روی موقعیت‌ها و بستن آن‌ها
+// تابع CloseAllPositions: بستن تمام پوزیشن‌ها در شرایط اضطراری مانند افت بیش از حد
+void CloseAllPositions()
 {
-   Log("شروع بستن تمام موقعیت‌ها");  // ثبت لاگ شروع
-   CTrade trade;  // ایجاد شیء CTrade: برای عملیات معاملاتی مانند بستن
-   for (int i = PositionsTotal() - 1; i >= 0; i--)  // لوپ معکوس روی موقعیت‌ها
+   Log("شروع بستن تمام پوزیشن‌ها"); // لاگ شروع
+   CTrade trade; // شیء تجارت برای عملیات بستن
+   for (int i = PositionsTotal() - 1; i >= 0; i--) // حلقه از آخرین
    {
-      ulong ticket = PositionGetTicket(i);  // دریافت تیکت
-      if (ticket == 0) continue;  // رد اگر نامعتبر
-      string symbol = PositionGetString(POSITION_SYMBOL);  // دریافت نماد
-      long type = PositionGetInteger(POSITION_TYPE);  // دریافت نوع موقعیت (خرید یا فروش)
-      double close_price = (type == POSITION_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK);  // تعیین قیمت بستن بر اساس نوع
-      if (trade.PositionClose(ticket, 3))  // تلاش برای بستن موقعیت با slippage 3
-         LogCloseTrade(ticket, "افت سرمایه بیش از حد");  // ثبت لاگ موفقیت بستن
+      ulong ticket = PositionGetTicket(i); // تیکت
+      if (ticket == 0) continue; // رد نامعتبر
+      string symbol = PositionGetString(POSITION_SYMBOL); // نماد
+      long type = PositionGetInteger(POSITION_TYPE); // نوع (خرید/فروش)
+      double close_price = (type == POSITION_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK); // قیمت بسته شدن
+      if (trade.PositionClose(ticket, 3)) // سعی در بستن با slippage 3
+         LogCloseTrade(ticket, "افت سرمایه بیش از حد"); // لاگ موفق
       else
-         LogError("خطا در بستن موقعیت تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode()));  // ثبت خطا با کد بازگشت
+         LogError("خطا در بستن پوزیشن تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode())); // لاگ خطا
    }
-   Log("پایان بستن موقعیت‌ها");  // ثبت لاگ پایان
+   Log("پایان بستن پوزیشن‌ها"); // لاگ پایان
 }
-```
 
-```mqh
+
+
 // Engine_Hoplite.mqh
-// این فایل موتور دفاعی Hoplite را پیاده‌سازی می‌کند که بر اساس استراتژی بازگشت به میانگین کار می‌کند. شامل تولید سیگنال و مدیریت خروج است.
+// این فایل موتور دفاعی هاپلیت را پیاده‌سازی می‌کند که از استراتژی بازگشت به میانگین (mean-reversion) استفاده می‌کند.
+// بر اساس بولینگر بندز، RSI و ADX برای تشخیص رنج و بیش‌خرید/بیش‌فروش.
+// برای متاتریدر ۵ بهینه‌سازی شده با چک‌های دقیق برای هندل‌ها و داده‌ها.
+// تمام عملیات با لاگینگ برای آموزش و دیباگ.
 
-#ifndef ENGINE_HOPLITE_MQH  // جلوگیری از تعریف مجدد هدر
-#define ENGINE_HOPLITE_MQH  // تعریف گارد
+// جلوگیری از تکرار تعریف هدر
+#ifndef ENGINE_HOPLITE_MQH
+#define ENGINE_HOPLITE_MQH
 
-#include "Settings.mqh"  // شامل تنظیمات: دسترسی به ورودی‌ها مانند دوره‌ها و سطوح
-#include "Logging.mqh"  // شامل لاگینگ: برای ثبت رویدادها و سیگنال‌ها
-#include "MoneyManagement.mqh"  // شامل مدیریت پول: برای محاسبات ریسک در خروج
-#include "Engine_Kensei.mqh"  // شامل موتور Kensei: برای وابستگی‌های احتمالی (اگر لازم باشد)
+// اینکلود فایل‌های لازم - وابستگی‌ها حداقل نگه داشته شده
+#include "Settings.mqh" // تنظیمات و enumها
+#include "Logging.mqh" // لاگینگ
+#include "MoneyManagement.mqh" // مدیریت معامله (برای SIGNAL)
 
-// تابع GetHopliteSignal: تولید سیگنال بر اساس اندیکاتورهای BB، RSI و ADX - هندل‌ها را دریافت می‌کند تا از بازسازی اندیکاتور جلوگیری شود
-SIGNAL GetHopliteSignal(string symbol, int bb_handle, int rsi_handle, int adx_handle)  // پارامترها: نماد و هندل اندیکاتورها - بازگشت SIGNAL
+// تابع GetHopliteSignal: تولید سیگنال برای هاپلیت - فقط در بازار رنج
+SIGNAL GetHopliteSignal(string symbol, int bb_handle, int rsi_handle, int adx_handle)
 {
-   Log("شروع بررسی سیگنال Hoplite برای نماد: " + symbol);  // ثبت لاگ شروع بررسی: برای پیگیری فرآیند
-   if (bb_handle == INVALID_HANDLE) { LogError("هندل BB نامعتبر برای " + symbol); return SIGNAL_NONE; }  // چک هندل BB: اگر نامعتبر، بدون سیگنال و خطا
-   if (rsi_handle == INVALID_HANDLE) { LogError("هندل RSI نامعتبر برای " + symbol); return SIGNAL_NONE; }  // چک هندل RSI
-   if (adx_handle == INVALID_HANDLE) { LogError("هندل ADX نامعتبر برای " + symbol); return SIGNAL_NONE; }  // چک هندل ADX
-   double bb_upper[1], bb_lower[1], bb_mid[1];  // بافرهای تک‌عنصری برای باندهای بولینگر: برای ذخیره مقادیر فعلی
-   double rsi[1], adx[1];  // بافرهای RSI و ADX: برای مقادیر فعلی
-   double close[1];  // بافر قیمت بسته فعلی: برای چک شرط‌ها
-   if (CopyBuffer(bb_handle, 0, 0, 1, bb_mid) <= 0) { LogError("خطا در کپی BB میانی برای " + symbol); return SIGNAL_NONE; }  // کپی خط میانی BB: اگر شکست، بدون سیگنال
-   if (CopyBuffer(bb_handle, 1, 0, 1, bb_upper) <= 0) { LogError("خطا در کپی BB بالایی برای " + symbol); return SIGNAL_NONE; }  // کپی باند بالایی
-   if (CopyBuffer(bb_handle, 2, 0, 1, bb_lower) <= 0) { LogError("خطا در کپی BB پایینی برای " + symbol); return SIGNAL_NONE; }  // کپی باند پایینی
-   if (CopyBuffer(rsi_handle, 0, 1, 1, rsi) <= 0) { LogError("خطا در کپی RSI برای " + symbol); return SIGNAL_NONE; }  // کپی مقدار RSI (کندل قبلی برای جلوگیری از lookahead)
-   if (CopyBuffer(adx_handle, 0, 1, 1, adx) <= 0) { LogError("خطا در کپی ADX برای " + symbol); return SIGNAL_NONE; }  // کپی مقدار ADX
-   if (CopyClose(symbol, Inp_Hoplite_Timeframe, 0, 1, close) < 1) { LogError("خطا در کپی قیمت بسته فعلی برای " + symbol); return SIGNAL_NONE; }  // کپی قیمت بسته فعلی
-   if (adx[0] >= Inp_Hoplite_ADX_Threshold)  // چک فیلتر رژیم بازار: اگر ADX بالا، بازار رونددار است و سیگنال نده
+   Log("شروع چک سیگنال هاپلیت برای نماد: " + symbol); // لاگ شروع برای پیگیری گام‌به‌گام
+   // چک هندل‌های اندیکاتور - برای جلوگیری از crash
+   if (bb_handle == INVALID_HANDLE) { LogError("هندل BB نامعتبر برای " + symbol); return SIGNAL_NONE; }
+   if (rsi_handle == INVALID_HANDLE) { LogError("هندل RSI نامعتبر برای " + symbol); return SIGNAL_NONE; }
+   if (adx_handle == INVALID_HANDLE) { LogError("هندل ADX نامعتبر برای " + symbol); return SIGNAL_NONE; }
+
+   // آرایه‌های داده - اندازه ۱ برای کندل قبلی
+   double bb_upper[1], bb_lower[1]; // باندها
+   double rsi[1], adx[1]; // RSI و ADX
+   double close[1]; // قیمت بسته شدن قبلی
+
+   // کپی داده‌ها از بافر - ایندکس ۱ برای کندل قبلی (کامل‌شده)
+   if(CopyBuffer(bb_handle, 1, 1, 1, bb_upper) <= 0) { LogError("هاپلیت: خطا در کپی باند بالا BB برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(bb_handle, 2, 1, 1, bb_lower) <= 0) { LogError("هاپلیت: خطا در کپی باند پایین BB برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(rsi_handle, 0, 1, 1, rsi) <= 0) { LogError("هاپلیت: خطا در کپی RSI برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(adx_handle, 0, 1, 1, adx) <= 0) { LogError("هاپلیت: خطا در کپی ADX برای " + symbol); return SIGNAL_NONE; }
+   if(CopyClose(symbol, Inp_Hoplite_Timeframe, 1, 1, close) < 1) { LogError("هاپلیت: خطا در کپی بسته شدن قبلی برای " + symbol); return SIGNAL_NONE; }
+
+   // چک بازار رونددار با ADX - اگر رونددار، سیگنال نده (هاپلیت برای رنج است)
+   if(adx[0] >= Inp_Hoplite_ADX_Threshold)
    {
-      Log("بازار رونددار تشخیص داده شد (ADX بالا) - بدون سیگنال برای " + symbol);  // ثبت لاگ فیلتر
-      return SIGNAL_NONE;  // بازگشت بدون سیگنال
+      Log("بازار رونددار تشخیص داده شد (ADX=" + DoubleToString(adx[0], 2) + ") - بدون سیگنال برای " + symbol); // لاگ دلیل
+      return SIGNAL_NONE; // بازگشت بدون سیگنال
    }
-   if (close[0] < bb_lower[0] && rsi[0] < Inp_Hoplite_RSI_Oversold)  // شرط سیگنال خرید: قیمت زیر باند پایین و RSI در اشباع فروش
+
+   // شرط سیگنال خرید: قیمت زیر باند پایین و RSI بیش‌فروش
+   if(close[0] < bb_lower[0] && rsi[0] < Inp_Hoplite_RSI_Oversold)
    {
-      LogSignal(symbol, "Hoplite", "خرید");  // ثبت لاگ سیگنال خرید
-      return SIGNAL_LONG;  // بازگشت سیگنال خرید
+      LogSignal(symbol, "هاپلیت", "خرید"); // لاگ سیگنال
+      return SIGNAL_LONG; // سیگنال خرید
    }
-   if (close[0] > bb_upper[0] && rsi[0] > Inp_Hoplite_RSI_Overbought)  // شرط سیگنال فروش: قیمت بالای باند بالا و RSI در اشباع خرید
+
+   // شرط سیگنال فروش: قیمت بالای باند بالا و RSI بیش‌خرید
+   if(close[0] > bb_upper[0] && rsi[0] > Inp_Hoplite_RSI_Overbought)
    {
-      LogSignal(symbol, "Hoplite", "فروش");  // ثبت لاگ سیگنال فروش
-      return SIGNAL_SHORT;  // بازگشت سیگنال فروش
+      LogSignal(symbol, "هاپلیت", "فروش"); // لاگ سیگنال
+      return SIGNAL_SHORT; // سیگنال فروش
    }
-   Log("هیچ سیگنالی در Hoplite برای " + symbol);  // ثبت لاگ عدم سیگنال
-   return SIGNAL_NONE;  // بازگشت بدون سیگنال اگر هیچ شرطی برقرار نباشد
+   Log("بدون سیگنال در هاپلیت برای " + symbol); // لاگ عدم سیگنال
+   return SIGNAL_NONE; // بازگشت پیش‌فرض
 }
 
-// تابع ManageHopliteExit: مدیریت خروج معاملات Hoplite بر اساس منطق انتخابی - هندل BB را دریافت می‌کند
-void ManageHopliteExit(ulong ticket, int bb_handle)  // پارامترها: تیکت معامله و هندل BB
+// تابع ManageHopliteExit: مدیریت خروج برای پوزیشن‌های هاپلیت
+void ManageHopliteExit(ulong ticket, int bb_handle)
 {
-   Log("شروع مدیریت خروج Hoplite برای تیکت: " + IntegerToString(ticket));  // ثبت لاگ شروع
-   if (!PositionSelectByTicket(ticket)) { LogError("خطا در انتخاب موقعیت برای خروج Hoplite"); return; }  // انتخاب موقعیت توسط تیکت: اگر شکست، خطا و خروج
-   string symbol = PositionGetString(POSITION_SYMBOL);  // دریافت نماد موقعیت
-   long type = PositionGetInteger(POSITION_TYPE);  // دریافت نوع موقعیت (POSITION_TYPE_BUY یا POSITION_TYPE_SELL)
-   if (Inp_ExitLogic == EXIT_DYNAMIC)  // اگر منطق خروج دینامیک انتخاب شده باشد
+   Log("شروع مدیریت خروج هاپلیت برای تیکت: " + IntegerToString(ticket)); // لاگ شروع
+   if (!PositionSelectByTicket(ticket)) { LogError("خطا در انتخاب پوزیشن برای خروج هاپلیت"); return; } // انتخاب پوزیشن
+   string symbol = PositionGetString(POSITION_SYMBOL); // نماد
+   long type = PositionGetInteger(POSITION_TYPE); // نوع (خرید/فروش)
+   if (Inp_ExitLogic == EXIT_DYNAMIC) // اگر خروج دینامیک
    {
-      if (bb_handle == INVALID_HANDLE) { LogError("هندل BB نامعتبر برای خروج در " + symbol); return; }  // چک هندل BB
-      double bb_mid[1];  // بافر برای خط میانی BB فعلی
-      if (CopyBuffer(bb_handle, 0, 0, 1, bb_mid) <= 0) { LogError("خطا در کپی BB برای خروج در " + symbol); return; }  // کپی خط میانی
-      double current_price = (type == POSITION_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK);  // قیمت فعلی بازار بر اساس نوع
-      bool close_cond = (type == POSITION_TYPE_BUY && current_price >= bb_mid[0]) || (type == POSITION_TYPE_SELL && current_price <= bb_mid[0]);  // شرط بستن: رسیدن به خط میانی
-      if (close_cond)  // اگر شرط برقرار باشد
+      if (bb_handle == INVALID_HANDLE) { LogError("هندل BB نامعتبر برای خروج در " + symbol); return; } // چک هندل
+      double bb_mid[1]; // خط میانی بولینگر
+      if (CopyBuffer(bb_handle, 0, 0, 1, bb_mid) <= 0) { LogError("خطا در کپی BB برای خروج در " + symbol); return; } // کپی داده (ایندکس ۰ برای کندل فعلی)
+      double current_price = (type == POSITION_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK); // قیمت فعلی
+      // شرط بسته شدن: برای خرید، قیمت به خط میانی برسد یا بالاتر؛ برای فروش، پایین‌تر
+      bool close_cond = (type == POSITION_TYPE_BUY && current_price >= bb_mid[0]) || (type == POSITION_TYPE_SELL && current_price <= bb_mid[0]);
+      if (close_cond) // اگر شرط برقرار
       {
-         CTrade trade;  // ایجاد شیء CTrade برای بستن
-         if (trade.PositionClose(ticket, 3))  // بستن موقعیت با slippage 3
-            LogCloseTrade(ticket, "رسیدن به خط میانی BB");  // ثبت لاگ موفقیت
+         CTrade trade; // شیء تجارت
+         if (trade.PositionClose(ticket, 3)) // بستن با slippage 3
+            LogCloseTrade(ticket, "رسیدن به خط میانی BB"); // لاگ موفق
          else
-            LogError("خطا در بستن موقعیت دینامیک برای تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode()));  // ثبت خطا
+            LogError("خطا در بستن پوزیشن دینامیک برای تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode())); // لاگ خطا
       }
       else
       {
-         Log("شرط بستن دینامیک برای تیکت " + IntegerToString(ticket) + " برقرار نیست.");  // ثبت لاگ عدم شرط
+         Log("شرط بسته شدن دینامیک برقرار نیست برای تیکت " + IntegerToString(ticket)); // لاگ عدم شرط
       }
    }
-   else if (Inp_ExitLogic == EXIT_RRR)  // اگر منطق خروج RRR باشد
+   else if (Inp_ExitLogic == EXIT_RRR) // اگر خروج RRR (TP ثابت چک می‌شود توسط متاتریدر)
    {
-      Log("خروج RRR برای Hoplite - چک TP برای تیکت " + IntegerToString(ticket));  // ثبت لاگ (چک TP در کد دیگر پیاده‌سازی می‌شود)
+      Log("خروج RRR برای هاپلیت - چک TP برای تیکت " + IntegerToString(ticket)); // لاگ (در عمل TP در باز کردن تنظیم شده)
    }
-   Log("پایان مدیریت خروج Hoplite برای تیکت: " + IntegerToString(ticket));  // ثبت لاگ پایان
+   Log("پایان مدیریت خروج هاپلیت برای تیکت: " + IntegerToString(ticket)); // لاگ پایان
 }
 
-#endif  // پایان گارد تعریف
-```
+// پایان گارد
+#endif
 
-```mqh
+
 // Engine_Kensei.mqh
-// این فایل موتور تهاجمی Kensei را پیاده‌سازی می‌کند که بر اساس ایچیموکو روندگرا است. شامل تولید سیگنال و مدیریت خروج.
+// این فایل موتور تهاجمی کنسی را پیاده‌سازی می‌کند که از استراتژی دنبال‌کننده روند (trend-following) با ایچیموکو استفاده می‌کند.
+// شرایط سیگنال دقیق چک می‌شود و برای متاتریدر ۵ بهینه‌سازی شده با مدیریت حافظه داینامیک.
+// کامنت‌ها برای آموزش گام‌به‌گام نوشته شده.
 
-#ifndef ENGINE_KENSEI_MQH  // جلوگیری از تعریف مجدد
-#define ENGINE_KENSEI_MQH  // تعریف گارد
+// جلوگیری از تکرار تعریف هدر
+#ifndef ENGINE_KENSEI_MQH
+#define ENGINE_KENSEI_MQH
 
-#include "Settings.mqh"  // شامل تنظیمات: دوره‌های ایچیموکو و ATR
-#include "Logging.mqh"  // شامل لاگینگ: ثبت سیگنال‌ها و خطاها
-#include "MoneyManagement.mqh"  // شامل مدیریت پول: برای خروج دینامیک SL
-#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite: برای وابستگی‌های احتمالی
+// اینکلود فایل‌های لازم
+#include "Settings.mqh" // تنظیمات
+#include "Logging.mqh" // لاگینگ
+#include "MoneyManagement.mqh" // مدیریت (برای SIGNAL)
 
-// تابع GetKenseiSignal: تولید سیگنال بر اساس شرایط ایچیموکو - هندل‌ها را دریافت می‌کند
-SIGNAL GetKenseiSignal(string symbol, int ichi_handle, int atr_handle)  // پارامترها: نماد، هندل ایچیموکو و ATR
+// تابع GetKenseiSignal: تولید سیگنال برای کنسی - فقط در روند قوی
+SIGNAL GetKenseiSignal(string symbol, int ichi_handle, int atr_handle)
 {
-   Log("شروع بررسی سیگنال Kensei برای نماد: " + symbol);  // ثبت لاگ شروع
-   if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر است برای " + symbol); return SIGNAL_NONE; }  // چک هندل ایچیموکو
-   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر است برای " + symbol); return SIGNAL_NONE; }  // چک هندل ATR
-   double tenkan[1], kijun[1], ssa[2], ssb[2];  // بافرها برای خطوط ایچیموکو: فعلی و قبلی برای چک شکست
-   double atr[1];  // بافر ATR: برای نوسان (هرچند اینجا استفاده نمی‌شود، اما هندل دریافت شده)
-   if (CopyBuffer(ichi_handle, 0, 1, 1, tenkan) <= 0) { LogError("خطا در کپی تنکان برای " + symbol); return SIGNAL_NONE; }  // کپی تنکان فعلی
-   if (CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("خطا در کپی کیجون برای " + symbol); return SIGNAL_NONE; }  // کپی کیجون فعلی
-   if (CopyBuffer(ichi_handle, 2, 0, 2, ssa) <= 0) { LogError("خطا در کپی SSA برای " + symbol); return SIGNAL_NONE; }  // کپی SSA فعلی و قبلی
-   if (CopyBuffer(ichi_handle, 3, 0, 2, ssb) <= 0) { LogError("خطا در کپی SSB برای " + symbol); return SIGNAL_NONE; }  // کپی SSB فعلی و قبلی
-   if (CopyBuffer(atr_handle, 0, 1, 1, atr) <= 0) { LogError("خطا در کپی ATR برای " + symbol); return SIGNAL_NONE; }  // کپی ATR (کندل قبلی)
-   double close[2];  // بافر قیمت بسته: فعلی و قبلی برای چک شکست ابر
-   if (CopyClose(symbol, Inp_Kensei_Timeframe, 0, 2, close) < 2) { LogError("خطا در کپی قیمت بسته برای " + symbol); return SIGNAL_NONE; }  // کپی closes
-   double past_closes[27];  // بافر قیمت‌های گذشته: برای محاسبه چیکو (26 کندل قبل + فعلی)
-   if (CopyClose(symbol, Inp_Kensei_Timeframe, 0, 27, past_closes) < 27) { LogError("خطا در کپی قیمت‌های گذشته برای چیکو در " + symbol); return SIGNAL_NONE; }  // کپی گذشته‌ها
-   double chikou_value = past_closes[0];  // مقدار چیکو: برابر قیمت بسته فعلی (برای چک با 26 کندل قبل)
-   double past_highs[];  // آرایه بالاترین قیمت‌ها: برای چک فضای باز چیکو
-   double past_lows[];  // آرایه پایین‌ترین قیمت‌ها: برای چک فضای باز
-   ArrayResize(past_highs, Inp_Kensei_Chikou_OpenSpace);  // تغییر اندازه آرایه به تعداد مشخص‌شده در ورودی
-   ArrayResize(past_lows, Inp_Kensei_Chikou_OpenSpace);  // تغییر اندازه آرایه lows
-   if (CopyHigh(symbol, Inp_Kensei_Timeframe, Inp_Kensei_Kijun, Inp_Kensei_Chikou_OpenSpace, past_highs) < Inp_Kensei_Chikou_OpenSpace) { LogError("خطا در کپی بالاترین‌ها برای فضای باز چیکو در " + symbol); return SIGNAL_NONE; }  // کپی highs از کیجون به عقب
-   if (CopyLow(symbol, Inp_Kensei_Timeframe, Inp_Kensei_Kijun, Inp_Kensei_Chikou_OpenSpace, past_lows) < Inp_Kensei_Chikou_OpenSpace) { LogError("خطا در کپی پایین‌ترین‌ها برای فضای باز چیکو در " + symbol); return SIGNAL_NONE; }  // کپی lows
-   double future_ssa[1], future_ssb[1];  // بافر ابر آینده: برای چک صعودی/نزولی بودن ابر آینده
-   if (CopyBuffer(ichi_handle, 2, -Inp_Kensei_Kijun, 1, future_ssa) <= 0) { LogError("خطا در کپی SSA آینده برای " + symbol); return SIGNAL_NONE; }  // کپی SSA آینده (منفی برای آینده)
-   if (CopyBuffer(ichi_handle, 3, -Inp_Kensei_Kijun, 1, future_ssb) <= 0) { LogError("خطا در کپی SSB آینده برای " + symbol); return SIGNAL_NONE; }  // کپی SSB آینده
-   bool long_cond1 = close[0] > MathMax(ssa[0], ssb[0]) && close[1] <= MathMax(ssa[1], ssb[1]);  // شرط 1 خرید: شکست ابر به بالا (فعلی بالای ابر، قبلی زیر یا داخل)
-   bool long_cond2 = future_ssa[0] > future_ssb[0];  // شرط 2 خرید: ابر آینده صعودی
-   bool long_cond3 = chikou_value > past_closes[26];  // شرط 3 خرید: چیکو بالای قیمت 26 کندل قبل
-   bool long_cond4 = chikou_value > ArrayMaximum(past_highs, 0, WHOLE_ARRAY);  // شرط 4 خرید: فضای باز چیکو (بالای حداکثر highs گذشته)
-   if (long_cond1 && long_cond2 && long_cond3 && long_cond4)  // اگر تمام شرط‌های خرید برقرار باشد
+   Log("شروع چک سیگنال کنسی برای نماد: " + symbol); // لاگ شروع
+   // چک هندل‌ها
+   if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر برای " + symbol); return SIGNAL_NONE; }
+   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای " + symbol); return SIGNAL_NONE; }
+
+   // آرایه‌های داده برای ایچیموکو - اندازه برای کندل‌های لازم
+   double tenkan[1], kijun[1], ssa[2], ssb[2]; // تنکان، کیجون، SSA، SSB
+   double close[2]; // بسته شدن دو کندل اخیر
+   double chikou_compare_price[1]; // قیمت مقایسه چیکو (۲۶ کندل قبل)
+   double past_highs[]; // های گذشته برای فضای باز چیکو - داینامیک
+   double past_lows[]; // لوهای گذشته برای فضای باز چیکو - داینامیک
+   double future_ssa[1], future_ssb[1]; // SSA و SSB آینده برای چک ابر
+
+   // کپی داده‌های ایچیموکو - ایندکس ۱ برای کندل قبلی
+   if(CopyBuffer(ichi_handle, 0, 1, 1, tenkan) <= 0) { LogError("کنسی: خطا در کپی تنکان برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("کنسی: خطا در کپی کیجون برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(ichi_handle, 2, 1, 2, ssa) <= 0) { LogError("کنسی: خطا در کپی SSA برای " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(ichi_handle, 3, 1, 2, ssb) <= 0) { LogError("کنسی: خطا در کپی SSB برای " + symbol); return SIGNAL_NONE; }
+
+   // کپی قیمت‌های بسته شدن
+   if(CopyClose(symbol, Inp_Kensei_Timeframe, 1, 2, close) < 2) { LogError("کنسی: خطا در کپی قیمت‌های بسته شدن برای " + symbol); return SIGNAL_NONE; }
+
+   // کپی قیمت مقایسه چیکو (۲۶ کندل قبل +۱ برای ایندکس)
+   // شیفت ۲۶ کندل برای چیکو اسپن + ۱ برای اینکه کندل قبلی رو چک کنیم، میشه ۲۷
+   if(CopyClose(symbol, Inp_Kensei_Timeframe, 27, 1, chikou_compare_price) < 1) 
    {
-      LogSignal(symbol, "Kensei", "خرید");  // ثبت لاگ سیگنال
-      return SIGNAL_LONG;  // بازگشت سیگنال خرید
+      LogError("کنسی: خطا در کپی قیمت گذشته برای مقایسه چیکو در " + symbol);
+      return SIGNAL_NONE;
    }
-   bool short_cond1 = close[0] < MathMin(ssa[0], ssb[0]) && close[1] >= MathMin(ssa[1], ssb[1]);  // شرط 1 فروش: شکست ابر به پایین
-   bool short_cond2 = future_ssa[0] < future_ssb[0];  // شرط 2 فروش: ابر آینده نزولی
-   bool short_cond3 = chikou_value < past_closes[26];  // شرط 3 فروش: چیکو پایین قیمت 26 کندل قبل
-   bool short_cond4 = chikou_value < ArrayMinimum(past_lows, 0, WHOLE_ARRAY);  // شرط 4 فروش: فضای باز چیکو (پایین حداقل lows گذشته)
-   if (short_cond1 && short_cond2 && short_cond3 && short_cond4)  // اگر تمام شرط‌های فروش برقرار باشد
+
+   // کپی های و لوهای گذشته برای فضای باز چیکو - از موقعیت ۲۷ به عقب
+   if (CopyHigh(symbol, Inp_Kensei_Timeframe, 27, Inp_Kensei_Chikou_OpenSpace, past_highs) != Inp_Kensei_Chikou_OpenSpace)
+   { 
+      LogError("خطا در کپی High برای فضای باز چیکو در " + symbol); 
+      return SIGNAL_NONE; 
+   }
+   if (CopyLow(symbol, Inp_Kensei_Timeframe, 27, Inp_Kensei_Chikou_OpenSpace, past_lows) != Inp_Kensei_Chikou_OpenSpace) 
+   { 
+      LogError("خطا در کپی Low برای فضای باز چیکو در " + symbol); 
+      return SIGNAL_NONE; 
+   }
+
+   // --- کد اصلاح شده برای خواندن صحیح ابر آینده ---
+   // برای خواندن مقادیر ابر کومو که ۲۶ کندل به جلو شیفت داده شده‌اند، از ایندکس ۲۶ در CopyBuffer استفاده می‌کنیم.
+   // این کار مقدار ابری که بالای کندل فعلی نمایش داده می‌شود را به ما می‌دهد.
+   // ثابت Inp_Kensei_Kijun به طور پیش‌فرض 26 است و شیفت استاندارد ایچیموکو را نشان می‌دهد.
+   if(CopyBuffer(ichi_handle, 2, Inp_Kensei_Kijun, 1, future_ssa) <= 0) 
+   { 
+      LogError("کنسی: خطا در کپی SSA آینده برای " + symbol); 
+      return SIGNAL_NONE; 
+   }
+   if(CopyBuffer(ichi_handle, 3, Inp_Kensei_Kijun, 1, future_ssb) <= 0) 
+   { 
+      LogError("کنسی: خطا در کپی SSB آینده برای " + symbol); 
+      return SIGNAL_NONE; 
+   }
+
+   double chikou_value = close[0]; // چیکو برابر بسته شدن قبلی است (برای مقایسه با قیمت ۲۶ کندل قبل)
+
+   // شرط‌های سیگنال خرید: breakout بالای ابر، ابر آینده صعودی، چیکو بالای قیمت و فضای باز
+   bool long_cond1 = close[0] > MathMax(ssa[0], ssb[0]) && close[1] <= MathMax(ssa[1], ssb[1]); // شرط breakout: این کندل بالای ابره ولی کندل قبلی نبوده
+   bool long_cond2 = future_ssa[0] > future_ssb[0]; // ابر آینده صعودی است
+   bool long_cond3 = chikou_value > chikou_compare_price[0]; // چیکو بالای قیمت ۲۶ کندل قبل است
+   bool long_cond4 = chikou_value > ArrayMaximum(past_highs, 0, WHOLE_ARRAY); // فضای باز: چیکو بالاتر از تمام سقف‌های گذشته است
+   if (long_cond1 && long_cond2 && long_cond3 && long_cond4)
    {
-      LogSignal(symbol, "Kensei", "فروش");  // ثبت لاگ
-      return SIGNAL_SHORT;  // بازگشت سیگنال فروش
+      LogSignal(symbol, "کنسی", "خرید"); // لاگ سیگنال
+      return SIGNAL_LONG;
    }
-   Log("هیچ سیگنالی در Kensei برای " + symbol);  // ثبت لاگ عدم سیگنال
-   return SIGNAL_NONE;  // بازگشت بدون سیگنال
+
+   // شرط‌های فروش: breakout پایین ابر، ابر نزولی، چیکو پایین قیمت و فضای باز
+   bool short_cond1 = close[0] < MathMin(ssa[0], ssb[0]) && close[1] >= MathMin(ssa[1], ssb[1]); // شرط breakout فروش
+   bool short_cond2 = future_ssa[0] < future_ssb[0]; // ابر آینده نزولی است
+   bool short_cond3 = chikou_value < chikou_compare_price[0]; // چیکو پایین‌تر از قیمت ۲۶ کندل قبل
+   bool short_cond4 = chikou_value < ArrayMinimum(past_lows, 0, WHOLE_ARRAY); // فضای باز: چیکو پایین‌تر از تمام کف‌های گذشته
+   if (short_cond1 && short_cond2 && short_cond3 && short_cond4)
+   {
+      LogSignal(symbol, "کنسی", "فروش");
+      return SIGNAL_SHORT;
+   }
+   
+   Log("بدون سیگنال در کنسی برای " + symbol); // اگر هیچ شرطی برقرار نبود
+   return SIGNAL_NONE;
 }
 
-// تابع ManageKenseiExit: مدیریت خروج معاملات Kensei بر اساس منطق - هندل ایچیموکو را دریافت می‌کند
-void ManageKenseiExit(ulong ticket, int ichi_handle)  // پارامترها: تیکت و هندل ایچیموکو
+// تابع ManageKenseiExit: مدیریت خروج برای کنسی - به‌روزرسانی SL دینامیک
+void ManageKenseiExit(ulong ticket, int ichi_handle)
 {
-   Log("شروع مدیریت خروج Kensei برای تیکت: " + IntegerToString(ticket));  // ثبت لاگ شروع
-   if (!PositionSelectByTicket(ticket)) { LogError("خطا در انتخاب موقعیت برای خروج Kensei"); return; }  // انتخاب موقعیت: اگر شکست، خطا
-   string symbol = PositionGetString(POSITION_SYMBOL);  // دریافت نماد
-   long type = PositionGetInteger(POSITION_TYPE);  // دریافت نوع (خرید/فروش)
-   if (Inp_ExitLogic == EXIT_DYNAMIC)  // اگر خروج دینامیک
+   Log("شروع مدیریت خروج کنسی برای تیکت: " + IntegerToString(ticket));
+   if (!PositionSelectByTicket(ticket)) { LogError("خطا در انتخاب پوزیشن برای خروج کنسی"); return; }
+   
+   string symbol = PositionGetString(POSITION_SYMBOL);
+   long type = PositionGetInteger(POSITION_TYPE);
+   
+   // فقط برای خروج دینامیک این منطق اجرا می‌شود
+   if (Inp_ExitLogic == EXIT_DYNAMIC)
    {
-      if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر برای خروج در " + symbol); return; }  // چک هندل
-      double kijun[1];  // بافر کیجون فعلی
-      if (CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("خطا در کپی کیجون برای خروج در " + symbol); return; }  // کپی کیجون (کندل قبلی)
-      double current_sl = PositionGetDouble(POSITION_SL);  // دریافت SL فعلی موقعیت
-      double new_sl = kijun[0];  // SL جدید بر اساس کیجون
-      bool modify = false;  // فلگ برای تصمیم‌گیری اصلاح SL
-      if (type == POSITION_TYPE_BUY && new_sl > current_sl) modify = true;  // برای خرید: اگر کیجون بالاتر از SL فعلی، بروزرسانی
-      else if (type == POSITION_TYPE_SELL && new_sl < current_sl && new_sl > 0) modify = true;  // برای فروش: اگر کیجون پایین‌تر، بروزرسانی
-      if (modify)  // اگر نیاز به اصلاح باشد
+      if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر برای خروج در " + symbol); return; }
+      
+      double kijun[1];
+      // گرفتن مقدار کیجون سن برای کندل قبلی
+      if (CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("خطا در کپی کیجون برای خروج در " + symbol); return; }
+      
+      double current_sl = PositionGetDouble(POSITION_SL); // SL فعلی پوزیشن
+      double new_sl = kijun[0]; // SL جدید بر اساس کیجون
+      
+      bool modify = false; // فلگ برای اینکه آیا نیاز به تغییر هست یا نه
+      
+      // برای پوزیشن خرید، SL فقط باید بالا برود
+      if (type == POSITION_TYPE_BUY && new_sl > current_sl) 
       {
-         CTrade trade;  // ایجاد CTrade برای اصلاح
-         if (trade.PositionModify(ticket, new_sl, PositionGetDouble(POSITION_TP)))  // اصلاح SL (TP بدون تغییر)
-            Log("به‌روزرسانی SL دینامیک برای تیکت " + IntegerToString(ticket) + " به " + DoubleToString(new_sl, _Digits));  // ثبت موفقیت
+         modify = true;
+      }
+      // برای پوزیشن فروش، SL فقط باید پایین بیاید (و صفر نباشد)
+      else if (type == POSITION_TYPE_SELL && new_sl < current_sl && new_sl > 0) 
+      {
+         modify = true;
+      }
+      
+      if (modify)
+      {
+         CTrade trade;
+         // تغییر پوزیشن با SL جدید
+         if (trade.PositionModify(ticket, new_sl, PositionGetDouble(POSITION_TP)))
+            Log("به‌روزرسانی SL دینامیک برای تیکت " + IntegerToString(ticket) + " به " + DoubleToString(new_sl, _Digits));
          else 
-            LogError("خطا در اصلاح SL دینامیک برای تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode()));  // ثبت خطا
+            LogError("خطا در تغییر SL دینامیک برای تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode()));
       }
       else
       {
-         Log("هیچ تغییری در SL دینامیک برای تیکت " + IntegerToString(ticket) + " لازم نیست.");  // ثبت عدم نیاز به تغییر
+         Log("تغییر SL دینامیک لازم نیست برای تیکت " + IntegerToString(ticket) + ". کیجون سن هنوز به حد مطلوب نرسیده.");
       }
    }
-   else if (Inp_ExitLogic == EXIT_RRR)  // اگر خروج RRR
+   else if (Inp_ExitLogic == EXIT_RRR)
    {
-      Log("خروج RRR برای Kensei - چک TP برای تیکت " + IntegerToString(ticket));  // ثبت لاگ (چک TP در جای دیگر)
+      // برای خروج RRR، حد سود و ضرر از قبل تنظیم شده و توسط سرور مدیریت می‌شود.
+      // نیازی به اقدام در اینجا نیست.
+      Log("خروج RRR برای کنسی فعال است. مدیریت توسط سرور انجام می‌شود. تیکت: " + IntegerToString(ticket));
    }
-   Log("پایان مدیریت خروج Kensei برای تیکت: " + IntegerToString(ticket));  // ثبت پایان
+   
+   Log("پایان مدیریت خروج کنسی برای تیکت: " + IntegerToString(ticket));
 }
 
-#endif  // پایان گارد
-```
+// پایان گارد
+#endif
 
-```mqh
+
 // Logging.mqh
-// این فایل سیستم لاگینگ پیشرفته را پیاده‌سازی می‌کند که تمام رویدادها را به زبان فارسی ثبت می‌کند. مفید برای دیباگ و پیگیری.
+// سیستم لاگینگ پیشرفته به زبان فارسی برای ثبت رویدادها، خطاها و سیگنال‌ها.
+// این سیستم فایل می‌نویسد و پرینت می‌کند برای دیباگینگ زنده.
+// وابستگی‌ها حداقل: فقط Settings برای Inp_EnableLogging.
+// کامنت‌ها برای آموزش: توضیح هر خط.
 
-#ifndef LOGGING_MQH  // جلوگیری از تعریف مجدد
-#define LOGGING_MQH  // تعریف گارد
+// جلوگیری از تکرار
+#ifndef LOGGING_MQH
+#define LOGGING_MQH
 
-#include "Settings.mqh"  // شامل تنظیمات: مانند Inp_EnableLogging
-#include "MoneyManagement.mqh"  // شامل مدیریت پول: وابستگی برای لاگ‌های مرتبط
-#include "Engine_Kensei.mqh"  // شامل Kensei: برای لاگ سیگنال‌ها
-#include "Engine_Hoplite.mqh"  // شامل Hoplite: مشابه
+#include "Settings.mqh" // فقط برای Inp_EnableLogging
 
-// متغیرهای جهانی لاگینگ شروع می‌شوند
-string LogFileName = "ChimeraV2_Log.txt";  // نام فایل لاگ: در فولدر Files متاتریدر ذخیره می‌شود
-int    g_log_handle = INVALID_HANDLE;  // هندل فایل لاگ: INVALID_HANDLE یعنی بسته است
+string LogFileName = "ChimeraV2_Log.txt"; // نام فایل لاگ - در فولدر MQL5/Files
+int g_log_handle = INVALID_HANDLE; // هندل فایل - جهانی برای دسترسی
 
-// تابع LogInit: باز کردن فایل لاگ در شروع برنامه
-void LogInit()  // بدون پارامتر، فقط چک و باز کردن فایل
+// LogInit: باز کردن فایل در ابتدایی
+void LogInit()
 {
-   if (!Inp_EnableLogging) return;  // اگر لاگ غیرفعال، خروج بدون عملیات
-   g_log_handle = FileOpen(LogFileName, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE);  // باز کردن فایل با فلگ‌های نوشتن، متن، ANSI و اشتراک‌گذاری
-   if (g_log_handle == INVALID_HANDLE)  // اگر باز کردن شکست
+   if (!Inp_EnableLogging) return; // اگر غیرفعال، بازگشت بدون عملیات
+   g_log_handle = FileOpen(LogFileName, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE); // باز کردن با فلگ‌ها برای نوشتن و اشتراک
+   if (g_log_handle == INVALID_HANDLE) // چک شکست
    {
-      Print("خطای حیاتی: فایل لاگ باز نشد. کد خطا: " + IntegerToString(GetLastError()));  // چاپ خطا در ژورنال متاتریدر
+      Print("خطای حیاتی: فایل لاگ باز نشد. کد خطا: " + IntegerToString(GetLastError())); // پرینت خطا در ترمینال
    }
    else
    {
-      Print("فایل لاگ با موفقیت باز شد.");  // چاپ موفقیت
+      Print("فایل لاگ با موفقیت باز شد."); // پرینت موفق
    }
 }
 
-// تابع LogDeinit: بستن فایل لاگ در پایان برنامه
-void LogDeinit()  // بدون پارامتر، چک و بستن
+// LogDeinit: بستن فایل در پایان
+void LogDeinit()
 {
-   if (g_log_handle != INVALID_HANDLE)  // اگر فایل باز است
+   if (g_log_handle != INVALID_HANDLE) // اگر باز است
    {
-      FileClose(g_log_handle);  // بستن فایل
-      g_log_handle = INVALID_HANDLE;  // تنظیم به نامعتبر برای جلوگیری از استفاده مجدد
-      Print("فایل لاگ با موفقیت بسته شد.");  // چاپ موفقیت
+      FileClose(g_log_handle); // بستن
+      g_log_handle = INVALID_HANDLE; // تنظیم به نامعتبر
+      Print("فایل لاگ با موفقیت بسته شد."); // پرینت
    }
 }
 
-// تابع Log: نوشتن پیام در ژورنال و فایل - تابع اصلی لاگینگ
-void Log(string message, bool is_error = false)  // پارامترها: پیام و فلگ خطا (پیش‌فرض false)
+// Log: نوشتن پیام عمومی - با پیشوند اطلاع یا خطا
+void Log(string message, bool is_error = false)
 {
-   if (!Inp_EnableLogging) return;  // اگر غیرفعال، خروج
-   string prefix = is_error ? "خطا: " : "اطلاع: ";  // تعیین پیشوند بر اساس فلگ: برای تمایز خطا و اطلاع
-   string full_message = TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + " - " + prefix + message + "\r\n";  // ساخت پیام کامل با زمان و خط جدید
-   Print(full_message);  // چاپ در ژورنال متاتریدر
-   if (g_log_handle != INVALID_HANDLE)  // اگر فایل باز است
+   if (!Inp_EnableLogging) return; // چک فعال بودن
+   string prefix = is_error ? "خطا: " : "اطلاع: "; // انتخاب پیشوند
+   string full_message = TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + " - " + prefix + message + "\r\n"; // ساخت پیام کامل با زمان
+   Print(full_message); // پرینت در ترمینال
+   if (g_log_handle != INVALID_HANDLE) // اگر فایل باز
    {
-      FileSeek(g_log_handle, 0, SEEK_END);  // رفتن به انتهای فایل برای اضافه کردن
-      FileWriteString(g_log_handle, full_message);  // نوشتن پیام
-      FileFlush(g_log_handle);  // فلاش برای اطمینان از ذخیره روی دیسک
+      FileSeek(g_log_handle, 0, SEEK_END); // رفتن به انتها
+      FileWriteString(g_log_handle, full_message); // نوشتن
+      FileFlush(g_log_handle); // فلاش برای ذخیره فوری
    }
    else
    {
-      Print("خطا در نوشتن لاگ: هندل فایل نامعتبر است.");  // چاپ خطا اگر فایل بسته باشد
+      Print("خطا در نوشتن لاگ: هندل فایل نامعتبر است."); // پرینت خطا
    }
 }
 
-// تابع LogSignal: لاگ سیگنال‌های تولید شده - wrapper برای Log
-void LogSignal(string symbol, string engine, string signal_type)  // پارامترها: نماد، موتور و نوع سیگنال
+// LogSignal: لاگ سیگنال خاص
+void LogSignal(string symbol, string engine, string signal_type)
 {
-   string msg = "سیگنال جدید در نماد " + symbol + " از موتور " + engine + ": " + signal_type;  // ساخت پیام سیگنال
-   Log(msg);  // فراخوانی Log با پیام ساخته‌شده
+   string msg = "سیگنال جدید در نماد " + symbol + " از موتور " + engine + ": " + signal_type; // ساخت پیام
+   Log(msg); // نوشتن با تابع عمومی
 }
 
-// تابع LogOpenTrade: لاگ باز شدن معاملات
-void LogOpenTrade(string symbol, string direction, double lots, double sl, double tp)  // پارامترها: جزئیات معامله
+// LogOpenTrade: لاگ باز کردن معامله
+void LogOpenTrade(string symbol, string direction, double lots, double sl, double tp)
 {
-   string msg = "باز کردن معامله در " + symbol + " - جهت: " + direction + ", حجم: " + DoubleToString(lots, 2) + ", SL: " + DoubleToString(sl, _Digits) + ", TP: " + DoubleToString(tp, _Digits);  // ساخت پیام
-   Log(msg);  // فراخوانی Log
+   string msg = "باز کردن معامله در " + symbol + " - جهت: " + direction + ", حجم: " + DoubleToString(lots, 2) + ", SL: " + DoubleToString(sl, _Digits) + ", TP: " + DoubleToString(tp, _Digits);
+   Log(msg);
 }
 
-// تابع LogCloseTrade: لاگ بسته شدن معاملات
-void LogCloseTrade(ulong ticket, string reason)  // پارامترها: تیکت و دلیل
+// LogCloseTrade: لاگ بستن
+void LogCloseTrade(ulong ticket, string reason)
 {
-   string msg = "بستن معامله با تیکت " + IntegerToString(ticket) + " به دلیل: " + reason;  // ساخت پیام
-   Log(msg);  // فراخوانی Log
+   string msg = "بستن معامله با تیکت " + IntegerToString(ticket) + " به دلیل: " + reason;
+   Log(msg);
 }
 
-// تابع LogDrawdown: لاگ افت سرمایه فعلی
-void LogDrawdown(double dd)  // پارامتر: مقدار DD
+// LogDrawdown: لاگ افت سرمایه
+void LogDrawdown(double dd)
 {
-   string msg = "افت سرمایه فعلی پورتفولیو: " + DoubleToString(dd * 100, 2) + "%";  // ساخت پیام با تبدیل به درصد
-   Log(msg);  // فراخوانی Log
+   string msg = "افت سرمایه فعلی پورتفولیو: " + DoubleToString(dd * 100, 2) + "%";
+   Log(msg);
 }
 
-// تابع LogError: لاگ خطاها - wrapper با فلگ خطا
-void LogError(string error_msg)  // پارامتر: پیام خطا
+// LogError: لاگ خطا - با فلگ true
+void LogError(string error_msg)
 {
-   Log(error_msg, true);  // فراخوانی Log با is_error=true
+   Log(error_msg, true);
 }
 
-#endif  // پایان گارد
-```
+// پایان
+#endif
 
-```mqh
+
+
+
 // MoneyManagement.mqh
-// این فایل مدیریت پول و ریسک را پیاده‌سازی می‌کند، شامل محاسبه حجم، چک DD و باز کردن معاملات.
+// نسخه بازنویسی شده توسط سقراط
+// این فایل مسئولیت مدیریت پول، محاسبه ریسک، و اجرای دستورات معاملاتی را بر عهده دارد.
+// خطاها برطرف شده و منطق برای استحکام و خوانایی بیشتر بهینه شده است.
 
-#ifndef MONEY_MANAGEMENT_MQH  // جلوگیری از تعریف مجدد
-#define MONEY_MANAGEMENT_MQH  // تعریف گارد
+// جلوگیری از تکرار تعریف هدر
+#ifndef MONEY_MANAGEMENT_MQH
+#define MONEY_MANAGEMENT_MQH
 
-#include "Settings.mqh"  // شامل تنظیمات: مانند وز‌ن‌ها و DD max
-#include "Logging.mqh"  // شامل لاگینگ: برای ثبت محاسبات
-#include "Engine_Kensei.mqh"  // شامل Kensei: وابستگی
-#include "Engine_Hoplite.mqh"  // شامل Hoplite: وابستگی
+// اینکلود فایل‌های لازم
+#include "Settings.mqh" // تنظیمات ورودی و ثابت‌ها
+#include "Logging.mqh"   // سیستم پیشرفته لاگینگ
+#include <Trade\Trade.mqh>   // کتابخانه استاندارد MQL5 برای عملیات معاملاتی
 
-#include <Trade\Trade.mqh>  // شامل کلاس CTrade: برای عملیات معاملاتی مانند PositionOpen
+// تعریف متغیرهای خارجی (extern) - به کامپایلر می‌گوییم این متغیرها در فایل اصلی (.mq5) تعریف شده‌اند
+extern double g_peak_equity;    // برای محاسبه افت سرمایه از اوج
+extern double g_Kensei_Weight;  // وزن نرمال‌شده موتور کنسی
+extern double g_Hoplite_Weight; // وزن نرمال‌شده موتور هاپلیت
 
-extern double g_peak_equity;  // اعلام خارجی g_peak_equity: تعریف‌شده در فایل اصلی برای دسترسی
+// --- توابع کمکی ---
 
-// تابع CalculateLotSize: محاسبه حجم لات بر اساس ریسک و فاصله SL
-double CalculateLotSize(string symbol, double risk_percent, double sl_pips)  // پارامترها: نماد، درصد ریسک، پیپ‌های SL - بازگشت حجم
+// این تابع جدید جایگزین PositionSelectByMagic که وجود ندارد، می‌شود
+// چک می‌کند آیا پوزیشنی با نماد و مجیک نامبر مشخصی از قبل باز است یا نه
+bool PositionExists(string symbol, ulong magic_number)
 {
-   Log("محاسبه حجم لات برای " + symbol + " با ریسک " + DoubleToString(risk_percent, 2) + "% و SL " + DoubleToString(sl_pips, 1) + " پیپ");  // ثبت لاگ ورودی‌ها
-   double lot_step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);  // دریافت حداقل گام حجم نماد
-   double tick_value = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);  // ارزش هر تیک (پیپ) به پول حساب
-   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);  // اندازه پوینت (کوچک‌ترین واحد قیمت)
-   if(point == 0 || tick_value == 0)  // چک جلوگیری از تقسیم بر صفر یا مقادیر نامعتبر
+   // حلقه از آخر به اول (روش استاندارد و امن برای کار با لیست پوزیشن‌ها)
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
-      LogError("اطلاعات نماد " + symbol + " برای محاسبه حجم نامعتبر است.");  // ثبت خطا
-      return 0.0;  // بازگشت حجم نامعتبر
+      // اگر بتوانیم اطلاعات پوزیشن را با ایندکس i بگیریم
+      if(PositionGetTicket(i) > 0)
+      {
+         // چک می‌کنیم که هم نماد و هم مجیک نامبر با ورودی ما یکی باشد
+         if(PositionGetString(POSITION_SYMBOL) == symbol && PositionGetInteger(POSITION_MAGIC) == magic_number)
+         {
+            return true; // اگر پوزیشن پیدا شد، true را برمی‌گردانیم و از تابع خارج می‌شویم
+         }
+      }
    }
-   double risk_amount = AccountInfoDouble(ACCOUNT_BALANCE) * risk_percent / 100.0;  // محاسبه مبلغ ریسک بر اساس بالانس
-   double sl_distance_points = sl_pips * 10;  // تبدیل پیپ به پوینت: برای جفت‌ارزهای 5 رقمی معمولاً *10
-   long digits = SymbolInfoInteger(symbol, SYMBOL_DIGITS);  // دریافت تعداد ارقام اعشاری نماد
-   if(digits == 3 || digits == 5) sl_distance_points = sl_pips * 10;  // تنظیم برای نمادهای 3 یا 5 رقمی (مانند JPY یا استاندارد)
-   else sl_distance_points = sl_pips;  // برای دیگر نمادها مانند شاخص‌ها
-   double sl_in_money = (sl_distance_points * point) * (tick_value / point);  // محاسبه ارزش مالی SL: فاصله * ارزش پوینت
-   if (sl_in_money == 0)  // چک صفر بودن ارزش SL
-   {
-      LogError("فاصله SL محاسبه شده برای " + symbol + " صفر است. حجم قابل محاسبه نیست.");  // ثبت خطا
-      return 0.0;  // بازگشت نامعتبر
-   }
-   double lots = risk_amount / sl_in_money;  // محاسبه حجم خام: ریسک / ارزش SL
-   lots = MathFloor(lots / lot_step) * lot_step;  // گرد کردن به پایین بر اساس گام حجم: برای سازگاری با بروکر
-   Log("حجم محاسبه شده: " + DoubleToString(lots, 2));  // ثبت لاگ نتیجه
-   return lots;  // بازگشت حجم نهایی
+   return false; // اگر حلقه تمام شد و چیزی پیدا نشد، یعنی پوزیشن وجود ندارد
 }
 
-// تابع IsPortfolioDrawdownExceeded: چک اگر DD بیش از حد مجاز باشد
-bool IsPortfolioDrawdownExceeded()  // بدون پارامتر - بازگشت true اگر بیش از حد
+
+// --- توابع اصلی مدیریت پول و ریسک ---
+
+// محاسبه حجم لات بر اساس درصد ریسک و فاصله حد ضرر
+double CalculateLotSize(string symbol, double risk_percent, double sl_distance_price)
 {
-   double current_dd = CalculateCurrentDrawdown();  // محاسبه DD فعلی
-   LogDrawdown(current_dd);  // ثبت لاگ DD
-   bool exceeded = current_dd > Inp_MaxPortfolioDrawdown;  // مقایسه با حد مجاز
-   if (exceeded) Log("افت سرمایه بیش از حد مجاز تشخیص داده شد: " + DoubleToString(current_dd * 100, 2) + "%");  // ثبت هشدار اگر بیش از حد
-   return exceeded;  // بازگشت نتیجه
+   Log("شروع محاسبه حجم لات برای " + symbol + " با ریسک " + DoubleToString(risk_percent, 2) + "% و فاصله SL " + DoubleToString(sl_distance_price, _Digits));
+   
+   // گرفتن اطلاعات ضروری از نماد معاملاتی
+   double lot_step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);       // حداقل گام تغییر حجم (مثلا 0.01)
+   double tick_value = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE); // ارزش هر تیک حرکت قیمت
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);               // اندازه یک پوینت
+
+   // چک کردن مقادیر برای جلوگیری از خطای تقسیم بر صفر
+   if(point == 0 || tick_value == 0 || sl_distance_price <= 0)
+   {
+      LogError("اطلاعات نماد نامعتبر یا فاصله SL صفر برای " + symbol);
+      return 0.0;
+   }
+
+   // محاسبه مقدار ریسک به پول (مثلا ۱٪ از ۱۰۰۰۰ دلار می‌شود ۱۰۰ دلار)
+   double risk_amount = AccountInfoDouble(ACCOUNT_BALANCE) * risk_percent / 100.0;
+   // محاسبه میزان ضرر به ازای هر ۱ لات استاندارد
+   double loss_per_lot = (sl_distance_price / point) * tick_value;
+
+   if(loss_per_lot <= 0)
+   {
+      LogError("میزان ضرر به ازای هر لات نامعتبر است (" + DoubleToString(loss_per_lot, 2) + ") برای " + symbol);
+      return 0.0;
+   }
+
+   // محاسبه حجم لات خام و گرد کردن آن به پایین بر اساس گام مجاز نماد
+   double lots = risk_amount / loss_per_lot;
+   lots = MathFloor(lots / lot_step) * lot_step;
+   
+   Log("حجم لات نهایی محاسبه شده: " + DoubleToString(lots, 2));
+   return lots;
 }
 
-// تابع CalculateCurrentDrawdown: محاسبه DD فعلی بر اساس اوج اکویتی
-double CalculateCurrentDrawdown()  // بدون پارامتر - بازگشت DD به صورت اعشاری
+// محاسبه افت سرمایه فعلی از آخرین اوج ثبت شده
+double CalculateCurrentDrawdown()
 {
-   double equity = AccountInfoDouble(ACCOUNT_EQUITY);  // دریافت اکویتی فعلی
-   if (equity > g_peak_equity) g_peak_equity = equity;  // بروزرسانی اوج اگر اکویتی جدید بالاتر باشد
-   double dd = (g_peak_equity > 0) ? (g_peak_equity - equity) / g_peak_equity : 0.0;  // فرمول DD: (اوج - فعلی) / اوج - چک تقسیم بر صفر
-   Log("محاسبه DD فعلی: " + DoubleToString(dd * 100, 2) + "% با اوج اکویتی " + DoubleToString(g_peak_equity, 2));  // ثبت لاگ محاسبه
-   return dd;  // بازگشت DD
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY); // موجودی شناور فعلی
+   // اگر اکوییتی فعلی از اوج قبلی بیشتر باشد، اوج جدید را ثبت می‌کنیم
+   if (equity > g_peak_equity) 
+   {
+      g_peak_equity = equity;
+   }
+   // محاسبه درصد افت سرمایه
+   double dd = (g_peak_equity > 0) ? (g_peak_equity - equity) / g_peak_equity : 0.0;
+   return dd;
 }
 
-// تابع OpenTrade: باز کردن معامله جدید با محاسبه حجم و تنظیم SL/TP - هندل ATR را دریافت می‌کند
-void OpenTrade(string symbol, SIGNAL sig, int engine_id, int atr_handle)  // پارامترها: نماد، سیگنال، ID موتور، هندل ATR
+// چک می‌کند آیا افت سرمایه از حد مجاز فراتر رفته است یا نه
+bool IsPortfolioDrawdownExceeded()
 {
-   if (sig == SIGNAL_NONE) { Log("هیچ سیگنالی برای باز کردن معامله در " + symbol); return; }  // اگر بدون سیگنال، خروج
-   Log("تلاش برای باز کردن معامله در " + symbol + " از موتور " + (engine_id == 1 ? "Kensei" : "Hoplite"));  // ثبت لاگ تلاش
-   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای " + symbol); return; }  // چک هندل
-   double sl_distance = 0.0;  // فاصله SL اولیه
-   double atr_value[1];  // بافر ATR
-   if (CopyBuffer(atr_handle, 0, 0, 1, atr_value) <= 0) { LogError("خطا در کپی ATR برای باز کردن معامله در " + symbol); return; }  // کپی ATR فعلی
-   if (engine_id == 1)  // اگر موتور Kensei
+   double current_dd = CalculateCurrentDrawdown();
+   LogDrawdown(current_dd); // ثبت افت سرمایه در لاگ
+   
+   bool exceeded = current_dd >= Inp_MaxPortfolioDrawdown; // مقایسه با حد مجاز
+   if (exceeded)
    {
-      sl_distance = atr_value[0] * Inp_Kensei_ATR_Multiplier;  // محاسبه فاصله SL بر اساس ATR و ضریب Kensei
-      Log("فاصله SL محاسبه شده برای Kensei: " + DoubleToString(sl_distance, _Digits));  // ثبت لاگ
+      Log("!!! هشدار حیاتی: افت سرمایه از حد مجاز ("+DoubleToString(Inp_MaxPortfolioDrawdown*100, 2)+"%) فراتر رفت. مقدار فعلی: " + DoubleToString(current_dd * 100, 2) + "%");
    }
-   else  // اگر موتور Hoplite
+   return exceeded;
+}
+
+// تابع اصلی برای باز کردن یک معامله جدید
+void OpenTrade(string symbol, SIGNAL sig, int engine_id, int atr_handle)
+{
+   if (sig == SIGNAL_NONE) return; // اگر سیگنالی وجود ندارد، خارج شو
+
+   // چک کردن پوزیشن تکراری با استفاده از تابع کمکی جدید
+   ulong magic_number_to_check = Inp_BaseMagicNumber + engine_id;
+   if(PositionExists(symbol, magic_number_to_check))
    {
-      sl_distance = atr_value[0] * Inp_Hoplite_StopLoss_ATR_Multiplier;  // محاسبه فاصله با ضریب Hoplite
-      Log("فاصله SL محاسبه شده برای Hoplite: " + DoubleToString(sl_distance, _Digits));  // ثبت لاگ
+      Log("پوزیشن باز برای موتور " + (engine_id == 1 ? "Kensei" : "Hoplite") + " روی نماد " + symbol + " از قبل وجود دارد. معامله جدید باز نشد.");
+      return;
    }
-   double weight = (engine_id == 1) ? Inp_Kensei_Weight : Inp_Hoplite_Weight;  // انتخاب وزن بر اساس موتور
-   double risk_percent = 1.0 * weight;  // درصد ریسک پایه 1% ضربدر وزن
-   Log("درصد ریسک محاسبه شده: " + DoubleToString(risk_percent, 2) + "%");  // ثبت لاگ ریسک
-   double sl_pips = sl_distance / _Point;  // تبدیل فاصله به پیپ
-   double lots = CalculateLotSize(symbol, risk_percent, sl_pips);  // محاسبه حجم
-   if (lots <= 0) { LogError("حجم لات نامعتبر برای " + symbol); return; }  // اگر حجم نامعتبر، خروج
-   ENUM_ORDER_TYPE dir = (sig == SIGNAL_LONG) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;  // تعیین نوع سفارش: خرید یا فروش
-   double open_price = (dir == ORDER_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);  // قیمت باز کردن: Ask برای خرید، Bid برای فروش
-   double sl = (dir == ORDER_TYPE_BUY) ? open_price - sl_distance : open_price + sl_distance;  // تنظیم SL: زیر قیمت برای خرید، بالای قیمت برای فروش
-   double tp = 0.0;  // TP اولیه 0 (بدون TP)
-   if (Inp_ExitLogic == EXIT_RRR)  // اگر خروج RRR
+
+   Log("تلاش برای باز کردن معامله در " + symbol + " از موتور " + (engine_id == 1 ? "Kensei" : "Hoplite"));
+
+   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای باز کردن معامله در " + symbol); return; }
+   
+   double atr_value[1];
+   if (CopyBuffer(atr_handle, 0, 1, 1, atr_value) <= 0) { LogError("خطا در کپی ATR برای باز کردن معامله در " + symbol); return; }
+   
+   // محاسبه فاصله حد ضرر بر اساس موتور مربوطه
+   double sl_distance = 0.0;
+   if (engine_id == 1) // موتور Kensei
    {
-      tp = (dir == ORDER_TYPE_BUY) ? open_price + (sl_distance * Inp_RiskRewardRatio) : open_price - (sl_distance * Inp_RiskRewardRatio);  // محاسبه TP: فاصله SL ضربدر نسبت
-      Log("TP محاسبه شده برای RRR: " + DoubleToString(tp, _Digits));  // ثبت لاگ TP
+      sl_distance = atr_value[0] * Inp_Kensei_ATR_Multiplier;
    }
-   ulong magic = Inp_BaseMagicNumber + engine_id;  // مجیک نامبر: پایه + ID موتور برای تمایز
-   string comment = COMMENT_PREFIX + (engine_id == 1 ? "Kensei" : "Hoplite");  // کامنت: پیشوند + نام موتور
-   CTrade trade;  // ایجاد CTrade
-   trade.SetExpertMagicNumber(magic);  // تنظیم مجیک نامبر در CTrade
-   if (trade.PositionOpen(symbol, dir, lots, open_price, sl, tp, comment))  // باز کردن موقعیت: با قیمت بازار (open_price به جای 0 برای دقت)
-      LogOpenTrade(symbol, (sig == SIGNAL_LONG ? "خرید" : "فروش"), lots, sl, tp);  // ثبت موفقیت
+   else // موتور Hoplite
+   {
+      sl_distance = atr_value[0] * Inp_Hoplite_StopLoss_ATR_Multiplier;
+   }
+   
+   // استفاده از وزن نرمال‌شده که در فایل اصلی محاسبه شده
+   double weight = (engine_id == 1) ? g_Kensei_Weight : g_Hoplite_Weight;
+   // محاسبه درصد ریسک نهایی با استفاده از پارامتر ورودی جدید و وزن موتور
+   double risk_percent = Inp_Risk_Percent_Per_Trade * weight;
+   
+   Log("درصد ریسک نهایی محاسبه شده: " + DoubleToString(risk_percent, 2) + "%");
+
+   double lots = CalculateLotSize(symbol, risk_percent, sl_distance);
+   if (lots <= 0) { LogError("حجم لات محاسبه شده صفر یا نامعتبر است برای " + symbol); return; }
+
+   // تعیین مشخصات معامله
+   ENUM_ORDER_TYPE dir = (sig == SIGNAL_LONG) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+   double open_price = (dir == ORDER_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);
+   double sl = (dir == ORDER_TYPE_BUY) ? open_price - sl_distance : open_price + sl_distance;
+   double tp = 0.0; // به طور پیش‌فرض حد سود نداریم (برای خروج دینامیک)
+   
+   // اگر منطق خروج بر اساس RRR باشد، حد سود را محاسبه می‌کنیم
+   if (Inp_ExitLogic == EXIT_RRR)
+   {
+      tp = (dir == ORDER_TYPE_BUY) ? open_price + (sl_distance * Inp_RiskRewardRatio) : open_price - (sl_distance * Inp_RiskRewardRatio);
+      Log("حد سود بر اساس RRR محاسبه شد: " + DoubleToString(tp, _Digits));
+   }
+   
+   ulong magic = Inp_BaseMagicNumber + engine_id;
+   string comment = COMMENT_PREFIX + (engine_id == 1 ? "Kensei" : "Hoplite");
+   
+   // اجرای معامله
+   CTrade trade;
+   trade.SetExpertMagicNumber(magic);
+   if (trade.PositionOpen(symbol, dir, lots, open_price, sl, tp, comment))
+   {
+      LogOpenTrade(symbol, (sig == SIGNAL_LONG ? "خرید" : "فروش"), lots, sl, tp);
+   }
    else
-      LogError("خطا در باز کردن معامله: " + IntegerToString(trade.ResultRetcode()));  // ثبت خطا با کد
+   {
+      LogError("خطا در باز کردن معامله: " + IntegerToString(trade.ResultRetcode()) + " - " + trade.ResultComment());
+   }
 }
 
-#endif  // پایان گارد
+// پایان گارد
+#endif
+
 ```
