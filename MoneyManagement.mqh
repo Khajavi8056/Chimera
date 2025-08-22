@@ -1,3 +1,18 @@
+بیا پس لطفا کد مانی منیجمنت را کامل بازنویسی کن چون این خطا ها را هم دارد انها را هم اصلاح کن و کد را به شکل کامل و بهینه و دست بازنیسی کن
+
+'PositionSelectByMagic' - undeclared identifier	MoneyManagement.mqh	72	7
+',' - unexpected token	MoneyManagement.mqh	72	35
+'symbol' - some operator expected	MoneyManagement.mqh	72	29
+'(' - unbalanced left parenthesis	MoneyManagement.mqh	72	6
+')' - unexpected token	MoneyManagement.mqh	72	58
+expression has no effect	MoneyManagement.mqh	72	37
+')' - unexpected token	MoneyManagement.mqh	72	59
+'g_Kensei_Weight' - undeclared identifier	MoneyManagement.mqh	93	39
+'g_Hoplite_Weight' - undeclared identifier	MoneyManagement.mqh	93	57
+
+کد نسخه فعلی:::
+
+
 // MoneyManagement.mqh
 // مدیریت پول، ریسک و باز کردن معاملات - برای متاتریدر ۵ بهینه‌سازی شده با چک‌های دقیق.
 // محاسبات لات بر اساس ریسک درصد و فاصله SL.
