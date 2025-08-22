@@ -34,7 +34,7 @@ double g_Kensei_Weight; // وزن نرمال‌شده کنسی
 double g_Hoplite_Weight; // وزن نرمال‌شده هاپلیت
 bool g_Kensei_IsActive; // وضعیت فعال کنسی - ممکن است در نرمال‌سازی تغییر کند
 bool g_Hoplite_IsActive; // وضعیت فعال هاپلیت
-
+double g_peak_equity = 0.0;
 // تابع OnInit: راه‌اندازی اولیه اکسپرت - این تابع هنگام لود اکسپرت فراخوانی می‌شود
 int OnInit()
 {
