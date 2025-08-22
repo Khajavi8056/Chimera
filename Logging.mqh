@@ -1,95 +1,96 @@
 // Logging.mqh
-// این فایل سیستم لاگینگ پیشرفته را پیاده‌سازی می‌کند که تمام رویدادها را به زبان فارسی ثبت می‌کند. مفید برای دیباگ و پیگیری.
+// سیستم لاگینگ پیشرفته به زبان فارسی برای ثبت رویدادها، خطاها و سیگنال‌ها.
+// این سیستم فایل می‌نویسد و پرینت می‌کند برای دیباگینگ زنده.
+// وابستگی‌ها حداقل: فقط Settings برای Inp_EnableLogging.
+// کامنت‌ها برای آموزش: توضیح هر خط.
 
-#ifndef LOGGING_MQH  // جلوگیری از تعریف مجدد
-#define LOGGING_MQH  // تعریف گارد
+// جلوگیری از تکرار
+#ifndef LOGGING_MQH
+#define LOGGING_MQH
 
-#include "Settings.mqh"  // شامل تنظیمات: مانند Inp_EnableLogging
-#include "MoneyManagement.mqh"  // شامل مدیریت پول: وابستگی برای لاگ‌های مرتبط
-#include "Engine_Kensei.mqh"  // شامل Kensei: برای لاگ سیگنال‌ها
-#include "Engine_Hoplite.mqh"  // شامل Hoplite: مشابه
+#include "Settings.mqh" // فقط برای Inp_EnableLogging
 
-// متغیرهای جهانی لاگینگ شروع می‌شوند
-string LogFileName = "ChimeraV2_Log.txt";  // نام فایل لاگ: در فولدر Files متاتریدر ذخیره می‌شود
-int    g_log_handle = INVALID_HANDLE;  // هندل فایل لاگ: INVALID_HANDLE یعنی بسته است
+string LogFileName = "ChimeraV2_Log.txt"; // نام فایل لاگ - در فولدر MQL5/Files
+int g_log_handle = INVALID_HANDLE; // هندل فایل - جهانی برای دسترسی
 
-// تابع LogInit: باز کردن فایل لاگ در شروع برنامه
-void LogInit()  // بدون پارامتر، فقط چک و باز کردن فایل
+// LogInit: باز کردن فایل در ابتدایی
+void LogInit()
 {
-   if (!Inp_EnableLogging) return;  // اگر لاگ غیرفعال، خروج بدون عملیات
-   g_log_handle = FileOpen(LogFileName, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE);  // باز کردن فایل با فلگ‌های نوشتن، متن، ANSI و اشتراک‌گذاری
-   if (g_log_handle == INVALID_HANDLE)  // اگر باز کردن شکست
+   if (!Inp_EnableLogging) return; // اگر غیرفعال، بازگشت بدون عملیات
+   g_log_handle = FileOpen(LogFileName, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE); // باز کردن با فلگ‌ها برای نوشتن و اشتراک
+   if (g_log_handle == INVALID_HANDLE) // چک شکست
    {
-      Print("خطای حیاتی: فایل لاگ باز نشد. کد خطا: " + IntegerToString(GetLastError()));  // چاپ خطا در ژورنال متاتریدر
+      Print("خطای حیاتی: فایل لاگ باز نشد. کد خطا: " + IntegerToString(GetLastError())); // پرینت خطا در ترمینال
    }
    else
    {
-      Print("فایل لاگ با موفقیت باز شد.");  // چاپ موفقیت
+      Print("فایل لاگ با موفقیت باز شد."); // پرینت موفق
    }
 }
 
-// تابع LogDeinit: بستن فایل لاگ در پایان برنامه
-void LogDeinit()  // بدون پارامتر، چک و بستن
+// LogDeinit: بستن فایل در پایان
+void LogDeinit()
 {
-   if (g_log_handle != INVALID_HANDLE)  // اگر فایل باز است
+   if (g_log_handle != INVALID_HANDLE) // اگر باز است
    {
-      FileClose(g_log_handle);  // بستن فایل
-      g_log_handle = INVALID_HANDLE;  // تنظیم به نامعتبر برای جلوگیری از استفاده مجدد
-      Print("فایل لاگ با موفقیت بسته شد.");  // چاپ موفقیت
+      FileClose(g_log_handle); // بستن
+      g_log_handle = INVALID_HANDLE; // تنظیم به نامعتبر
+      Print("فایل لاگ با موفقیت بسته شد."); // پرینت
    }
 }
 
-// تابع Log: نوشتن پیام در ژورنال و فایل - تابع اصلی لاگینگ
-void Log(string message, bool is_error = false)  // پارامترها: پیام و فلگ خطا (پیش‌فرض false)
+// Log: نوشتن پیام عمومی - با پیشوند اطلاع یا خطا
+void Log(string message, bool is_error = false)
 {
-   if (!Inp_EnableLogging) return;  // اگر غیرفعال، خروج
-   string prefix = is_error ? "خطا: " : "اطلاع: ";  // تعیین پیشوند بر اساس فلگ: برای تمایز خطا و اطلاع
-   string full_message = TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + " - " + prefix + message + "\r\n";  // ساخت پیام کامل با زمان و خط جدید
-   Print(full_message);  // چاپ در ژورنال متاتریدر
-   if (g_log_handle != INVALID_HANDLE)  // اگر فایل باز است
+   if (!Inp_EnableLogging) return; // چک فعال بودن
+   string prefix = is_error ? "خطا: " : "اطلاع: "; // انتخاب پیشوند
+   string full_message = TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + " - " + prefix + message + "\r\n"; // ساخت پیام کامل با زمان
+   Print(full_message); // پرینت در ترمینال
+   if (g_log_handle != INVALID_HANDLE) // اگر فایل باز
    {
-      FileSeek(g_log_handle, 0, SEEK_END);  // رفتن به انتهای فایل برای اضافه کردن
-      FileWriteString(g_log_handle, full_message);  // نوشتن پیام
-      FileFlush(g_log_handle);  // فلاش برای اطمینان از ذخیره روی دیسک
+      FileSeek(g_log_handle, 0, SEEK_END); // رفتن به انتها
+      FileWriteString(g_log_handle, full_message); // نوشتن
+      FileFlush(g_log_handle); // فلاش برای ذخیره فوری
    }
    else
    {
-      Print("خطا در نوشتن لاگ: هندل فایل نامعتبر است.");  // چاپ خطا اگر فایل بسته باشد
+      Print("خطا در نوشتن لاگ: هندل فایل نامعتبر است."); // پرینت خطا
    }
 }
 
-// تابع LogSignal: لاگ سیگنال‌های تولید شده - wrapper برای Log
-void LogSignal(string symbol, string engine, string signal_type)  // پارامترها: نماد، موتور و نوع سیگنال
+// LogSignal: لاگ سیگنال خاص
+void LogSignal(string symbol, string engine, string signal_type)
 {
-   string msg = "سیگنال جدید در نماد " + symbol + " از موتور " + engine + ": " + signal_type;  // ساخت پیام سیگنال
-   Log(msg);  // فراخوانی Log با پیام ساخته‌شده
+   string msg = "سیگنال جدید در نماد " + symbol + " از موتور " + engine + ": " + signal_type; // ساخت پیام
+   Log(msg); // نوشتن با تابع عمومی
 }
 
-// تابع LogOpenTrade: لاگ باز شدن معاملات
-void LogOpenTrade(string symbol, string direction, double lots, double sl, double tp)  // پارامترها: جزئیات معامله
+// LogOpenTrade: لاگ باز کردن معامله
+void LogOpenTrade(string symbol, string direction, double lots, double sl, double tp)
 {
-   string msg = "باز کردن معامله در " + symbol + " - جهت: " + direction + ", حجم: " + DoubleToString(lots, 2) + ", SL: " + DoubleToString(sl, _Digits) + ", TP: " + DoubleToString(tp, _Digits);  // ساخت پیام
-   Log(msg);  // فراخوانی Log
+   string msg = "باز کردن معامله در " + symbol + " - جهت: " + direction + ", حجم: " + DoubleToString(lots, 2) + ", SL: " + DoubleToString(sl, _Digits) + ", TP: " + DoubleToString(tp, _Digits);
+   Log(msg);
 }
 
-// تابع LogCloseTrade: لاگ بسته شدن معاملات
-void LogCloseTrade(ulong ticket, string reason)  // پارامترها: تیکت و دلیل
+// LogCloseTrade: لاگ بستن
+void LogCloseTrade(ulong ticket, string reason)
 {
-   string msg = "بستن معامله با تیکت " + IntegerToString(ticket) + " به دلیل: " + reason;  // ساخت پیام
-   Log(msg);  // فراخوانی Log
+   string msg = "بستن معامله با تیکت " + IntegerToString(ticket) + " به دلیل: " + reason;
+   Log(msg);
 }
 
-// تابع LogDrawdown: لاگ افت سرمایه فعلی
-void LogDrawdown(double dd)  // پارامتر: مقدار DD
+// LogDrawdown: لاگ افت سرمایه
+void LogDrawdown(double dd)
 {
-   string msg = "افت سرمایه فعلی پورتفولیو: " + DoubleToString(dd * 100, 2) + "%";  // ساخت پیام با تبدیل به درصد
-   Log(msg);  // فراخوانی Log
+   string msg = "افت سرمایه فعلی پورتفولیو: " + DoubleToString(dd * 100, 2) + "%";
+   Log(msg);
 }
 
-// تابع LogError: لاگ خطاها - wrapper با فلگ خطا
-void LogError(string error_msg)  // پارامتر: پیام خطا
+// LogError: لاگ خطا - با فلگ true
+void LogError(string error_msg)
 {
-   Log(error_msg, true);  // فراخوانی Log با is_error=true
+   Log(error_msg, true);
 }
 
-#endif  // پایان گارد
+// پایان
+#endif
