@@ -1,118 +1,109 @@
 // MoneyManagement.mqh
-// مغز پورتفولیو برای مدیریت ریسک و حجم - این فایل مدیریت پول و ریسک را پیاده‌سازی می‌کند
+// این فایل مدیریت پول و ریسک را پیاده‌سازی می‌کند، شامل محاسبه حجم، چک DD و باز کردن معاملات.
 
-#ifndef MONEY_MANAGEMENT_MQH  // بررسی برای جلوگیری از تعریف مجدد هدر - جلوگیری از کامپایل چندباره
-#define MONEY_MANAGEMENT_MQH  // تعریف گارد برای جلوگیری از تعریف مجدد
+#ifndef MONEY_MANAGEMENT_MQH  // جلوگیری از تعریف مجدد
+#define MONEY_MANAGEMENT_MQH  // تعریف گارد
 
-#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
-#include "Logging.mqh"  // شامل لاگ - سیستم لاگینگ
-#include "Engine_Kensei.mqh"  // شامل موتور Kensei - موتور تهاجمی
-#include "Engine_Hoplite.mqh"  // شامل موتور Hoplite - موتور دفاعی
+#include "Settings.mqh"  // شامل تنظیمات: مانند وز‌ن‌ها و DD max
+#include "Logging.mqh"  // شامل لاگینگ: برای ثبت محاسبات
+#include "Engine_Kensei.mqh"  // شامل Kensei: وابستگی
+#include "Engine_Hoplite.mqh"  // شامل Hoplite: وابستگی
 
-#include <Trade\Trade.mqh>  // شامل کتابخانه CTrade - برای ارسال معاملات رسمی
+#include <Trade\Trade.mqh>  // شامل کلاس CTrade: برای عملیات معاملاتی مانند PositionOpen
 
-extern double g_peak_equity;  // اعلام متغیر سراسری g_peak_equity - تعریف شده در فایل اصلی
+extern double g_peak_equity;  // اعلام خارجی g_peak_equity: تعریف‌شده در فایل اصلی برای دسترسی
 
-// تابع محاسبه حجم لات - محاسبه دقیق حجم بر اساس ریسک
-double CalculateLotSize(string symbol, double risk_percent, double sl_pips)
+// تابع CalculateLotSize: محاسبه حجم لات بر اساس ریسک و فاصله SL
+double CalculateLotSize(string symbol, double risk_percent, double sl_pips)  // پارامترها: نماد، درصد ریسک، پیپ‌های SL - بازگشت حجم
 {
-   Log("محاسبه حجم لات برای " + symbol + " با ریسک " + DoubleToString(risk_percent, 2) + "% و SL " + DoubleToString(sl_pips, 1) + " پیپ");  // لاگ شروع محاسبه حجم - ثبت ورودی‌ها
-   double lot_step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);  // دریافت استپ لات نماد - حداقل تغییر حجم
-   double tick_value = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);  // دریافت ارزش تیک - ارزش هر تیک
-   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);  // دریافت اندازه پوینت - کوچک‌ترین واحد قیمت
-   if(point == 0 || tick_value == 0)  // جلوگیری از تقسیم بر صفر - چک مقادیر معتبر
+   Log("محاسبه حجم لات برای " + symbol + " با ریسک " + DoubleToString(risk_percent, 2) + "% و SL " + DoubleToString(sl_pips, 1) + " پیپ");  // ثبت لاگ ورودی‌ها
+   double lot_step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);  // دریافت حداقل گام حجم نماد
+   double tick_value = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);  // ارزش هر تیک (پیپ) به پول حساب
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);  // اندازه پوینت (کوچک‌ترین واحد قیمت)
+   if(point == 0 || tick_value == 0)  // چک جلوگیری از تقسیم بر صفر یا مقادیر نامعتبر
    {
-      LogError("اطلاعات نماد " + symbol + " برای محاسبه حجم نامعتبر است.");  // لاگ خطا - ثبت نامعتبر
-      return 0.0;  // بازگشت صفر - حجم نامعتبر
+      LogError("اطلاعات نماد " + symbol + " برای محاسبه حجم نامعتبر است.");  // ثبت خطا
+      return 0.0;  // بازگشت حجم نامعتبر
    }
-   double risk_amount = AccountInfoDouble(ACCOUNT_BALANCE) * risk_percent / 100.0;  // محاسبه مبلغ ریسک - بر اساس بالانس
-   double sl_distance_points = sl_pips * 10;  // تبدیل پیپ به پوینت (برای اکثر جفت‌ارزها) - تنظیم اولیه
-   long digits = SymbolInfoInteger(symbol, SYMBOL_DIGITS);  // دریافت تعداد digits نماد - دقت قیمت
-   if(digits == 3 || digits == 5) sl_distance_points = sl_pips * 10;  // تنظیم برای نمادهای 3 یا 5 رقمی - تنظیم پوینت
-   else sl_distance_points = sl_pips;  // تنظیم برای دیگر نمادها - تنظیم پوینت
-   double sl_in_money = (sl_distance_points * point) * (tick_value / point);  // فرمول دقیق‌تر - محاسبه ارزش SL به پول
-   if (sl_in_money == 0)  // چک صفر بودن - جلوگیری از تقسیم بر صفر
+   double risk_amount = AccountInfoDouble(ACCOUNT_BALANCE) * risk_percent / 100.0;  // محاسبه مبلغ ریسک بر اساس بالانس
+   double sl_distance_points = sl_pips * 10;  // تبدیل پیپ به پوینت: برای جفت‌ارزهای 5 رقمی معمولاً *10
+   long digits = SymbolInfoInteger(symbol, SYMBOL_DIGITS);  // دریافت تعداد ارقام اعشاری نماد
+   if(digits == 3 || digits == 5) sl_distance_points = sl_pips * 10;  // تنظیم برای نمادهای 3 یا 5 رقمی (مانند JPY یا استاندارد)
+   else sl_distance_points = sl_pips;  // برای دیگر نمادها مانند شاخص‌ها
+   double sl_in_money = (sl_distance_points * point) * (tick_value / point);  // محاسبه ارزش مالی SL: فاصله * ارزش پوینت
+   if (sl_in_money == 0)  // چک صفر بودن ارزش SL
    {
-      LogError("فاصله SL محاسبه شده برای " + symbol + " صفر است. حجم قابل محاسبه نیست.");  // لاگ خطا - ثبت صفر
-      return 0.0;  // بازگشت صفر - حجم نامعتبر
+      LogError("فاصله SL محاسبه شده برای " + symbol + " صفر است. حجم قابل محاسبه نیست.");  // ثبت خطا
+      return 0.0;  // بازگشت نامعتبر
    }
-   double lots = risk_amount / sl_in_money;  // محاسبه حجم خام - تقسیم ریسک بر ارزش SL
-   lots = MathFloor(lots / lot_step) * lot_step;  // گرد کردن به پایین بر اساس استپ لات - نرمال‌سازی حجم
-   Log("حجم محاسبه شده: " + DoubleToString(lots, 2));  // لاگ حجم محاسبه شده - ثبت نتیجه
-   return lots;  // بازگشت حجم - حجم نهایی
+   double lots = risk_amount / sl_in_money;  // محاسبه حجم خام: ریسک / ارزش SL
+   lots = MathFloor(lots / lot_step) * lot_step;  // گرد کردن به پایین بر اساس گام حجم: برای سازگاری با بروکر
+   Log("حجم محاسبه شده: " + DoubleToString(lots, 2));  // ثبت لاگ نتیجه
+   return lots;  // بازگشت حجم نهایی
 }
 
-// تابع چک افت سرمایه پورتفولیو - چک آیا DD بیش از حد است
-bool IsPortfolioDrawdownExceeded()
+// تابع IsPortfolioDrawdownExceeded: چک اگر DD بیش از حد مجاز باشد
+bool IsPortfolioDrawdownExceeded()  // بدون پارامتر - بازگشت true اگر بیش از حد
 {
-   double current_dd = CalculateCurrentDrawdown();  // محاسبه DD فعلی - فراخوانی تابع
-   LogDrawdown(current_dd);  // لاگ DD فعلی - ثبت DD
-   bool exceeded = current_dd > Inp_MaxPortfolioDrawdown;  // چک آیا DD بیش از حد مجاز است - مقایسه
-   if (exceeded) Log("افت سرمایه بیش از حد مجاز تشخیص داده شد: " + DoubleToString(current_dd * 100, 2) + "%");  // لاگ اگر بیش از حد - ثبت هشدار
-   return exceeded;  // بازگشت نتیجه چک - true/false
+   double current_dd = CalculateCurrentDrawdown();  // محاسبه DD فعلی
+   LogDrawdown(current_dd);  // ثبت لاگ DD
+   bool exceeded = current_dd > Inp_MaxPortfolioDrawdown;  // مقایسه با حد مجاز
+   if (exceeded) Log("افت سرمایه بیش از حد مجاز تشخیص داده شد: " + DoubleToString(current_dd * 100, 2) + "%");  // ثبت هشدار اگر بیش از حد
+   return exceeded;  // بازگشت نتیجه
 }
 
-// تابع محاسبه DD فعلی - محاسبه drawdown
-double CalculateCurrentDrawdown()
+// تابع CalculateCurrentDrawdown: محاسبه DD فعلی بر اساس اوج اکویتی
+double CalculateCurrentDrawdown()  // بدون پارامتر - بازگشت DD به صورت اعشاری
 {
-   double equity = AccountInfoDouble(ACCOUNT_EQUITY);  // اکویتی فعلی حساب - دریافت اکویتی
-   if (equity > g_peak_equity) g_peak_equity = equity;  // به‌روزرسانی اوج سراسری - چک و بروزرسانی peak
-   double dd = (g_peak_equity > 0) ? (g_peak_equity - equity) / g_peak_equity : 0.0;  // محاسبه DD (جلوگیری از تقسیم بر صفر) - فرمول DD
-   Log("محاسبه DD فعلی: " + DoubleToString(dd * 100, 2) + "% با اوج اکویتی " + DoubleToString(g_peak_equity, 2));  // لاگ جزئیات محاسبه - ثبت محاسبه
-   return dd;  // بازگشت DD - DD محاسبه شده
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);  // دریافت اکویتی فعلی
+   if (equity > g_peak_equity) g_peak_equity = equity;  // بروزرسانی اوج اگر اکویتی جدید بالاتر باشد
+   double dd = (g_peak_equity > 0) ? (g_peak_equity - equity) / g_peak_equity : 0.0;  // فرمول DD: (اوج - فعلی) / اوج - چک تقسیم بر صفر
+   Log("محاسبه DD فعلی: " + DoubleToString(dd * 100, 2) + "% با اوج اکویتی " + DoubleToString(g_peak_equity, 2));  // ثبت لاگ محاسبه
+   return dd;  // بازگشت DD
 }
 
-// تابع باز کردن معامله - باز کردن position با CTrade، هندل ATR را دریافت می‌کند
-void OpenTrade(string symbol, SIGNAL sig, int engine_id, int atr_handle)
+// تابع OpenTrade: باز کردن معامله جدید با محاسبه حجم و تنظیم SL/TP - هندل ATR را دریافت می‌کند
+void OpenTrade(string symbol, SIGNAL sig, int engine_id, int atr_handle)  // پارامترها: نماد، سیگنال، ID موتور، هندل ATR
 {
-   if (sig == SIGNAL_NONE) { Log("هیچ سیگنالی برای باز کردن معامله در " + symbol); return; }  // بدون سیگنال، خروج - چک سیگنال
-   Log("تلاش برای باز کردن معامله در " + symbol + " از موتور " + (engine_id == 1 ? "Kensei" : "Hoplite"));  // لاگ تلاش برای باز کردن - ثبت تلاش
-   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای " + symbol); return; }  // چک هندل ATR معتبر - خطا اگر نامعتبر
-   double sl_distance = 0.0;  // فاصله SL اولیه - مقدار اولیه
-   double atr_value[1];  // بافر برای ATR - آرایه ATR
-   if (CopyBuffer(atr_handle, 0, 0, 1, atr_value) <= 0) { LogError("خطا در کپی ATR برای باز کردن معامله در " + symbol); return; }  // کپی ATR از هندل - دریافت ارزش فعلی
-   if (engine_id == 1)  // Kensei - شاخه Kensei
+   if (sig == SIGNAL_NONE) { Log("هیچ سیگنالی برای باز کردن معامله در " + symbol); return; }  // اگر بدون سیگنال، خروج
+   Log("تلاش برای باز کردن معامله در " + symbol + " از موتور " + (engine_id == 1 ? "Kensei" : "Hoplite"));  // ثبت لاگ تلاش
+   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای " + symbol); return; }  // چک هندل
+   double sl_distance = 0.0;  // فاصله SL اولیه
+   double atr_value[1];  // بافر ATR
+   if (CopyBuffer(atr_handle, 0, 0, 1, atr_value) <= 0) { LogError("خطا در کپی ATR برای باز کردن معامله در " + symbol); return; }  // کپی ATR فعلی
+   if (engine_id == 1)  // اگر موتور Kensei
    {
-      sl_distance = atr_value[0] * Inp_Kensei_ATR_Multiplier;  // محاسبه SL برای Kensei - استفاده از ATR
-      Log("فاصله SL محاسبه شده برای Kensei: " + DoubleToString(sl_distance, _Digits));  // لاگ فاصله SL - ثبت مقدار
+      sl_distance = atr_value[0] * Inp_Kensei_ATR_Multiplier;  // محاسبه فاصله SL بر اساس ATR و ضریب Kensei
+      Log("فاصله SL محاسبه شده برای Kensei: " + DoubleToString(sl_distance, _Digits));  // ثبت لاگ
    }
-   else  // Hoplite - شاخه Hoplite
+   else  // اگر موتور Hoplite
    {
-      sl_distance = atr_value[0] * Inp_Hoplite_StopLoss_ATR_Multiplier;  // محاسبه SL برای Hoplite - استفاده از ATR
-      Log("فاصله SL محاسبه شده برای Hoplite: " + DoubleToString(sl_distance, _Digits));  // لاگ فاصله SL - ثبت مقدار
+      sl_distance = atr_value[0] * Inp_Hoplite_StopLoss_ATR_Multiplier;  // محاسبه فاصله با ضریب Hoplite
+      Log("فاصله SL محاسبه شده برای Hoplite: " + DoubleToString(sl_distance, _Digits));  // ثبت لاگ
    }
-   double weight = (engine_id == 1) ? Inp_Kensei_Weight : Inp_Hoplite_Weight;  // وزن تخصیص سرمایه - انتخاب وزن
-   double risk_percent = 1.0 * weight;  // درصد ریسک (قابل تنظیم، اینجا 1% پایه ضربدر وزن) - محاسبه ریسک
-   Log("درصد ریسک محاسبه شده: " + DoubleToString(risk_percent, 2) + "%");  // لاگ درصد ریسک - ثبت ریسک
-   double sl_pips = sl_distance / _Point;  // تبدیل فاصله SL به پیپ - محاسبه پیپ
-   double lots = CalculateLotSize(symbol, risk_percent, sl_pips);  // محاسبه حجم لات - فراخوانی تابع
-   if (lots <= 0) { LogError("حجم لات نامعتبر برای " + symbol); return; }  // چک حجم معتبر - خروج اگر نامعتبر
-   int dir = (sig == SIGNAL_LONG) ? OP_BUY : OP_SELL;  // جهت معامله (خرید یا فروش) - تعیین جهت
-   double open_price = (dir == OP_BUY) ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);  // قیمت باز کردن معامله - دریافت قیمت
-   double sl = (dir == OP_BUY) ? open_price - sl_distance : open_price + sl_distance;  // تنظیم SL بر اساس جهت - محاسبه SL
-   double tp = 0.0;  // TP اولیه صفر - مقدار اولیه TP
-   if (Inp_ExitLogic == EXIT_RRR)  // اگر منطق RRR - شاخه RRR
+   double weight = (engine_id == 1) ? Inp_Kensei_Weight : Inp_Hoplite_Weight;  // انتخاب وزن بر اساس موتور
+   double risk_percent = 1.0 * weight;  // درصد ریسک پایه 1% ضربدر وزن
+   Log("درصد ریسک محاسبه شده: " + DoubleToString(risk_percent, 2) + "%");  // ثبت لاگ ریسک
+   double sl_pips = sl_distance / _Point;  // تبدیل فاصله به پیپ
+   double lots = CalculateLotSize(symbol, risk_percent, sl_pips);  // محاسبه حجم
+   if (lots <= 0) { LogError("حجم لات نامعتبر برای " + symbol); return; }  // اگر حجم نامعتبر، خروج
+   ENUM_ORDER_TYPE dir = (sig == SIGNAL_LONG) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;  // تعیین نوع سفارش: خرید یا فروش
+   double open_price = (dir == ORDER_TYPE_BUY) ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);  // قیمت باز کردن: Ask برای خرید، Bid برای فروش
+   double sl = (dir == ORDER_TYPE_BUY) ? open_price - sl_distance : open_price + sl_distance;  // تنظیم SL: زیر قیمت برای خرید، بالای قیمت برای فروش
+   double tp = 0.0;  // TP اولیه 0 (بدون TP)
+   if (Inp_ExitLogic == EXIT_RRR)  // اگر خروج RRR
    {
-      tp = (dir == OP_BUY) ? open_price + (sl_distance * Inp_RiskRewardRatio) : open_price - (sl_distance * Inp_RiskRewardRatio);  // تنظیم TP بر اساس open_price - محاسبه TP صحیح
-      Log("TP محاسبه شده برای RRR: " + DoubleToString(tp, _Digits));  // لاگ TP محاسبه شده - ثبت TP
+      tp = (dir == ORDER_TYPE_BUY) ? open_price + (sl_distance * Inp_RiskRewardRatio) : open_price - (sl_distance * Inp_RiskRewardRatio);  // محاسبه TP: فاصله SL ضربدر نسبت
+      Log("TP محاسبه شده برای RRR: " + DoubleToString(tp, _Digits));  // ثبت لاگ TP
    }
-   ulong magic = Inp_BaseMagicNumber + engine_id;  // مجیک نامبر منحصر به موتور - تنظیم مجیک
-   string comment = COMMENT_PREFIX + (engine_id == 1 ? "Kensei" : "Hoplite");  // کامنت معامله - تنظیم کامنت
-   CTrade trade;  // ایجاد شیء CTrade - برای ارسال معامله
-   if (dir == OP_BUY)  // اگر خرید - شاخه BUY
-   {
-      if (trade.PositionOpen(symbol, ORDER_TYPE_BUY, lots, 0, open_price, sl, tp, magic, comment, 3))  // ارسال معامله خرید - استفاده از CTrade
-         LogOpenTrade(symbol, "خرید", lots, sl, tp);  // لاگ موفقیت - ثبت باز شدن
-      else
-         LogError("خطا در باز کردن معامله خرید: " + IntegerToString(trade.ResultRetcode()));  // لاگ خطا - ثبت خطا
-   }
-   else  // اگر فروش - شاخه SELL
-   {
-      if (trade.PositionOpen(symbol, ORDER_TYPE_SELL, lots, 0, open_price, sl, tp, magic, comment, 3))  // ارسال معامله فروش - استفاده از CTrade
-         LogOpenTrade(symbol, "فروش", lots, sl, tp);  // لاگ موفقیت - ثبت باز شدن
-      else
-         LogError("خطا در باز کردن معامله فروش: " + IntegerToString(trade.ResultRetcode()));  // لاگ خطا - ثبت خطا
-   }
+   ulong magic = Inp_BaseMagicNumber + engine_id;  // مجیک نامبر: پایه + ID موتور برای تمایز
+   string comment = COMMENT_PREFIX + (engine_id == 1 ? "Kensei" : "Hoplite");  // کامنت: پیشوند + نام موتور
+   CTrade trade;  // ایجاد CTrade
+   trade.SetExpertMagicNumber(magic);  // تنظیم مجیک نامبر در CTrade
+   if (trade.PositionOpen(symbol, dir, lots, open_price, sl, tp, comment))  // باز کردن موقعیت: با قیمت بازار (open_price به جای 0 برای دقت)
+      LogOpenTrade(symbol, (sig == SIGNAL_LONG ? "خرید" : "فروش"), lots, sl, tp);  // ثبت موفقیت
+   else
+      LogError("خطا در باز کردن معامله: " + IntegerToString(trade.ResultRetcode()));  // ثبت خطا با کد
 }
 
-#endif  // پایان گارد تعریف - پایان هدر
+#endif  // پایان گارد
