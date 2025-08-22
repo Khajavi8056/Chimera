@@ -4,11 +4,14 @@
 #ifndef ENGINE_HOPLITE_MQH  // بررسی برای جلوگیری از تعریف مجدد هدر - جلوگیری از کامپایل چندباره
 #define ENGINE_HOPLITE_MQH  // تعریف گارد برای جلوگیری از تعریف مجدد
 
-#include <Settings.mqh>  // شامل کردن تنظیمات - دسترسی به پارامترهای ورودی
-#include <Logging.mqh>  // شامل کردن سیستم لاگ - برای لاگینگ رویدادها
+
+#include "Settings.mqh"  // شامل تنظیمات - دسترسی به ورودی‌ها
+#include "Logging.mqh"  // شامل لاگ - سیستم لاگینگ
+#include "MoneyManagement.mqh"  // شامل مدیریت پول - مدیریت ریسک
+#include "Engine_Kensei.mqh"  // شامل موتور Kensei - موتور تهاجمی
 
 // تعریف enum برای سیگنال‌ها - enum برای انواع سیگنال
-enum SIGNAL { SIGNAL_NONE, SIGNAL_LONG, SIGNAL_SHORT };  // سیگنال هیچ، خرید، فروش - انواع سیگنال ممکن
+//enum SIGNAL { SIGNAL_NONE, SIGNAL_LONG, SIGNAL_SHORT };  // سیگنال هیچ، خرید، فروش - انواع سیگنال ممکن
 
 // تابع برای دریافت سیگنال Hoplite - تولید سیگنال بر اساس شرایط BB و RSI، هندل‌ها را دریافت می‌کند
 SIGNAL GetHopliteSignal(string symbol, int bb_handle, int rsi_handle, int adx_handle)
