@@ -28,7 +28,7 @@ input double Inp_Hoplite_Weight = 0.40; // وزن تخصیص سرمایه برا
 
 // مدیریت ریسک پورتفولیو
 input double Inp_MaxPortfolioDrawdown = 0.09; // حداکثر درصد افت سرمایه پورتفولیو (مثلاً ۰.۰۹ = ۹٪) - اگر بیش از این شود، تمام پوزیشن‌ها بسته می‌شوند
-
+input double Inp_Risk_Percent_Per_Trade=1;
 // شناسایی معاملات
 input ulong  Inp_BaseMagicNumber = 12345; // شماره جادویی پایه: برای شناسایی معاملات اکسپرت در متاتریدر استفاده می‌شود - باید منحصر به فرد باشد
 
