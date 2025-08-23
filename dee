@@ -436,169 +436,209 @@ void ManageHopliteExit(ulong ticket, int bb_handle)
 // پایان گارد
 #endif
 
-
 // Engine_Kensei.mqh
-// این فایل موتور تهاجمی کنسی را پیاده‌سازی می‌کند که از استراتژی دنبال‌کننده روند (trend-following) با ایچیموکو استفاده می‌کند.
-// شرایط سیگنال دقیق چک می‌شود و برای متاتریدر ۵ بهینه‌سازی شده با مدیریت حافظه داینامیک.
-// کامنت‌ها برای آموزش گام‌به‌گام نوشته شده.
+// نسخه بازنویسی شده توسط سقراط (Socrates) طبق بلوپرینت Chimera V2.0
+// این فایل به طور کامل بازنویسی شده تا خطای حیاتی در محاسبه "ابر آینده" را برطرف کرده و منطق را شفاف‌سازی کند.
+// تمام توضیحات لازم برای درک فلسفه پشت هر بخش از کد، در کامنت‌ها گنجانده شده است.
 
 // جلوگیری از تکرار تعریف هدر
 #ifndef ENGINE_KENSEI_MQH
 #define ENGINE_KENSEI_MQH
 
 // اینکلود فایل‌های لازم
-#include "Settings.mqh" // تنظیمات
-#include "Logging.mqh" // لاگینگ
-#include "MoneyManagement.mqh" // مدیریت (برای SIGNAL)
+#include "Settings.mqh" // تنظیمات ورودی کاربر و ثابت‌های سیستم
+#include "Logging.mqh"   // سیستم پیشرفته لاگینگ برای ثبت وقایع
+#include "MoneyManagement.mqh" // برای دسترسی به enum سیگنال
 
-// تابع GetKenseiSignal: تولید سیگنال برای کنسی - فقط در روند قوی
+//==================================================================================================
+// تابع اصلی تولید سیگنال برای موتور کنسی (Kensei)
+// این تابع بر اساس ۴ شرط طلایی ایچیموکو که در بلوپرینت مشخص شده، عمل می‌کند.
+//==================================================================================================
 SIGNAL GetKenseiSignal(string symbol, int ichi_handle, int atr_handle)
 {
-   Log("شروع چک سیگنال کنسی برای نماد: " + symbol); // لاگ شروع
-   // چک هندل‌ها
-   if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر برای " + symbol); return SIGNAL_NONE; }
-   if (atr_handle == INVALID_HANDLE) { LogError("هندل ATR نامعتبر برای " + symbol); return SIGNAL_NONE; }
+   // لاگ شروع عملیات برای پیگیری و دیباگینگ
+   Log("شروع چک سیگنال کنسی برای نماد: " + symbol);
 
-   // آرایه‌های داده برای ایچیموکو - اندازه برای کندل‌های لازم
-   double tenkan[1], kijun[1], ssa[2], ssb[2]; // تنکان، کیجون، SSA، SSB
-   double close[2]; // بسته شدن دو کندل اخیر
-   double chikou_compare_price[1]; // قیمت مقایسه چیکو (۲۶ کندل قبل)
-   double past_highs[]; // های گذشته برای فضای باز چیکو - داینامیک
-   double past_lows[]; // لوهای گذشته برای فضای باز چیکو - داینامیک
-   double future_ssa[1], future_ssb[1]; // SSA و SSB آینده برای چک ابر
+   // --- بخش ۱: اعتبارسنجی ورودی‌ها ---
+   // قبل از هر کاری، مطمئن می‌شویم که ابزارهای لازم (هندل‌های اندیکاتور) معتبر هستند.
+   if(ichi_handle == INVALID_HANDLE)
+   {
+      LogError("هندل ایچیموکو برای کنسی در نماد " + symbol + " نامعتبر است. سیگنال‌گیری متوقف شد.");
+      return SIGNAL_NONE;
+   }
+   if(atr_handle == INVALID_HANDLE)
+   {
+      LogError("هندل ATR برای کنسی در نماد " + symbol + " نامعتبر است. سیگنال‌گیری متوقف شد.");
+      return SIGNAL_NONE;
+   }
 
-   // کپی داده‌های ایچیموکو - ایندکس ۱ برای کندل قبلی
+   // --- بخش ۲: آماده‌سازی متغیرها و دریافت داده‌های کندل تثبیت‌شده (کندل ۱) ---
+   // فلسفه اصلی: برای صدور سیگنال، ما همیشه از کندل "تثبیت‌شده" یا "بسته شده" قبلی (ایندکس ۱) استفاده می‌کنیم.
+   // چون کندل فعلی (ایندکس ۰) هنوز در حال حرکت است و می‌تواند سیگنال کاذب تولید کند.
+   // بنابراین، تمام داده‌های مربوط به شرایط سیگنال (شکست ابر، وضعیت چیکو) از کندل ۱ خوانده می‌شوند.
+
+   // آرایه‌ها برای ذخیره داده‌های ایچیموکو از کندل ۱ و ۲ (برای تشخیص کراس)
+   double tenkan[1], kijun[1], ssa[2], ssb[2];
+   double close[2];
+   double chikou_compare_price[1];
+   double past_highs[];
+   double past_lows[];
+
+   // کپی داده‌های ایچیموکو برای کندل ۱ (و ۲ برای ابر)
    if(CopyBuffer(ichi_handle, 0, 1, 1, tenkan) <= 0) { LogError("کنسی: خطا در کپی تنکان برای " + symbol); return SIGNAL_NONE; }
    if(CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("کنسی: خطا در کپی کیجون برای " + symbol); return SIGNAL_NONE; }
    if(CopyBuffer(ichi_handle, 2, 1, 2, ssa) <= 0) { LogError("کنسی: خطا در کپی SSA برای " + symbol); return SIGNAL_NONE; }
    if(CopyBuffer(ichi_handle, 3, 1, 2, ssb) <= 0) { LogError("کنسی: خطا در کپی SSB برای " + symbol); return SIGNAL_NONE; }
 
-   // کپی قیمت‌های بسته شدن
+   // کپی قیمت بسته شدن برای کندل ۱ و ۲
    if(CopyClose(symbol, Inp_Kensei_Timeframe, 1, 2, close) < 2) { LogError("کنسی: خطا در کپی قیمت‌های بسته شدن برای " + symbol); return SIGNAL_NONE; }
 
-   // کپی قیمت مقایسه چیکو (۲۶ کندل قبل +۱ برای ایندکس)
-   // شیفت ۲۶ کندل برای چیکو اسپن + ۱ برای اینکه کندل قبلی رو چک کنیم، میشه ۲۷
-   if(CopyClose(symbol, Inp_Kensei_Timeframe, 27, 1, chikou_compare_price) < 1) 
+   // --- بخش ۳: محاسبه صحیح "ابر آینده" (Future Kumo) ---
+   // نکته حیاتی و دلیل اصلی بازنویسی: "ابر آینده" یک پیش‌بینی است که باید بر اساس جدیدترین اطلاعات موجود انجام شود.
+   // جدیدترین اطلاعات همیشه در کندل ۰ (کندل فعلی که در حال تشکیل است) قرار دارد.
+   // بنابراین، برخلاف سایر محاسبات، برای این یک شرط خاص، ما از دیتای کندل ۰ استفاده می‌کنیم.
+   double future_ssa[1], future_ssb[1];
+   double current_tenkan[1], current_kijun[1];
+
+   // دریافت تنکان و کیجون از کندل فعلی (ایندکس ۰)
+   if(CopyBuffer(ichi_handle, 0, 0, 1, current_tenkan) <= 0) { LogError("کنسی: خطا در کپی تنکان فعلی برای محاسبه ابر آینده در " + symbol); return SIGNAL_NONE; }
+   if(CopyBuffer(ichi_handle, 1, 0, 1, current_kijun) <= 0) { LogError("کنسی: خطا در کپی کیجون فعلی برای محاسبه ابر آینده در " + symbol); return SIGNAL_NONE; }
+
+   // محاسبه Senkou Span A آینده بر اساس تنکان و کیجون فعلی
+   future_ssa[0] = (current_tenkan[0] + current_kijun[0]) / 2.0;
+
+   // محاسبه Senkou Span B آینده بر اساس بالاترین سقف و پایین‌ترین کف در ۵۲ کندل اخیر (شامل کندل فعلی)
+   double high52[52], low52[52];
+   if(CopyHigh(symbol, Inp_Kensei_Timeframe, 0, 52, high52) != 52 || CopyLow(symbol, Inp_Kensei_Timeframe, 0, 52, low52) != 52)
    {
-      LogError("کنسی: خطا در کپی قیمت گذشته برای مقایسه چیکو در " + symbol);
+      LogError("کنسی: خطا در کپی High/Low برای محاسبه SSB آینده در " + symbol);
       return SIGNAL_NONE;
    }
+   future_ssb[0] = (ArrayMaximum(high52, 0, WHOLE_ARRAY) + ArrayMinimum(low52, 0, WHOLE_ARRAY)) / 2.0;
 
-   // کپی های و لوهای گذشته برای فضای باز چیکو - از موقعیت ۲۷ به عقب
-   if (CopyHigh(symbol, Inp_Kensei_Timeframe, 27, Inp_Kensei_Chikou_OpenSpace, past_highs) != Inp_Kensei_Chikou_OpenSpace)
-   { 
-      LogError("خطا در کپی High برای فضای باز چیکو در " + symbol); 
-      return SIGNAL_NONE; 
-   }
-   if (CopyLow(symbol, Inp_Kensei_Timeframe, 27, Inp_Kensei_Chikou_OpenSpace, past_lows) != Inp_Kensei_Chikou_OpenSpace) 
-   { 
-      LogError("خطا در کپی Low برای فضای باز چیکو در " + symbol); 
-      return SIGNAL_NONE; 
-   }
 
-   // --- کد اصلاح شده برای خواندن صحیح ابر آینده ---
-   // برای خواندن مقادیر ابر کومو که ۲۶ کندل به جلو شیفت داده شده‌اند، از ایندکس ۲۶ در CopyBuffer استفاده می‌کنیم.
-   // این کار مقدار ابری که بالای کندل فعلی نمایش داده می‌شود را به ما می‌دهد.
-   // ثابت Inp_Kensei_Kijun به طور پیش‌فرض 26 است و شیفت استاندارد ایچیموکو را نشان می‌دهد.
-   if(CopyBuffer(ichi_handle, 2, Inp_Kensei_Kijun, 1, future_ssa) <= 0) 
-   { 
-      LogError("کنسی: خطا در کپی SSA آینده برای " + symbol); 
-      return SIGNAL_NONE; 
-   }
-   if(CopyBuffer(ichi_handle, 3, Inp_Kensei_Kijun, 1, future_ssb) <= 0) 
-   { 
-      LogError("کنسی: خطا در کپی SSB آینده برای " + symbol); 
-      return SIGNAL_NONE; 
-   }
+   // --- بخش ۴: بررسی شرایط چهارگانه سیگنال ---
+   // حالا که تمام داده‌های لازم (هم از کندل ۱ و هم محاسبه آینده از کندل ۰) را داریم، شروط را بررسی می‌کنیم.
 
-   double chikou_value = close[0]; // چیکو برابر بسته شدن قبلی است (برای مقایسه با قیمت ۲۶ کندل قبل)
+   // **شرط اول: شکست ابر کومو (Kumo Breakout)**
+   // قیمت در کندل ۱ باید بالای/پایین ابر باشد، در حالی که در کندل ۲ اینطور نبوده است. این یعنی "کراس".
+   bool is_kumo_breakout_long = close[0] > MathMax(ssa[0], ssb[0]) && close[1] <= MathMax(ssa[1], ssb[1]);
+   bool is_kumo_breakout_short = close[0] < MathMin(ssa[0], ssb[0]) && close[1] >= MathMin(ssa[1], ssb[1]);
 
-   // شرط‌های سیگنال خرید: breakout بالای ابر، ابر آینده صعودی، چیکو بالای قیمت و فضای باز
-   bool long_cond1 = close[0] > MathMax(ssa[0], ssb[0]) && close[1] <= MathMax(ssa[1], ssb[1]); // شرط breakout: این کندل بالای ابره ولی کندل قبلی نبوده
-   bool long_cond2 = future_ssa[0] > future_ssb[0]; // ابر آینده صعودی است
-   bool long_cond3 = chikou_value > chikou_compare_price[0]; // چیکو بالای قیمت ۲۶ کندل قبل است
-   bool long_cond4 = chikou_value > ArrayMaximum(past_highs, 0, WHOLE_ARRAY); // فضای باز: چیکو بالاتر از تمام سقف‌های گذشته است
-   if (long_cond1 && long_cond2 && long_cond3 && long_cond4)
+   // **شرط دوم: تایید ابر آینده (Future Kumo Confirmation)**
+   // ابر آینده که بر اساس دیتای کندل ۰ محاسبه شده، باید هم‌جهت با شکست باشد.
+   bool is_future_kumo_bullish = future_ssa[0] > future_ssb[0];
+   bool is_future_kumo_bearish = future_ssa[0] < future_ssb[0];
+
+   // **شرط سوم: تایید چیکو اسپن (Chikou Span Confirmation)**
+   // مقدار چیکو (که قیمت بسته شدن کندل ۱ است) باید بالاتر/پایین‌تر از قیمت ۲۶ کندل قبل از خودش باشد.
+   double chikou_value = close[0];
+   if(CopyClose(symbol, Inp_Kensei_Timeframe, 1 + Inp_Kensei_Kijun, 1, chikou_compare_price) < 1) { LogError("کنسی: خطا در کپی قیمت گذشته برای مقایسه چیکو در " + symbol); return SIGNAL_NONE; }
+   bool is_chikou_confirm_long = chikou_value > chikou_compare_price[0];
+   bool is_chikou_confirm_short = chikou_value < chikou_compare_price[0];
+
+   // **شرط چهارم: فیلتر فضای باز چیکو (Chikou Open Space Filter)**
+   // مسیر حرکت چیکو نباید با قیمت‌های اخیر مسدود شده باشد.
+   if(CopyHigh(symbol, Inp_Kensei_Timeframe, 1 + Inp_Kensei_Kijun, Inp_Kensei_Chikou_OpenSpace, past_highs) != Inp_Kensei_Chikou_OpenSpace) { LogError("خطا در کپی High برای فضای باز چیکو در " + symbol); return SIGNAL_NONE; }
+   if(CopyLow(symbol, Inp_Kensei_Timeframe, 1 + Inp_Kensei_Kijun, Inp_Kensei_Chikou_OpenSpace, past_lows) != Inp_Kensei_Chikou_OpenSpace) { LogError("خطا در کپی Low برای فضای باز چیکو در " + symbol); return SIGNAL_NONE; }
+   bool is_chikou_open_space_long = chikou_value > ArrayMaximum(past_highs, 0, WHOLE_ARRAY);
+   bool is_chikou_open_space_short = chikou_value < ArrayMinimum(past_lows, 0, WHOLE_ARRAY);
+
+   // --- بخش ۵: تصمیم‌گیری نهایی ---
+   // اگر تمام ۴ شرط برای خرید برقرار باشند، سیگنال خرید صادر می‌شود.
+   if(is_kumo_breakout_long && is_future_kumo_bullish && is_chikou_confirm_long && is_chikou_open_space_long)
    {
-      LogSignal(symbol, "کنسی", "خرید"); // لاگ سیگنال
+      LogSignal(symbol, "کنسی", "خرید");
       return SIGNAL_LONG;
    }
 
-   // شرط‌های فروش: breakout پایین ابر، ابر نزولی، چیکو پایین قیمت و فضای باز
-   bool short_cond1 = close[0] < MathMin(ssa[0], ssb[0]) && close[1] >= MathMin(ssa[1], ssb[1]); // شرط breakout فروش
-   bool short_cond2 = future_ssa[0] < future_ssb[0]; // ابر آینده نزولی است
-   bool short_cond3 = chikou_value < chikou_compare_price[0]; // چیکو پایین‌تر از قیمت ۲۶ کندل قبل
-   bool short_cond4 = chikou_value < ArrayMinimum(past_lows, 0, WHOLE_ARRAY); // فضای باز: چیکو پایین‌تر از تمام کف‌های گذشته
-   if (short_cond1 && short_cond2 && short_cond3 && short_cond4)
+   // اگر تمام ۴ شرط برای فروش برقرار باشند، سیگنال فروش صادر می‌شود.
+   if(is_kumo_breakout_short && is_future_kumo_bearish && is_chikou_confirm_short && is_chikou_open_space_short)
    {
       LogSignal(symbol, "کنسی", "فروش");
       return SIGNAL_SHORT;
    }
-   
-   Log("بدون سیگنال در کنسی برای " + symbol); // اگر هیچ شرطی برقرار نبود
+
+   // اگر هیچ‌کدام از شرایط بالا برقرار نبود، هیچ سیگنالی وجود ندارد.
+   Log("بدون سیگنال در کنسی برای " + symbol);
    return SIGNAL_NONE;
 }
 
-// تابع ManageKenseiExit: مدیریت خروج برای کنسی - به‌روزرسانی SL دینامیک
+
+//==================================================================================================
+// تابع مدیریت خروج برای معاملات باز موتور کنسی
+// این تابع مسئولیت حد ضرر متحرک (Trailing Stop) را بر عهده دارد.
+//==================================================================================================
 void ManageKenseiExit(ulong ticket, int ichi_handle)
 {
+   // لاگ شروع عملیات برای پیگیری
    Log("شروع مدیریت خروج کنسی برای تیکت: " + IntegerToString(ticket));
-   if (!PositionSelectByTicket(ticket)) { LogError("خطا در انتخاب پوزیشن برای خروج کنسی"); return; }
-   
-   string symbol = PositionGetString(POSITION_SYMBOL);
-   long type = PositionGetInteger(POSITION_TYPE);
-   
-   // فقط برای خروج دینامیک این منطق اجرا می‌شود
-   if (Inp_ExitLogic == EXIT_DYNAMIC)
+
+   // انتخاب پوزیشن با تیکت داده شده برای دسترسی به اطلاعات آن
+   if(!PositionSelectByTicket(ticket))
    {
-      if (ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو نامعتبر برای خروج در " + symbol); return; }
-      
+      LogError("خطا در انتخاب پوزیشن برای خروج کنسی با تیکت: " + (string)ticket);
+      return;
+   }
+
+   // این منطق فقط زمانی اجرا می‌شود که کاربر در تنظیمات، خروج "دینامیک" را انتخاب کرده باشد.
+   if(Inp_ExitLogic == EXIT_DYNAMIC)
+   {
+      // دریافت اطلاعات لازم از پوزیشن باز
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      long type = PositionGetInteger(POSITION_TYPE);
+
+      // اعتبارسنجی هندل ایچیموکو
+      if(ichi_handle == INVALID_HANDLE) { LogError("هندل ایچیموکو برای خروج دینامیک در " + symbol + " نامعتبر است."); return; }
+
+      // دریافت مقدار کیجون-سن از کندل تثبیت‌شده قبلی (ایندکس ۱)
       double kijun[1];
-      // گرفتن مقدار کیجون سن برای کندل قبلی
-      if (CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("خطا در کپی کیجون برای خروج در " + symbol); return; }
-      
-      double current_sl = PositionGetDouble(POSITION_SL); // SL فعلی پوزیشن
-      double new_sl = kijun[0]; // SL جدید بر اساس کیجون
-      
-      bool modify = false; // فلگ برای اینکه آیا نیاز به تغییر هست یا نه
-      
-      // برای پوزیشن خرید، SL فقط باید بالا برود
-      if (type == POSITION_TYPE_BUY && new_sl > current_sl) 
+      if(CopyBuffer(ichi_handle, 1, 1, 1, kijun) <= 0) { LogError("خطا در کپی کیجون برای خروج در " + symbol); return; }
+
+      // دریافت حد ضرر فعلی پوزیشن
+      double current_sl = PositionGetDouble(POSITION_SL);
+      // حد ضرر جدید پیشنهادی بر اساس کیجون-سن
+      double new_sl = kijun[0];
+
+      bool modify_position = false; // یک پرچم برای اینکه آیا نیاز به تغییر پوزیشن هست یا نه
+
+      // منطق حد ضرر متحرک:
+      // برای یک معامله خرید (Long)، حد ضرر فقط باید به سمت بالا حرکت کند و هرگز پایین نمی‌آید.
+      if(type == POSITION_TYPE_BUY && new_sl > current_sl)
       {
-         modify = true;
+         modify_position = true;
       }
-      // برای پوزیشن فروش، SL فقط باید پایین بیاید (و صفر نباشد)
-      else if (type == POSITION_TYPE_SELL && new_sl < current_sl && new_sl > 0) 
+      // برای یک معامله فروش (Short)، حد ضرر فقط باید به سمت پایین حرکت کند.
+      else if(type == POSITION_TYPE_SELL && new_sl < current_sl && new_sl > 0)
       {
-         modify = true;
+         modify_position = true;
       }
-      
-      if (modify)
+
+      // اگر نیاز به تغییر حد ضرر بود
+      if(modify_position)
       {
+         Log("تلاش برای به‌روزرسانی SL دینامیک برای تیکت " + (string)ticket + " از " + DoubleToString(current_sl, _Digits) + " به " + DoubleToString(new_sl, _Digits));
          CTrade trade;
-         // تغییر پوزیشن با SL جدید
-         if (trade.PositionModify(ticket, new_sl, PositionGetDouble(POSITION_TP)))
-            Log("به‌روزرسانی SL دینامیک برای تیکت " + IntegerToString(ticket) + " به " + DoubleToString(new_sl, _Digits));
-         else 
-            LogError("خطا در تغییر SL دینامیک برای تیکت " + IntegerToString(ticket) + ": " + IntegerToString(trade.ResultRetcode()));
-      }
-      else
-      {
-         Log("تغییر SL دینامیک لازم نیست برای تیکت " + IntegerToString(ticket) + ". کیجون سن هنوز به حد مطلوب نرسیده.");
+         // ارسال درخواست تغییر پوزیشن به سرور
+         if(trade.PositionModify(ticket, new_sl, PositionGetDouble(POSITION_TP)))
+            Log("SL دینامیک برای تیکت " + (string)ticket + " با موفقیت به‌روزرسانی شد.");
+         else
+            LogError("خطا در تغییر SL دینامیک برای تیکت " + (string)ticket + ": " + (string)trade.ResultRetcode() + " - " + trade.ResultComment());
       }
    }
-   else if (Inp_ExitLogic == EXIT_RRR)
+   // اگر منطق خروج بر اساس RRR باشد، هیچ کاری در اینجا انجام نمی‌شود.
+   // چون حد سود و ضرر از ابتدا ثابت تنظیم شده و توسط سرور بروکر مدیریت می‌شود.
+   else if(Inp_ExitLogic == EXIT_RRR)
    {
-      // برای خروج RRR، حد سود و ضرر از قبل تنظیم شده و توسط سرور مدیریت می‌شود.
-      // نیازی به اقدام در اینجا نیست.
-      Log("خروج RRR برای کنسی فعال است. مدیریت توسط سرور انجام می‌شود. تیکت: " + IntegerToString(ticket));
+      Log("خروج RRR برای کنسی فعال است. مدیریت توسط سرور انجام می‌شود. تیکت: " + (string)ticket);
    }
-   
-   Log("پایان مدیریت خروج کنسی برای تیکت: " + IntegerToString(ticket));
+
+   Log("پایان مدیریت خروج کنسی برای تیکت: " + (string)ticket);
 }
 
-// پایان گارد
+// پایان گارد پیش‌پردازنده
 #endif
+
 
 
 // Logging.mqh
