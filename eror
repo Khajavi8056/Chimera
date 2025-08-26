@@ -716,3 +716,216 @@ void SessionCleanUp(int session_magic_base)
 }
 
 #endif //TRADEMANAGER_MQH
+
+
+//+------------------------------------------------------------------+
+//|                                             IntradayAlpha_EA.mq5 |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION <<             |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+#property version   "2.00" // نسخه ۲.۰ با معماری جدید
+#property strict
+
+//--- کتابخانه‌های پروژه را به فایل اصلی اضافه می‌کنیم.
+#include <Settings.mqh>     // کتابخانه تنظیمات ورودی کاربر.
+#include <RangeLib.mqh>     // کتابخانه تحلیل و اعتبارسنجی محدوده.
+#include <TradeManager.mqh> // کتابخانه مدیریت معاملات و ریسک.
+
+//+------------------------------------------------------------------+
+//| Global Variables                                                 |
+//+------------------------------------------------------------------+
+
+//--- متغیرهای وضعیت روزانه برای هر جلسه (سیستم جدید و قوی)
+//--- به جای یک bool ساده، تاریخ آخرین تحلیل موفق را برای هر جلسه ذخیره می‌کنیم.
+//--- این کار تضمین می‌کند که در صورت ری‌استارت شدن اکسپرت، تحلیل برای یک روز دوباره انجام نشود.
+datetime g_S1_LastAnalysisDate = 0;
+datetime g_S2_LastAnalysisDate = 0;
+datetime g_S3_LastAnalysisDate = 0;
+datetime g_S4_LastAnalysisDate = 0;
+
+//--- هندل‌های اندیکاتور برای افزایش سرعت (بهترین شیوه)
+//--- به جای فراخوانی مستقیم توابع iMA/iATR، هندل آن‌ها را یک بار در OnInit می‌سازیم.
+int g_ema_handle = INVALID_HANDLE;         // هندل برای اندیکاتور EMA فیلتر روند.
+int g_range_atr_handle = INVALID_HANDLE;   // هندل برای اندیکاتور ATR اعتبارسنجی محدوده.
+int g_trail_atr_handle = INVALID_HANDLE;   // هندل برای اندیکاتور ATR حد ضرر متحرک.
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+//--- این تابع یک بار در زمان اجرای اکسپرت فراخوانی می‌شود.
+int OnInit()
+{
+    //--- ایجاد هندل برای اندیکاتور EMA فیلتر روند.
+    g_ema_handle = iMA(_Symbol, InpTrendEMATimeFrame, InpTrendEMAPeriod, 0, MODE_EMA, InpTrendEMAAppliedPrice);
+    if(g_ema_handle == INVALID_HANDLE)
+    {
+        Print("خطا در ایجاد هندل EMA. کد خطا: ", GetLastError());
+        return(INIT_FAILED); // اگر هندل ایجاد نشود، اکسپرت متوقف می‌شود.
+    }
+
+    //--- ایجاد هندل برای اندیکاتور ATR اعتبارسنجی محدوده.
+    g_range_atr_handle = iATR(_Symbol, InRangeATR_TimeFrame, InRangeATR_Period);
+    if(g_range_atr_handle == INVALID_HANDLE)
+    {
+        Print("خطا در ایجاد هندل Range ATR. کد خطا: ", GetLastError());
+        return(INIT_FAILED);
+    }
+    
+    //--- ایجاد هندل برای اندیکاتور ATR حد ضرر متحرک.
+    g_trail_atr_handle = iATR(_Symbol, InpTrailingStopATRTimeFrame, InpTrailingStopATRPeriod);
+     if(g_trail_atr_handle == INVALID_HANDLE)
+    {
+        Print("خطا در ایجاد هندل Trailing ATR. کد خطا: ", GetLastError());
+        return(INIT_FAILED);
+    }
+
+    //--- یک تایمر تنظیم می‌کنیم که هر 60 ثانیه یک بار تابع OnTimer را فراخوانی کند.
+    //--- این کار بار پردازشی را نسبت به اجرای منطق در هر تیک، به شدت کاهش می‌دهد.
+    EventSetTimer(60);
+    
+    //--- اگر همه چیز موفقیت‌آمیز بود، به متاتریدر اعلام می‌کنیم.
+    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+//--- این تابع زمانی که اکسپرت از روی چارت حذف می‌شود، فراخوانی می‌شود.
+void OnDeinit(const int reason)
+{
+    //--- تایمری که ساخته بودیم را از بین می‌بریم تا منابع سیستم آزاد شود.
+    EventKillTimer();
+    
+    //--- تمام هندل‌های اندیکاتوری که ایجاد کرده بودیم را آزاد می‌کنیم.
+    IndicatorRelease(g_ema_handle);
+    IndicatorRelease(g_range_atr_handle);
+    IndicatorRelease(g_trail_atr_handle);
+    
+    //--- تمام اشیاء گرافیکی که با پیشوند "Range_" شروع می‌شوند را از روی چارت پاک می‌کنیم.
+    ObjectsDeleteAll(0, "Range_");
+}
+
+//+------------------------------------------------------------------+
+//| Process Session Function                                         |
+//+------------------------------------------------------------------+
+//--- این تابع واحد، تمام منطق تحلیل برای یک جلسه را در خود دارد تا از تکرار کد جلوگیری شود (اصل DRY).
+void ProcessSession(datetime &last_analysis_date, bool is_active, int start_h, int start_m, int end_h, int end_m, int magic)
+{
+    //--- دروازه اول: اگر جلسه غیرفعال است یا برای امروز قبلاً تحلیل شده، از تابع خارج شو.
+    if (!is_active || TimeDay(last_analysis_date) == TimeDay(TimeCurrent())) return;
+
+    //--- محدوده را با استفاده از کتابخانه RangeLib تحلیل و اعتبارسنجی کن.
+    RangeData rd = IdentifyAndValidateRange(start_h, start_m, end_h, end_m);
+    
+    //--- اگر محدوده معتبر بود...
+    if (rd.isValid)
+    {
+        //--- محدوده را روی چارت ترسیم کن.
+        DrawRangeOnChart(rd, magic);
+        
+        bool is_trend_on = InpTrendFilterIsOn; // وضعیت فیلتر روند را از ورودی‌ها بخوان.
+        bool is_uptrend = false;               // متغیر برای نگهداری جهت روند.
+        
+        //--- اگر فیلتر روند روشن است...
+        if (is_trend_on)
+        {
+            //--- مقدار EMA را از هندلی که در OnInit ساختیم، بخوان (بسیار سریع).
+            double ema_buffer[1];
+            if(CopyBuffer(g_ema_handle, 0, 0, 1, ema_buffer) > 0)
+            {
+                double current_price = SymbolInfoDouble(_Symbol, SYMBOL_BID); // قیمت فعلی بازار.
+                is_uptrend = current_price > ema_buffer[0]; // جهت روند را مشخص کن.
+            }
+        }
+        
+        //--- سفارشات پندینگ را با استفاده از کتابخانه TradeManager ثبت کن.
+        PlacePendingOrders(magic, is_trend_on, is_uptrend, rd);
+        
+        //--- تاریخ آخرین تحلیل موفق برای این جلسه را آپدیت کن تا امروز دوباره تحلیل نشود.
+        last_analysis_date = TimeCurrent();
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Timer function                                                   |
+//+------------------------------------------------------------------+
+//--- این تابع هر 60 ثانیه یک بار توسط تایمری که در OnInit تنظیم کردیم، فراخوانی می‌شود.
+void OnTimer()
+{
+    //--- پردازش هر چهار جلسه با استفاده از تابع واحد ProcessSession.
+    ProcessSession(g_S1_LastAnalysisDate, InpS1_IsActive, InpS1_StartTime_Hour, InpS1_StartTime_Minute, InpS1_EndTime_Hour, InpS1_EndTime_Minute, S1_MagicNumber);
+    ProcessSession(g_S2_LastAnalysisDate, InpS2_IsActive, InpS2_StartTime_Hour, InpS2_StartTime_Minute, InpS2_EndTime_Hour, InpS2_EndTime_Minute, S2_MagicNumber);
+    ProcessSession(g_S3_LastAnalysisDate, InpS3_IsActive, InpS3_StartTime_Hour, InpS3_StartTime_Minute, InpS3_EndTime_Hour, InpS3_EndTime_Minute, S3_MagicNumber);
+    ProcessSession(g_S4_LastAnalysisDate, InpS4_IsActive, InpS4_StartTime_Hour, InpS4_StartTime_Minute, InpS4_EndTime_Hour, InpS4_EndTime_Minute, S4_MagicNumber);
+
+    //--- در هر دقیقه، وضعیت انقضای هر جلسه را نیز بررسی می‌کنیم.
+    MqlDateTime now_struct;
+    TimeToStruct(TimeCurrent(), now_struct);
+    
+    if (now_struct.hour == InpS1_ExpiryTime_Hour && now_struct.min == InpS1_ExpiryTime_Minute && InpS1_IsActive) SessionCleanUp(S1_MagicNumber);
+    if (now_struct.hour == InpS2_ExpiryTime_Hour && now_struct.min == InpS2_ExpiryTime_Minute && InpS2_IsActive) SessionCleanUp(S2_MagicNumber);
+    if (now_struct.hour == InpS3_ExpiryTime_Hour && now_struct.min == InpS3_ExpiryTime_Minute && InpS3_IsActive) SessionCleanUp(S3_MagicNumber);
+    if (now_struct.hour == InpS4_ExpiryTime_Hour && now_struct.min == InpS4_ExpiryTime_Minute && InpS4_IsActive) SessionCleanUp(S4_MagicNumber);
+}
+
+//+------------------------------------------------------------------+
+//| Tick function                                                    |
+//+------------------------------------------------------------------+
+//--- این تابع با هر تغییر قیمت (تیک) فراخوانی می‌شود و فقط برای کارهای حساس به قیمت مثل ترلینگ استاپ استفاده می‌شود.
+void OnTick()
+{
+    //--- در تمام پوزیشن‌های باز می‌گردیم.
+    for (int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        //--- اگر پوزیشن با موفقیت انتخاب شد...
+        if (PositionSelectByIndex(i))
+        {
+            //--- مجیک نامبر آن را می‌خوانیم.
+            long magic = PositionGetInteger(POSITION_MAGIC);
+            //--- چک می‌کنیم که آیا مجیک نامبر مربوط به یکی از جلسات ماست یا نه.
+            if (magic == S1_MagicNumber || magic == S1_MagicNumber + 1 ||
+                magic == S2_MagicNumber || magic == S2_MagicNumber + 1 ||
+                magic == S3_MagicNumber || magic == S3_MagicNumber + 1 ||
+                magic == S4_MagicNumber || magic == S4_MagicNumber + 1)
+            {
+                //--- اگر بود، تابع مدیریت معامله را برای آن فراخوانی می‌کنیم.
+                //--- مجیک نامبر پایه را به تابع پاس می‌دهیم.
+                if (magic % 10 == 1) ManageActiveTrade(PositionGetInteger(POSITION_TICKET), (int)magic);
+                if (magic % 10 == 2) ManageActiveTrade(PositionGetInteger(POSITION_TICKET), (int)magic-1);
+            }
+        }
+    }
+}
+
+
+//+------------------------------------------------------------------+
+//| TradeTransaction function                                        |
+//+------------------------------------------------------------------+
+//--- این تابع با هر رویداد معاملاتی (مثل باز شدن، بسته شدن یا اصلاح معامله) فراخوانی می‌شود.
+//--- ما از این تابع برای مدیریت قوی و قابل اعتماد OCO (یکی دیگری را کنسل می‌کند) استفاده می‌کنیم.
+void OnTradeTransaction(const MqlTradeTransaction& trans, const MqlTradeRequest& request, const MqlTradeResult& result)
+{
+    //--- فقط به رویدادهایی که یک معامله (deal) جدید به تاریخچه اضافه می‌کنند، علاقه‌مندیم.
+    if (trans.type == TRADE_TRANSACTION_DEAL_ADD)
+    {
+        //--- اگر نوع معامله، ورود به بازار (DEAL_ENTRY_IN) بود، یعنی یک سفارش پندینگ فعال شده است.
+        if (trans.deal_type == DEAL_ENTRY_IN)
+        {
+            //--- مجیک نامبر معامله‌ای که همین الان باز شده را می‌گیریم.
+            long magic = trans.magic;
+            
+            //--- حالا در تمام سفارشات پندینگ باز می‌گردیم.
+            for (int i = OrdersTotal() - 1; i >= 0; i--)
+            {
+                //--- اگر سفارشی با همان مجیک نامبر پیدا کردیم...
+                if (OrderSelect(i) && OrderGetInteger(ORDER_MAGIC) == magic)
+                {
+                    //--- آن را حذف می‌کنیم، چون این سفارش مخالف بوده است.
+                    trade.OrderDelete(OrderGetInteger(ORDER_TICKET));
+                }
+            }
+        }
+    }
+}
