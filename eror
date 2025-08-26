@@ -1,4 +1,152 @@
 //+------------------------------------------------------------------+
+//| Function to Manage Active Trade (FINAL CORRECTED VERSION)        |
+//+------------------------------------------------------------------+
+bool ManageActiveTrade(ulong ticket,int session_magic_base)
+  {
+   //--- ابتدا چک می‌کنیم که پوزیشن با این تیکت هنوز در بازار وجود دارد یا نه.
+   if(!PositionSelectByTicket(ticket)) return false;
+
+   //--- مجیک نامبر فعلی پوزیشن را می‌خوانیم تا مطمئن شویم مربوط به این جلسه است.
+   long current_magic = PositionGetInteger(POSITION_MAGIC);
+   if(current_magic != session_magic_base) return false;
+
+   //--- اگر خروج پله‌ای غیرفعال است، این تابع هیچ کاری برای انجام دادن ندارد
+   if(!InpEnablePartialClose) return false;
+
+   double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
+   double current_sl = PositionGetDouble(POSITION_SL);
+   double volume = PositionGetDouble(POSITION_VOLUME);
+   ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+
+   // --- منطق مرحله اول (Stage 1): رسیدن به هدف اولیه و بستن بخشی از معامله ---
+   bool is_stage1 = (pos_type == POSITION_TYPE_BUY && current_sl < entry_price - _Point * 10) ||
+                    (pos_type == POSITION_TYPE_SELL && current_sl > entry_price + _Point * 10);
+   if(is_stage1)
+     {
+      double sl_distance_price = MathAbs(entry_price - current_sl);
+      double target_price = (pos_type == POSITION_TYPE_BUY) ? entry_price + sl_distance_price * InpTakeProfitRatio_Stage1 :
+                            entry_price - sl_distance_price * InpTakeProfitRatio_Stage1;
+
+      double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol,SYMBOL_BID) :
+                             SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+
+      if((pos_type == POSITION_TYPE_BUY && current_price >= target_price) ||
+         (pos_type == POSITION_TYPE_SELL && current_price <= target_price))
+        {
+         // --- محاسبه حجم دقیق و استاندارد برای بستن ---
+         double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+         double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+         double volume_to_close_raw = volume * (InpPartialClosePercentage / 100.0);
+         double close_volume = MathRound(volume_to_close_raw / lot_step) * lot_step;
+
+         // اگر حجم باقی‌مانده کمتر از حداقل حجم مجاز بروکر می‌شود، کل پوزیشن را ببند
+         if(volume - close_volume < min_lot && volume > min_lot)
+           {
+            close_volume = volume;
+           }
+
+         if(close_volume >= min_lot)
+           {
+            PrintFormat("تلاش برای بستن %.2f لات از پوزیشن %d در قیمت %.5f", close_volume, ticket, current_price);
+            if(trade.PositionClose(ticket,close_volume))
+              {
+               PrintFormat("موفقیت! پوزیشن %d به صورت پله‌ای بسته شد. انتقال SL به نقطه ورود...", ticket);
+               // اگر هنوز حجمی باقی مانده، SL را منتقل کن
+               if(PositionSelectByTicket(ticket))
+                 {
+                  trade.PositionModify(ticket,entry_price,0);
+                 }
+               return true; // عملیات موفق بود
+              }
+            else
+              {
+               PrintFormat("!!! شکست در بستن پوزیشن %d | کد خطا: %d | پیام سرور: %s", ticket, trade.ResultRetcode(), trade.ResultComment());
+               return false; // عملیات شکست خورد
+              }
+           }
+        }
+     }
+
+   // --- منطق مرحله دوم (Stage 2): حد ضرر متحرک (Trailing Stop) ---
+   bool is_stage2 = (pos_type == POSITION_TYPE_BUY && current_sl >= entry_price - _Point) || // SL در نقطه ورود یا بهتر است
+                    (pos_type == POSITION_TYPE_SELL && current_sl <= entry_price + _Point);   // SL در نقطه ورود یا بهتر است
+   if(is_stage2)
+     {
+      double atr_buffer[1];
+      if(CopyBuffer(g_trail_atr_handle,0,1,1,atr_buffer) !=1) return false;
+      double trail_offset = atr_buffer[0] * InpTrailingStopATRMultiplier;
+
+      if(pos_type == POSITION_TYPE_BUY)
+        {
+         double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_BID) - trail_offset;
+         if(new_sl > current_sl)
+           {
+            trade.PositionModify(ticket,new_sl,0);
+            return true; // عملیات موفق بود
+           }
+        }
+      else
+        {
+         double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_ASK) + trail_offset;
+         if(new_sl < current_sl)
+           {
+            trade.PositionModify(ticket,new_sl,0);
+            return true; // عملیات موفق بود
+           }
+        }
+     }
+     
+   return false; // هیچ عملیاتی در این تیک انجام نشد
+  }
+
+
+
+
+
+
+
+//+------------------------------------------------------------------+
+//| Tick function (FINAL CORRECTED VERSION)                          |
+//+------------------------------------------------------------------+
+void OnTick()
+  {
+   //--- در تمام پوزیشن‌های باز می‌گردیم.
+   for(int i=PositionsTotal()-1; i>=0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      // PositionSelectByTicket در خود تابع ManageActiveTrade انجام می‌شود
+      if(ticket > 0)
+        {
+         long magic = PositionGetInteger(POSITION_MAGIC);
+
+         bool managed = false;
+         if(magic == S1_MagicNumber) managed = ManageActiveTrade(ticket,S1_MagicNumber);
+         else if(magic == S2_MagicNumber) managed = ManageActiveTrade(ticket,S2_MagicNumber);
+         else if(magic == S3_MagicNumber) managed = ManageActiveTrade(ticket,S3_MagicNumber);
+         else if(magic == S4_MagicNumber) managed = ManageActiveTrade(ticket,S4_MagicNumber);
+         
+         // اگر یک عملیات موفق (مثل بستن پله‌ای یا ترلینگ) روی یک پوزیشن انجام شد،
+         // از حلقه خارج شو و منتظر تیک بعدی بمان. این کار بهینگی را افزایش می‌دهد.
+         if(managed)
+           {
+            break;
+           }
+        }
+     }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+//+------------------------------------------------------------------+
 //|                                                   Settings.mqh |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
 //|                                             https://...        |
