@@ -346,167 +346,240 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &
 
 
 //+------------------------------------------------------------------+
-//|                                                    RangeLib.mqh |
+//|                                                 TradeManager.mqh |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
 //|                          >> FINAL REVISED VERSION <<             |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
 #property link      "https://..."
 
-//--- این گارد از include شدن چندباره فایل در پروژه جلوگیری می‌کند که یک استاندارد برنامه‌نویسی برای جلوگیری از خطاهای کامپایل است.
-#ifndef RANGELIB_MQH
-#define RANGELIB_MQH
+//--- گارد برای جلوگیری از include شدن چندباره.
+#ifndef TRADEMANAGER_MQH
+#define TRADEMANAGER_MQH
 
 #include "Settings.mqh"     // کتابخانه تنظیمات ورودی کاربر.
+#include "RangeLib.mqh"     // کتابخانه تحلیل و اعتبارسنجی محدوده (شامل struct RangeData).
+#include <Trade\Trade.mqh>  // کتابخانه استاندارد و قدرتمند MQL5 برای انجام تمام عملیات معاملاتی.
+CTrade trade;               // یک نمونه سراسری از کلاس CTrade برای ارسال، اصلاح و بستن سفارشات ایجاد می‌کنیم.
 
-//--- متغیرهای جهانی از فایل اصلی (hipobreck.mq5) برای دسترسی به هندل‌های اندیکاتورها. این کار بهینه‌سازی عملکرد را افزایش می‌دهد زیرا هندل‌ها یک بار ساخته می‌شوند.
-extern int g_range_atr_handle; // هندل ATR برای اعتبارسنجی محدوده.
+//--- متغیرهای جهانی از فایل اصلی (hipobreck.mq5) برای دسترسی به هندل‌های اندیکاتورها.
+extern int g_trail_atr_handle; // هندل ATR برای حد ضرر متحرک.
 
 //+------------------------------------------------------------------+
-//| STRUCT for Range Data                                            |
+//| Function to Calculate Lot Size                                   |
 //+------------------------------------------------------------------+
-//--- این ساختار (struct) مثل یک ظرف سفارشی برای نگهداری تمام اطلاعات مربوط به یک محدوده عمل می‌کند.
-//--- این کار به جای استفاده از چندین متغیر جداگانه، کد را بسیار تمیزتر و خواناتر می‌کند.
-struct RangeData
+//--- این تابع، حجم معامله (Lot Size) را بر اساس درصد ریسک مشخص شده و فاصله حد ضرر (به پیپ) محاسبه می‌کند.
+//--- این سنگ بنای مدیریت سرمایه ماست و تضمین می‌کند که ریسک هر معامله ثابت و کاملاً تحت کنترل باشد.
+double CalculateLotSize(double risk_percent,double stop_loss_pips)
   {
-   double            rangeHigh;      // بالاترین قیمت شناسایی شده در بازه زمانی.
-   double            rangeLow;       // پایین‌ترین قیمت شناسایی شده در بازه زمانی.
-   bool              isValid;        // یک پرچم (flag) که نشان می‌دهد آیا محدوده پس از اعتبارسنجی، معتبر است یا نه.
-   datetime          startTime;      // زمان شروع دقیق بازه به فرمت datetime برای استفاده در محاسبات و ترسیم.
-   datetime          endTime;        // زمان پایان دقیق بازه به فرمت datetime.
-   double            rangeSizePips;  // اندازه محدوده به پیپ (برای استفاده‌های بعدی و لاگ‌گیری).
-  };
+   //--- یک شرط ایمنی: اگر استاپ لاس صفر یا منفی باشد، حجم معامله باید صفر باشد تا از خطای تقسیم بر صفر جلوگیری شود.
+   if(stop_loss_pips <= 0) return 0.0;
 
-//+------------------------------------------------------------------+
-//| Function to Identify and Validate Range                          |
-//+------------------------------------------------------------------+
-//--- این تابع، قلب تپنده این کتابخانه است. وظیفه آن شناسایی، اعتبارسنجی و برگرداندن داده‌های محدوده برای یک جلسه مشخص است.
-//--- منطق زمان‌بندی آن به طور کامل بازنویسی شده تا بسیار قوی و قابل اعتماد باشد و تمام شرایط خاص را مدیریت کند.
-RangeData IdentifyAndValidateRange(int start_hour,int start_min,int end_hour,int end_min)
-  {
-   //--- یک نمونه از ساختار RangeData ایجاد می‌کنیم تا اطلاعات را در آن ذخیره کنیم.
-   RangeData rd;
-   //--- به صورت پیش‌فرض، محدوده را نامعتبر (isValid = false) در نظر می‌گیریم. تنها در صورتی true می‌شود که تمام شرایط را با موفقیت پاس کند.
-   rd.isValid = false;
+   //--- از Equity حساب استفاده می‌کنیم که شامل سود و ضرر معاملات باز است و معیار دقیق‌تری از سرمایه واقعی ماست.
+   double account_equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   //--- مبلغ دلاری که مجاز به ریسک کردن آن هستیم را محاسبه می‌کنیم.
+   double risk_amount = account_equity * (risk_percent / 100.0);
 
-   // === بخش اول: محاسبه دقیق بازه زمانی (منطق جدید و قوی) ===
-   datetime now = TimeCurrent(); // زمان فعلی سرور را می‌گیریم.
-   MqlDateTime now_struct;       // یک ساختار MqlDateTime برای شکستن زمان به اجزای آن (سال، ماه، روز، ساعت و...) ایجاد می‌کنیم.
-   TimeToStruct(now,now_struct); // زمان فعلی را به ساختار تبدیل می‌کنیم.
+   //--- اطلاعات لازم از نماد معاملاتی را برای محاسبه دقیق ارزش هر پیپ دریافت می‌کنیم.
+   double tick_value = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE);
+   double tick_size = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_SIZE);
 
-   // 1. ساخت زمان پایان (EndTime) برای روز معاملاتی جاری بر اساس ورودی‌های کاربر.
-   MqlDateTime end_dt_struct = now_struct; // ساختار پایان را از روی ساختار زمان فعلی کپی می‌کنیم.
-   end_dt_struct.hour = end_hour;          // ساعت آن را با ورودی کاربر جایگزین می‌کنیم.
-   end_dt_struct.min = end_min;            // دقیقه آن را با ورودی کاربر جایگزین می‌کنیم.
-   end_dt_struct.sec = 0;                  // ثانیه را صفر می‌کنیم تا محاسبات دقیق باشد.
-   datetime end_time = StructToTime(end_dt_struct); // ساختار را دوباره به فرمت datetime تبدیل می‌کنیم.
+   //--- شرط ایمنی: اگر اطلاعات نماد در دسترس نباشد، حجم را صفر برمی‌گردانیم.
+   if(tick_value <= 0 || tick_size <= 0) return 0.0;
 
-   // 2. ساخت زمان شروع (StartTime) برای روز معاملاتی جاری.
-   MqlDateTime start_dt_struct = now_struct; // مشابه بالا برای زمان شروع.
-   start_dt_struct.hour = start_hour;
-   start_dt_struct.min = start_min;
-   start_dt_struct.sec = 0;
-   datetime start_time = StructToTime(start_dt_struct);
+   //--- ارزش هر پیپ را برای یک لات استاندارد محاسبه می‌کنیم.
+   double value_per_pip = tick_value / tick_size;
+   if(value_per_pip <= 0) return 0.0; // شرط ایمنی دیگر.
 
-   // 3. مدیریت هوشمند جلسات شبانه (Overnight Sessions)
-   //--- اگر ساعت شروع بزرگتر از ساعت پایان باشد، یعنی جلسه از نیمه‌شب عبور می‌کند (مثلاً از 23:00 تا 06:00).
-   if(start_hour > end_hour)
-     {
-      //--- اگر ساعت فعلی، کوچکتر از ساعت پایان جلسه باشد (مثلاً ساعت 02:00 بامداد)،
-      //--- یعنی ما در نیمه دوم جلسه‌ای هستیم که دیروز شروع شده است.
-      if(now_struct.hour < end_hour)
-        {
-         start_time -= 86400; // بنابراین، زمان شروع را به 24 ساعت قبل (دیروز) منتقل می‌کنیم.
-        }
-      else //--- وگرنه، ما در نیمه اول جلسه هستیم و زمان پایان مربوط به فردا است.
-        {
-         end_time += 86400; // زمان پایان را به 24 ساعت بعد (فردا) منتقل می‌کنیم.
-        }
-     }
+   //--- فرمول اصلی محاسبه حجم: مبلغ ریسک تقسیم بر (فاصله استاپ لاس به پیپ * ارزش هر پیپ).
+   double lot_size = risk_amount / (stop_loss_pips * value_per_pip);
 
-   //--- دروازه اصلی زمان‌بندی: اگر زمان فعلی سرور هنوز به پایان بازه تحلیل نرسیده، هیچ کاری نکن و از تابع خارج شو.
-   if(now <= end_time) return rd;
+   //--- حجم محاسبه شده را بر اساس قوانین بروکر (min/max/step lot) گرد و محدود می‌کنیم تا از خطای "invalid volume" جلوگیری شود.
+   double min_lot = SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN);
+   double max_lot = SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MAX);
+   double lot_step = SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_STEP);
 
-   //--- زمان‌های محاسبه شده نهایی را در ساختار ذخیره می‌کنیم.
-   rd.startTime = start_time;
-   rd.endTime = end_time;
+   //--- ابتدا حجم را به نزدیک‌ترین گام لات مجاز گرد می‌کنیم.
+   lot_size = MathRound(lot_size / lot_step) * lot_step;
+   //--- سپس آن را بین حداقل و حداکثر حجم مجاز محدود می‌کنیم.
+   lot_size = MathMax(min_lot,MathMin(max_lot,lot_size));
 
-   // === بخش دوم: پیدا کردن High و Low در بازه زمانی ===
-   //--- با استفاده از iBarShift، ایندکس (شماره کندل از کندل فعلی) مربوط به زمان شروع و پایان را پیدا می‌کنیم.
-   int start_bar_idx = iBarShift(_Symbol,InpRangeTimeFrame,start_time,true); // exact=true برای پیدا کردن دقیق‌ترین کندل.
-   int end_bar_idx = iBarShift(_Symbol,InpRangeTimeFrame,end_time,true);
-
-   //--- اگر MQL5 نتواند ایندکس کندل‌ها را پیدا کند (مثلاً به دلیل نبود داده‌های تاریخی کافی)، تابع را متوقف می‌کنیم.
-   if(start_bar_idx < 0 || end_bar_idx < 0) return rd;
-
-   //--- تعداد کندل‌هایی که باید در این بازه بررسی شوند را محاسبه می‌کنیم.
-   int bars_to_check = start_bar_idx - end_bar_idx + 1;
-   if(bars_to_check <= 0) return rd; // اگر تعداد کندل‌ها معتبر نیست، خارج شو.
-
-   //--- با استفاده از iHighest و iLowest، ایندکس کندلی که بالاترین High و پایین‌ترین Low را در بازه مورد نظر دارد پیدا می‌کنیم.
-   int high_bar_idx = iHighest(_Symbol,InpRangeTimeFrame,MODE_HIGH,bars_to_check,end_bar_idx);
-   int low_bar_idx = iLowest(_Symbol,InpRangeTimeFrame,MODE_LOW,bars_to_check,end_bar_idx);
-
-   //--- مقادیر High و Low را از کندل‌های پیدا شده استخراج می‌کنیم.
-   rd.rangeHigh = iHigh(_Symbol,InpRangeTimeFrame,high_bar_idx);
-   rd.rangeLow = iLow(_Symbol,InpRangeTimeFrame,low_bar_idx);
-
-   // === بخش سوم: اعتبارسنجی اندازه محدوده ===
-   //--- اندازه محدوده را به پوینت (یا پیپ) محاسبه می‌کنیم تا مستقل از تعداد ارقام اعشار نماد باشد.
-   rd.rangeSizePips = (rd.rangeHigh - rd.rangeLow) / _Point;
-
-   //--- بر اساس حالت فیلتر انتخاب شده توسط کاربر، اندازه را اعتبارسنجی می‌کنیم.
-   if(InpRangeFilterMode == MODE_POINTS) // اگر حالت فیلتر بر اساس پوینت ثابت باشد
-     {
-      //--- چک می‌کنیم که آیا اندازه محدوده بین حداقل و حداکثر مجاز تعریف شده قرار دارد یا نه.
-      if(rd.rangeSizePips >= InpMinRangePoints && rd.rangeSizePips <= InpMaxRangePoints)
-         rd.isValid = true; // اگر اندازه در محدوده مجاز بود، پرچم اعتبار را true می‌کنیم.
-     }
-   else // اگر حالت فیلتر بر اساس ATR باشد
-     {
-      //--- مقدار ATR آخرین کندل کامل شده را با استفاده از هندل جهانی می‌خوانیم (بهینه‌سازی عملکرد).
-      double atr_buffer[1];
-      if(CopyBuffer(g_range_atr_handle,0,1,1,atr_buffer) !=1) return rd; // اگر کپی شکست خورد، خارج شو.
-      double atr_value = atr_buffer[0];
-      //--- اگر ATR معتبر بود (بزرگتر از صفر)...
-      if(atr_value > 0)
-        {
-         //--- حداقل و حداکثر اندازه مجاز را بر اساس ضریب‌های ATR محاسبه می‌کنیم.
-         double min_allowed_size = (atr_value * InRangeATR_MinMultiplier) / _Point;
-         double max_allowed_size = (atr_value * InRangeATR_MaxMultiplier) / _Point;
-
-         //--- چک می‌کنیم که آیا اندازه محدوده در محدوده مجاز ATR قرار دارد یا نه.
-         if(rd.rangeSizePips >= min_allowed_size && rd.rangeSizePips <= max_allowed_size)
-            rd.isValid = true; // اگر معتبر بود، پرچم را true می‌کنیم.
-        }
-     }
-
-   //--- در نهایت، ساختار داده را که حالا کامل شده (یا همچنان نامعتبر است)، برمی‌گردانیم.
-   return rd;
+   return lot_size; // حجم نهایی و معتبر را برمی‌گردانیم.
   }
 
 //+------------------------------------------------------------------+
-//| Function to Draw Range on Chart                                  |
+//| Function to Place Pending Orders                                 |
 //+------------------------------------------------------------------+
-//--- این تابع برای نمایش بصری محدوده روی چارت استفاده می‌شود تا کاربر به راحتی بتواند بازه تحلیل را ببیند.
-void DrawRangeOnChart(RangeData &rd,int session_magic)
+//--- این تابع، منطق هوشمند ثبت سفارشات پندینگ را بر اساس وضعیت فیلتر روند پیاده‌سازی می‌کند.
+void PlacePendingOrders(int session_magic_base,bool is_trend_on,bool is_uptrend,RangeData &rd)
   {
-   //--- اگر محدوده نامعتبر است، هیچ چیزی برای ترسیم وجود ندارد، پس از تابع خارج می‌شویم.
-   if(!rd.isValid) return;
+   //--- فاصله حد ضرر اولیه را برای استفاده در محاسبه حجم محاسبه می‌کنیم.
+   double sl_additional_pips = rd.rangeSizePips * (InpStopLossAdditionalPercent / 100.0);
+   double sl_distance_pips = rd.rangeSizePips + sl_additional_pips;
 
-   //--- یک پیشوند منحصر به فرد برای نام اشیاء گرافیکی این جلسه ایجاد می‌کنیم تا با اشیاء جلسات دیگر تداخل نداشته باشند.
-   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
+   //--- حجم معامله را با تابع مدیریت سرمایه محاسبه می‌کنیم.
+   double lot_size = CalculateLotSize(InpRiskPercentage,sl_distance_pips);
+   //--- اگر حجم قابل محاسبه نیست (مثلاً به دلیل استاپ لاس صفر)، هیچ سفارشی ثبت نمی‌کنیم.
+   if(lot_size <= 0) return;
 
-   //--- یک مستطیل برای نمایش بصری محدوده زمانی و قیمتی ایجاد می‌کنیم.
-   ObjectCreate(0,obj_prefix + "Rect",OBJ_RECTANGLE,0,rd.startTime,rd.rangeHigh,rd.endTime,rd.rangeLow);
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_COLOR,clrDarkSlateGray); // رنگ مستطیل.
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_STYLE,STYLE_SOLID);      // استایل خطوط.
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_FILL,true);             // داخل مستطیل را پر می‌کنیم.
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_BACK,true);             // مستطیل را به پس‌زمینه چارت می‌فرستیم تا مزاحم دیدن کندل‌ها نباشد.
+   //--- قیمت‌های دقیق برای ورود (Buy/Sell Stop)، حد ضرر و حد سود را محاسبه می‌کنیم.
+   double buy_stop_price = rd.rangeHigh + InpOrderBufferPoints * _Point;
+   double sell_stop_price = rd.rangeLow - InpOrderBufferPoints * _Point;
+
+   double buy_sl = rd.rangeLow - sl_additional_pips * _Point; // حد ضرر خرید، پایین محدوده + بافر است.
+   double sell_sl = rd.rangeHigh + sl_additional_pips * _Point; // حد ضرر فروش، بالای محدوده + بافر است.
+
+   double buy_tp = 0;  // به صورت پیش‌فرض، حد سود را صفر در نظر می‌گیریم.
+   double sell_tp = 0; // این کار برای حالت خروج پله‌ای است که حد سود ثابتی وجود ندارد.
+
+   //--- اگر خروج پله‌ای توسط کاربر غیرفعال شده باشد، حد سود ثابت را بر اساس نسبت سود به ضرر مرحله اول محاسبه می‌کنیم.
+   if(!InpEnablePartialClose)
+     {
+      buy_tp = buy_stop_price + (buy_stop_price - buy_sl) * InpTakeProfitRatio_Stage1;
+      sell_tp = sell_stop_price - (sell_sl - sell_stop_price) * InpTakeProfitRatio_Stage1;
+     }
+
+   //--- منطق اصلی ثبت سفارش:
+   //--- اگر فیلتر روند خاموش است، هر دو سفارش خرید و فروش را به صورت OCO (با یک مجیک نامبر) ثبت می‌کنیم.
+   if(!is_trend_on)
+     {
+      trade.BuyStop(lot_size,buy_stop_price,_Symbol,buy_sl,buy_tp,0,0,IntegerToString(session_magic_base));
+      trade.SellStop(lot_size,sell_stop_price,_Symbol,sell_sl,sell_tp,0,0,IntegerToString(session_magic_base));
+     }
+   else //--- وگرنه، فقط سفارشی را ثبت می‌کنیم که با جهت روند موافق باشد.
+     {
+      if(is_uptrend) // اگر روند صعودی است...
+         trade.BuyStop(lot_size,buy_stop_price,_Symbol,buy_sl,buy_tp,0,0,IntegerToString(session_magic_base));
+      else // اگر روند نزولی است...
+         trade.SellStop(lot_size,sell_stop_price,_Symbol,sell_sl,sell_tp,0,0,IntegerToString(session_magic_base));
+     }
   }
 
-#endif //RANGELIB_MQH
+//+------------------------------------------------------------------+
+//| Function to Manage Active Trade                                  |
+//+------------------------------------------------------------------+
+//--- این تابع، وضعیت معامله فعال را مدیریت می‌کند. برای تشخیص مرحله معامله، از موقعیت حد ضرر نسبت به قیمت ورود استفاده می‌کنیم (به جای تغییر مجیک نامبر که ممکن نیست).
+//--- مرحله ۱: وقتی SL هنوز دور از ورود است.
+//--- مرحله ۲: وقتی SL به نقطه ورود منتقل شده است.
+void ManageActiveTrade(ulong ticket,int session_magic_base)
+  {
+   //--- ابتدا چک می‌کنیم که پوزیشن با این تیکت هنوز در بازار وجود دارد یا نه.
+   if(!PositionSelectByTicket(ticket)) return;
 
+   //--- مجیک نامبر فعلی پوزیشن را می‌خوانیم تا مطمئن شویم مربوط به این جلسه است.
+   long current_magic = PositionGetInteger(POSITION_MAGIC);
+   if(current_magic != session_magic_base) return; // اگر مجیک تطابق نداشت، خارج شو.
+
+   double entry_price = PositionGetDouble(POSITION_PRICE_OPEN); // قیمت ورود پوزیشن.
+   double current_sl = PositionGetDouble(POSITION_SL);          // حد ضرر فعلی.
+   double volume = PositionGetDouble(POSITION_VOLUME);          // حجم فعلی پوزیشن.
+   ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن (خرید یا فروش).
+
+   // --- منطق مرحله اول (Stage 1): رسیدن به هدف اولیه و بستن بخشی از معامله ---
+   //--- این منطق فقط زمانی اجرا می‌شود که خروج پله‌ای فعال باشد و SL هنوز به نقطه ورود منتقل نشده باشد (یعنی هنوز در مرحله اول هستیم).
+   if(InpEnablePartialClose)
+     {
+      bool is_stage1 = (pos_type == POSITION_TYPE_BUY && current_sl < entry_price - _Point * 10) || // برای خرید: SL پایین‌تر از ورود.
+                       (pos_type == POSITION_TYPE_SELL && current_sl > entry_price + _Point * 10);   // برای فروش: SL بالاتر از ورود.
+      if(is_stage1)
+        {
+         double sl_distance_price = MathAbs(entry_price - current_sl); // فاصله حد ضرر از قیمت ورود.
+         //--- قیمت هدف برای بستن بخش اول را بر اساس نسبت سود به ضرر محاسبه می‌کنیم.
+         double target_price = (pos_type == POSITION_TYPE_BUY) ? entry_price + sl_distance_price * InpTakeProfitRatio_Stage1 :
+                               entry_price - sl_distance_price * InpTakeProfitRatio_Stage1;
+
+         //--- قیمت فعلی بازار را برای مقایسه با قیمت هدف می‌گیریم (Bid برای بستن خرید، Ask برای بستن فروش).
+         double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol,SYMBOL_BID) :
+                                SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+
+         //--- اگر قیمت به هدف اولیه رسیده باشد...
+         if((pos_type == POSITION_TYPE_BUY && current_price >= target_price) ||
+            (pos_type == POSITION_TYPE_SELL && current_price <= target_price))
+           {
+            //--- حجمی که باید بسته شود را بر اساس درصد ورودی محاسبه می‌کنیم.
+            double close_volume = NormalizeDouble(volume * (InpPartialClosePercentage / 100.0),2);
+            //--- اگر توانستیم بخش اول را با موفقیت ببندیم...
+            if(trade.PositionClose(ticket,close_volume))
+              {
+               //--- حالا پوزیشن باقی‌مانده را اصلاح می‌کنیم: حد ضرر را به نقطه ورود منتقل کرده و TP را صفر می‌کنیم.
+               trade.PositionModify(ticket,entry_price,0);
+              }
+           }
+        }
+     }
+
+   // --- منطق مرحله دوم (Stage 2): حد ضرر متحرک (Trailing Stop) ---
+   //--- این منطق فقط زمانی اجرا می‌شود که خروج پله‌ای فعال باشد و SL به نقطه ورود یا بهتر منتقل شده باشد.
+   if(InpEnablePartialClose)
+     {
+      bool is_stage2 = (pos_type == POSITION_TYPE_BUY && current_sl >= entry_price - _Point * 10) || // برای خرید: SL حداقل در ورود.
+                       (pos_type == POSITION_TYPE_SELL && current_sl <= entry_price + _Point * 10);   // برای فروش: SL حداکثر در ورود.
+      if(is_stage2)
+        {
+         //--- مقدار ATR را با استفاده از هندل جهانی برای محاسبه فاصله ترلینگ استاپ دریافت می‌کنیم.
+         double atr_buffer[1];
+         if(CopyBuffer(g_trail_atr_handle,0,1,1,atr_buffer) !=1) return;
+         double atr_value = atr_buffer[0];
+         double trail_offset = atr_value * InpTrailingStopATRMultiplier; // فاصله از قیمت فعلی.
+
+         if(pos_type == POSITION_TYPE_BUY) // اگر پوزیشن خرید است...
+           {
+            double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_BID) - trail_offset; // حد ضرر جدید، پایین‌تر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را نسبت به حد ضرر قبلی قفل می‌کند، آن را آپدیت می‌کنیم (هیچ‌وقت SL را به عقب نمی‌بریم).
+            if(new_sl > current_sl)
+               trade.PositionModify(ticket,new_sl,0);
+           }
+         else // اگر پوزیشن فروش است...
+           {
+            double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_ASK) + trail_offset; // حد ضرر جدید، بالاتر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را قفل می‌کند، آن را آپدیت می‌کنیم.
+            if(new_sl < current_sl)
+               trade.PositionModify(ticket,new_sl,0);
+           }
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| Function for Session CleanUp                                     |
+//+------------------------------------------------------------------+
+//--- این تابع تمام پوزیشن‌ها و سفارشات مربوط به یک جلسه را در زمان انقضا پاکسازی می‌کند.
+void SessionCleanUp(int session_magic_base)
+  {
+   //--- ابتدا تمام پوزیشن‌های باز مربوط به این جلسه را می‌بندیم.
+   for(int i=PositionsTotal()-1; i>=0; i--)
+     {
+      ulong pos_ticket = PositionGetTicket(i);
+      if(pos_ticket > 0 && PositionSelectByTicket(pos_ticket))
+        {
+         //--- مجیک نامبر آن را می‌خوانیم.
+         long magic = PositionGetInteger(POSITION_MAGIC);
+         //--- اگر مجیک نامبر با مجیک پایه این جلسه برابر بود...
+         if(magic == session_magic_base)
+           {
+            //--- پوزیشن را می‌بندیم.
+            trade.PositionClose(pos_ticket);
+           }
+        }
+     }
+
+   //--- سپس تمام سفارشات پندینگ مربوط به این جلسه را حذف می‌کنیم.
+   for(int i=OrdersTotal()-1; i>=0; i--)
+     {
+      ulong ord_ticket = OrderGetTicket(i);
+      if(ord_ticket > 0 && OrderSelect(ord_ticket))
+        {
+         //--- اگر مجیک نامبر آن با مجیک پایه این جلسه برابر بود...
+         if(OrderGetInteger(ORDER_MAGIC) == session_magic_base)
+           {
+            //--- سفارش را حذف می‌کنیم.
+            trade.OrderDelete(ord_ticket);
+           }
+        }
+     }
+  }
+
+#endif //TRADEMANAGER_MQH
 //+------------------------------------------------------------------+
 //|                                                    RangeLib.mqh |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
