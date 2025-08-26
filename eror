@@ -1,32 +1,4 @@
-//+------------------------------------------------------------------+
-//| Tick function (FINAL & BUG-FREE VERSION)                         |
-//+------------------------------------------------------------------+
-void OnTick()
-  {
-   //--- در تمام پوزیشن‌های باز می‌گردیم.
-   for(int i=PositionsTotal()-1; i>=0; i--)
-     {
-      //--- ابتدا تیکت پوزیشن را در ایندکس 'i' می‌گیریم
-      ulong ticket = PositionGetTicket(i);
-      
-      //--- حالا پوزیشن را با تیکت آن "انتخاب" می‌کنیم. این خط حیاتی است!
-      if(ticket > 0 && PositionSelectByTicket(ticket))
-        {
-         //--- حالا که پوزیشن انتخاب شده، با خیال راحت اطلاعاتش را می‌خوانیم
-         long magic = PositionGetInteger(POSITION_MAGIC);
-
-         bool managed = false;
-         if(magic == S1_MagicNumber) managed = ManageActiveTrade(ticket,S1_MagicNumber);
-         else if(magic == S2_MagicNumber) managed = ManageActiveTrade(ticket,S2_MagicNumber);
-         else if(magic == S3_MagicNumber) managed = ManageActiveTrade(ticket,S3_MagicNumber);
-         else if(magic == S4_MagicNumber) managed = ManageActiveTrade(ticket,S4_MagicNumber);
-         
-         // اگر یک عملیات موفق (مثل بستن پله‌ای یا ترلینگ) روی یک پوزیشن انجام شد،
-         // از حلقه خارج شو و منتظر تیک بعدی بمان. این کار بهینگی را افزایش می‌دهد.
-         if(managed)
+if(close_volume >= min_lot)
            {
-            break;
-           }
-        }
-     }
-  }
+            PrintFormat("تلاش برای بستن %.2f لات از پوزیشن %d در قیمت %.5f", close_volume, ticket, current_price);
+            if(trade.PositionClose(ticket,close_volume))
