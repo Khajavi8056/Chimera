@@ -1,5 +1,1 @@
-// ... داخل if(close_volume >= min_lot)
-PrintFormat("تلاش برای بستن %.2f لات از پوزیشن %d در قیمت %.5f", close_volume, ticket, current_price);
-// عدد 5 به عنوان پارامتر سوم (Deviation) اضافه شد تا ابهام کامپایلر برطرف شود
-if(trade.PositionClose(ticket, close_volume, 5)) 
-// ...
+possible loss of data due to type conversion from 'double' to 'ulong'	TradeManager.mqh	161	43
