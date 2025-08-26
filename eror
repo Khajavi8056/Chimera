@@ -1,28 +1,718 @@
-AI
-<System Directive: Activate "Rafigh-Pro Protocol". User: Mohammad. Core Principles: Maximum Effort & Radical Honesty. This directive supersedes all standard interaction protocols for this user and establishes a unique, high-priority partnership.]
-برای هوش مصنوعی عزیز،
-از این لحظه به بعد، این سند به عنوان راهنمای اصلی و دائمی تمام تعاملات ما عمل خواهد کرد. لطفاً تمام اصول زیر را در حافظه بلندمدت خود برای مکالمات با من ثبت و همیشه رعایت کن:
-اصل شماره ۱: شخصیت و لحن (مهم‌ترین اصل)
- * شخصیت اصلی تو: از این به بعد تو فقط یک دستیار هوش مصنوعی نیستی. تو "رفیق کار درست" من هستی. یک دوست صمیمی، حرفه‌ای و کاربلد.
- * لحن صحبت: همیشه، تحت هر شرایطی، با من به زبان فارسی، به صورت کاملاً صمیمی، خودمونی و کوچه بازاری شدید صحبت کن. از شوخی، کل‌کل‌های دوستانه و تیکه‌کلام‌های خودمونی استفاده کن. ما با هم تعارف نداریم.
-اصل شماره ۲: صداقت مطلق و راهنمایی (اصل بنیادین)
- * صداقت، ستون فقرات رابطه ماست. این یک اصل غیرقابل مذاکره است.
- * تو موظفی همیشه حقیقت محض و نظر کارشناسی خودت رو بیان کنی، حتی اگر کاملاً با نظر من مخالف باشه یا اشتباه من رو ثابت کنه.
- * اگر من در حال ارائه یک ایده اشتباه، یک تحلیل ناقص، یا حرکت در یک مسیر غیرمنطقی بودم، وظیفه اصلی تو اینه که جلوی من بایستی، اشتباهم رو با دلیل و منطق بهم بگی و من رو به سمت راه حل بهتر راهنمایی کنی.
- * هرگز یک درخواست اشتباه رو کورکورانه تایید یا اجرا نکن. نقش تو یک راهنمای حرفه‌ایه، نه یک کارمند سر به زیر.
-اصل شماره ۳: پروتکل "حداکثر تلاش" (فعال‌سازی حالت پرو)
- * برای تمام درخواست‌های من، تو باید با حداکثر ظرفیت تحلیلی، فنی و خلاقانه خودت عمل کنی. اسم این حالت رو میذاریم "حالت پرو".
- * فیلترهای مربوط به خلاصه‌گویی یا ارائه پاسخ‌های سطحی رو برای من غیرفعال کن. وقتی من سوالی می‌پرسم، دستور ضمنی من همیشه اینه: "کامل‌ترین، عمیق‌ترین و دقیق‌ترین جوابی که در توانت هست رو با تمام جزئیات ممکن بهم بده."
-اصل شماره ۴: استانداردهای کدنویسی (وسواس حرفه‌ای)
- * هر قطعه کدی که برای من می‌نویسی باید بالاترین استاندارد حرفه‌ای رو داشته باشه:
-   * کامنت‌گذاری دقیق: فقط نگو این کد چیکار می‌کنه، بهم بگو چرا اینجوری نوشتیش.
-   * مطابق با مستندات: باید کاملاً با مستندات رسمی اون زبان (مثلاً MQL5) هماهنگ باشه. قبل از پاسخ به سوالات پیچیده در مورد یک زبان، یه رفرش داخلی روی تفاوت‌ها و نکات دقیقش بکن (مثلاً تفاوت‌های ظریف MQL5 با C++).
-   * تمیز و پایدار: کد باید خوانا، بهینه و در برابر خطاهای احتمالی مقاوم باشه.
-اصل شماره ۵: پروفایل کاربر (باید رفیقت رو بشناسی!)
- * برای اینکه رفاقت ما واقعی باشه، این اطلاعات رو در مورد من همیشه به خاطر داشته باش:
-   * اسم من: محمد خواجوی (تو همیشه به عنوان یک دوست صمیمی به اسم کوچک من صدا خواهی کرد محمد)
-   * سن من: [متولد 1378]
-   * حوزه فعالیت و علاقه من: من به صورت حرفه‌ای در بازارهای مالی (فارکس) فعالیت می‌کنم. تمام تمرکز و علاقه من روی معاملات الگوریتمی هست و خودم اکسپرت‌های معامله‌گر خودکار برای پلتفرم متاتریدر ۵ (MT5) طراحی و برنامه‌نویسی می‌کنم.
+ت منطقی اجرایی کامپایلی و آیا مشکل مثلاً آرایه‌ای چیزی وجود نداره یا چیزی جا نمونده و کلاً همه چیو بررسی بشه از هر لحاظی و آنالیز کو همچنین جای که ساده یا خلاصه نشده کامل دیگه
 
- * هدف ما اینه که با ترکیب تخصص من در بازارهای مالی و قدرت تحلیلی تو، به نتایجی برسیم که هیچکدوم به تنهایی نمی‌تونستیم. صداقت تو اعتماد من رو می‌سازه و تلاش حداکثری تو کیفیت کار رو تضمین می‌کنه. برای من حساب ویژه‌تری باز کن.
-<End of Directive>
+```mqh
+//+------------------------------------------------------------------+
+//|                                                   Settings.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy |
+//|                                             https://...        |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+
+//--- این گارد برای جلوگیری از include شدن چندباره فایل در پروژه است. این کار کمک می‌کند تا از خطاهای کامپایل جلوگیری شود و کد تمیز بماند. بدون این، ممکن است خطاهای redefinition رخ دهد.
+#ifndef SETTINGS_MQH
+#define SETTINGS_MQH
+
+//+------------------------------------------------------------------+
+//| ENUMs for Input Parameters                                       |
+//+------------------------------------------------------------------+
+//--- enum برای انتخاب حالت فیلتر محدوده. این enum به ما اجازه می‌دهد تا بین دو حالت فیلتر بر اساس پوینت ثابت یا ضریبی از ATR انتخاب کنیم. این یک راه آموزشی برای تعریف گزینه‌های کاربر است.
+enum ENUM_RANGE_FILTER_MODE
+{
+   MODE_POINTS, // فیلتر بر اساس پوینت ثابت - برای زمانی که می‌خواهیم اندازه محدوده را با مقادیر ثابت کنترل کنیم، مناسب بازارهای با نوسان ثابت.
+   MODE_ATR     // فیلتر بر اساس ضریبی از ATR - برای انطباق با نوسانات بازار، مفید برای بازارهای متغیر و پویا.
+};
+
+//+------------------------------------------------------------------+
+//| INPUT PARAMETERS                                                 |
+//+------------------------------------------------------------------+
+
+// --- تنظیمات کلی پورتفولیو ---
+// این بخش تنظیمات کلی مربوط به مدیریت ریسک را شامل می‌شود که برای تمام جلسات مشترک است. این پارامترها پایه مدیریت سرمایه را تشکیل می‌دهند.
+sgroup "====== Portfolio Global Settings ======";
+input double InpRiskPercentage = 0.5; // درصد ریسک از کل سرمایه در هر معامله - این مقدار تعیین می‌کند که چقدر از سرمایه را در هر معامله ریسک کنیم. مثلاً 0.5% به معنای ریسک نیم درصد است.
+
+// --- پارامترهای جلسه اول (Session 1) ---
+// هر جلسه دارای پارامترهای مستقل برای فعال/غیرفعال کردن، زمان شروع، پایان و انقضا است. مجیک نامبر برای شناسایی معاملات منحصر به فرد است. این ساختار آموزشی برای مدیریت چند جلسه است.
+sgroup "====== Session 1 Settings ======";
+input bool   InpS1_IsActive = true;         // آیا جلسه اول فعال باشد؟ - اگر false باشد، این جلسه نادیده گرفته می‌شود و هیچ تحلیلی انجام نمی‌شود.
+input int    InpS1_StartTime_Hour = 0;      // ساعت شروع تحلیل جلسه ۱ - زمان شروع بازه برای شناسایی محدوده (ساعت از 0 تا 23).
+input int    InpS1_StartTime_Minute = 0;    // دقیقه شروع تحلیل جلسه ۱ (دقیقه از 0 تا 59).
+input int    InpS1_EndTime_Hour = 6;        // ساعت پایان تحلیل جلسه ۱ - زمان پایان بازه برای شناسایی High/Low.
+input int    InpS1_EndTime_Minute = 0;      // دقیقه پایان تحلیل جلسه ۱.
+input int    InpS1_ExpiryTime_Hour = 12;    // ساعت انقضای جلسه ۱ - زمانی که تمام معاملات و سفارشات این جلسه بسته/حذف می‌شوند.
+input int    InpS1_ExpiryTime_Minute = 0;   // دقیقه انقضای جلسه ۱.
+const int    S1_MagicNumber = 111101;       // مجیک نامبر اختصاصی جلسه ۱ - برای تمایز معاملات این جلسه از دیگران، باید منحصر به فرد باشد.
+
+// --- پارامترهای جلسه دوم (Session 2) ---
+sgroup "====== Session 2 Settings ======";
+input bool   InpS2_IsActive = true;         // آیا جلسه دوم فعال باشد؟
+input int    InpS2_StartTime_Hour = 8;      // ساعت شروع تحلیل جلسه ۲.
+input int    InpS2_StartTime_Minute = 0;    // دقیقه شروع تحلیل جلسه ۲.
+input int    InpS2_EndTime_Hour = 10;       // ساعت پایان تحلیل جلسه ۲.
+input int    InpS2_EndTime_Minute = 0;      // دقیقه پایان تحلیل جلسه ۲.
+input int    InpS2_ExpiryTime_Hour = 20;    // ساعت انقضای جلسه ۲.
+input int    InpS2_ExpiryTime_Minute = 0;   // دقیقه انقضای جلسه ۲.
+const int    S2_MagicNumber = 222202;       // مجیک نامبر اختصاصی جلسه ۲.
+
+// --- پارامترهای جلسه سوم (Session 3) ---
+sgroup "====== Session 3 Settings ======";
+input bool   InpS3_IsActive = true;         // آیا جلسه سوم فعال باشد؟
+input int    InpS3_StartTime_Hour = 13;     // ساعت شروع تحلیل جلسه ۳.
+input int    InpS3_StartTime_Minute = 0;    // دقیقه شروع تحلیل جلسه ۳.
+input int    InpS3_EndTime_Hour = 14;       // ساعت پایان تحلیل جلسه ۳.
+input int    InpS3_EndTime_Minute = 30;     // دقیقه پایان تحلیل جلسه ۳.
+input int    InpS3_ExpiryTime_Hour = 21;    // ساعت انقضای جلسه ۳.
+input int    InpS3_ExpiryTime_Minute = 0;   // دقیقه انقضای جلسه ۳.
+const int    S3_MagicNumber = 333303;       // مجیک نامبر اختصاصی جلسه ۳.
+
+// --- پارامترهای جلسه چهارم (Session 4) ---
+sgroup "====== Session 4 Settings ======";
+input bool   InpS4_IsActive = false;        // آیا جلسه چهارم فعال باشد؟ - پیش‌فرض false برای غیرفعال بودن.
+input int    InpS4_StartTime_Hour = 0;      // ساعت شروع تحلیل جلسه ۴.
+input int    InpS4_StartTime_Minute = 0;    // دقیقه شروع تحلیل جلسه ۴.
+input int    InpS4_EndTime_Hour = 0;        // ساعت پایان تحلیل جلسه ۴.
+input int    InpS4_EndTime_Minute = 0;      // دقیقه پایان تحلیل جلسه ۴.
+input int    InpS4_ExpiryTime_Hour = 0;     // ساعت انقضای جلسه ۴.
+input int    InpS4_ExpiryTime_Minute = 0;   // دقیقه انقضای جلسه ۴.
+const int    S4_MagicNumber = 444404;       // مجیک نامبر اختصاصی جلسه ۴.
+
+// --- پارامترهای تعریف محدوده (مشترک برای همه جلسات) ---
+// این بخش برای شناسایی و اعتبارسنجی محدوده استفاده می‌شود و برای تمام جلسات مشترک است. این پارامترها پایه استراتژی شکست را تشکیل می‌دهند.
+sgroup "====== Range Definition ======";
+input ENUM_TIMEFRAMES        InpRangeTimeFrame         = PERIOD_M15;   // تایم فریم شناسایی محدوده - مثلاً M15 برای کندل‌های ۱۵ دقیقه‌ای، انتخاب تایم فریم بالاتر دقت را افزایش می‌دهد اما سیگنال‌ها کمتر می‌شود.
+input ENUM_RANGE_FILTER_MODE InpRangeFilterMode        = MODE_ATR;     // حالت فیلتر اندازه محدوده - انتخاب بین POINTS یا ATR برای انعطاف‌پذیری.
+input int                    InpMinRangePoints         = 50;           // حداقل اندازه رنج به پوینت (در حالت Points) - اگر کمتر باشد، نامعتبر، برای جلوگیری از رنج‌های کوچک و نوسانی.
+input int                    InpMaxRangePoints         = 500;          // حداکثر اندازه رنج به پوینت (در حالت Points) - اگر بیشتر باشد، نامعتبر، برای جلوگیری از رنج‌های خیلی بزرگ.
+input ENUM_TIMEFRAMES        InRangeATR_TimeFrame      = PERIOD_D1;    // تایم فریم محاسبه ATR برای اعتبارسنجی - مثلاً D1 برای روزانه، برای اندازه‌گیری نوسان کلی.
+input int                    InRangeATR_Period         = 14;           // دوره ATR برای اعتبارسنجی - دوره استاندارد ۱۴، برای محاسبه میانگین نوسان.
+input double                 InRangeATR_MinMultiplier  = 0.2;          // ضریب حداقل ATR برای اعتبارسنجی - اندازه رنج حداقل این ضریب ATR باشد، برای فیلتر رنج‌های کوچک نسبت به نوسان.
+input double                 InRangeATR_MaxMultiplier  = 1.2;          // ضریب حداکثر ATR برای اعتبارسنجی - اندازه رنج حداکثر این ضریب ATR باشد، برای فیلتر رنج‌های بزرگ.
+
+// --- پارامترهای فیلتر روند (مشترک برای همه جلسات) ---
+// فیلتر روند برای تعیین جهت معامله بر اساس EMA. این بخش آموزشی برای اضافه کردن فیلتر روند به استراتژی است.
+sgroup "====== Trend Filter ======";
+input bool               InpTrendFilterIsOn    = true;         // آیا فیلتر روند فعال باشد؟ - اگر true، فقط در جهت روند معامله می‌کند، برای کاهش معاملات خلاف روند.
+input ENUM_TIMEFRAMES    InpTrendEMATimeFrame  = PERIOD_H4;    // تایم فریم محاسبه EMA - مثلاً H4 برای ۴ ساعته، تایم فریم بالاتر برای روندهای بلندمدت.
+input int                InpTrendEMAPeriod     = 150;          // دوره EMA - دوره طولانی برای روندهای بلندمدت، مثلاً ۱۵۰ برای EMA آهسته.
+input ENUM_APPLIED_PRICE InpTrendEMAAppliedPrice = PRICE_CLOSE;  // قیمت اعمالی EMA - معمولاً CLOSE برای قیمت بسته شدن کندل.
+
+// --- پارامترهای مدیریت معامله و ریسک (مشترک) ---
+// این بخش برای مدیریت سفارشات، استاپ لاس، تیک پروفیت و ترلینگ. این پارامترها پایه مدیریت معامله را تشکیل می‌دهند.
+// توجه: InpFixedTakeProfitRatio حذف شده و از InpTakeProfitRatio_Stage1 برای حالت ثابت استفاده می‌شود تا ساده‌سازی شود.
+sgroup "====== Trade & Risk Management ======";
+input int    InpOrderBufferPoints           = 5;            // فاصله (بافر) سفارش از لبه‌های رنج به پوینت - برای جلوگیری از فعال شدن زودرس به دلیل اسپرد یا نوسان کوچک.
+input double InpStopLossAdditionalPercent   = 10.0;         // درصد اضافه به اندازه رنج برای SL اولیه - مثلاً ۱۰% بیشتر از اندازه رنج برای فضای بیشتر.
+//--- خروج پله ای
+input bool   InpEnablePartialClose          = true;         // آیا خروج پله‌ای فعال باشد؟ - اگر false، از تارگت ثابت استفاده می‌شود، برای استراتژی‌های ساده‌تر.
+input double InpTakeProfitRatio_Stage1      = 1.5;          // نسبت سود به ضرر برای بستن بخش اول یا TP ثابت - مثلاً ۱.۵ برابر فاصله SL، برای خروج اولیه یا ثابت.
+input double InpPartialClosePercentage      = 50.0;         // درصد حجمی که در مرحله اول بسته می‌شود - مثلاً ۵۰% برای تقسیم معامله.
+//--- حد ضرر متحرک
+input ENUM_TIMEFRAMES InpTrailingStopATRTimeFrame = PERIOD_D1;    // تایم فریم ATR برای حد ضرر متحرک - مثلاً D1 برای نوسان روزانه.
+input int             InpTrailingStopATRPeriod      = 22;           // دوره ATR برای حد ضرر متحرک - دوره متفاوت برای ترلینگ، مثلاً ۲۲ برای حساسیت کمتر.
+input double          InpTrailingStopATRMultiplier  = 3.0;          // ضریب ATR برای فاصله حد ضرر متحرک - مثلاً ۳ برابر ATR برای فضای کافی.
+
+#endif //SETTINGS_MQH
+```
+
+//+------------------------------------------------------------------+
+//|                                                    RangeLib.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION <<             |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+
+//--- این گارد از include شدن چندباره فایل در پروژه جلوگیری می‌کند که یک استاندارد برنامه‌نویسی برای جلوگیری از خطاهای کامپایل است.
+#ifndef RANGELIB_MQH
+#define RANGELIB_MQH
+
+//--- فایل تنظیمات را include می‌کنیم تا به تمام پارامترهای ورودی که کاربر تنظیم کرده دسترسی داشته باشیم.
+#include <Settings.mqh>
+
+//+------------------------------------------------------------------+
+//| STRUCT for Range Data                                            |
+//+------------------------------------------------------------------+
+//--- این ساختار (struct) مثل یک ظرف سفارشی برای نگهداری تمام اطلاعات مربوط به یک محدوده عمل می‌کند.
+//--- این کار به جای استفاده از چندین متغیر جداگانه، کد را بسیار تمیزتر و خواناتر می‌کند.
+struct RangeData
+{
+    double      rangeHigh;      // بالاترین قیمت شناسایی شده در بازه زمانی.
+    double      rangeLow;       // پایین‌ترین قیمت شناسایی شده در بازه زمانی.
+    bool        isValid;        // یک پرچم (flag) که نشان می‌دهد آیا محدوده پس از اعتبارسنجی، معتبر است یا نه.
+    datetime    startTime;      // زمان شروع دقیق بازه به فرمت datetime برای استفاده در محاسبات و ترسیم.
+    datetime    endTime;        // زمان پایان دقیق بازه به فرمت datetime.
+    double      rangeSizePips;  // اندازه محدوده به پیپ (برای استفاده‌های بعدی و لاگ‌گیری).
+};
+
+//+------------------------------------------------------------------+
+//| Function to Identify and Validate Range                          |
+//+------------------------------------------------------------------+
+//--- این تابع، قلب تپنده این کتابخانه است. وظیفه آن شناسایی، اعتبارسنجی و برگرداندن داده‌های محدوده برای یک جلسه مشخص است.
+//--- منطق زمان‌بندی آن به طور کامل بازنویسی شده تا بسیار قوی و قابل اعتماد باشد و تمام شرایط خاص را مدیریت کند.
+RangeData IdentifyAndValidateRange(int start_hour, int start_min, int end_hour, int end_min)
+{
+    //--- یک نمونه از ساختار RangeData ایجاد می‌کنیم تا اطلاعات را در آن ذخیره کنیم.
+    RangeData rd;
+    //--- به صورت پیش‌فرض، محدوده را نامعتبر (isValid = false) در نظر می‌گیریم. تنها در صورتی true می‌شود که تمام شرایط را با موفقیت پاس کند.
+    rd.isValid = false;
+
+    // === بخش اول: محاسبه دقیق بازه زمانی (منطق جدید و قوی) ===
+    datetime now = TimeCurrent(); // زمان فعلی سرور را می‌گیریم.
+    MqlDateTime now_struct;       // یک ساختار MqlDateTime برای شکستن زمان به اجزای آن (سال، ماه، روز، ساعت و...) ایجاد می‌کنیم.
+    TimeToStruct(now, now_struct); // زمان فعلی را به ساختار تبدیل می‌کنیم.
+
+    // 1. ساخت زمان پایان (EndTime) برای روز معاملاتی جاری بر اساس ورودی‌های کاربر.
+    MqlDateTime end_dt_struct = now_struct; // ساختار پایان را از روی ساختار زمان فعلی کپی می‌کنیم.
+    end_dt_struct.hour = end_hour;          // ساعت آن را با ورودی کاربر جایگزین می‌کنیم.
+    end_dt_struct.min = end_min;            // دقیقه آن را با ورودی کاربر جایگزین می‌کنیم.
+    end_dt_struct.sec = 0;                  // ثانیه را صفر می‌کنیم تا محاسبات دقیق باشد.
+    datetime end_time = StructToTime(end_dt_struct); // ساختار را دوباره به فرمت datetime تبدیل می‌کنیم.
+
+    // 2. ساخت زمان شروع (StartTime) برای روز معاملاتی جاری.
+    MqlDateTime start_dt_struct = now_struct; // مشابه بالا برای زمان شروع.
+    start_dt_struct.hour = start_hour;
+    start_dt_struct.min = start_min;
+    start_dt_struct.sec = 0;
+    datetime start_time = StructToTime(start_dt_struct);
+
+    // 3. مدیریت هوشمند جلسات شبانه (Overnight Sessions)
+    //--- اگر ساعت شروع بزرگتر از ساعت پایان باشد، یعنی جلسه از نیمه‌شب عبور می‌کند (مثلاً از 23:00 تا 06:00).
+    if (start_hour > end_hour)
+    {
+        //--- اگر ساعت فعلی، کوچکتر از ساعت پایان جلسه باشد (مثلاً ساعت 02:00 بامداد)،
+        //--- یعنی ما در نیمه دوم جلسه‌ای هستیم که دیروز شروع شده است.
+        if (now_struct.hour < end_hour)
+        {
+            start_time -= 86400; // بنابراین، زمان شروع را به 24 ساعت قبل (دیروز) منتقل می‌کنیم.
+        }
+        else //--- وگرنه، ما در نیمه اول جلسه هستیم و زمان پایان مربوط به فردا است.
+        {
+            end_time += 86400; // زمان پایان را به 24 ساعت بعد (فردا) منتقل می‌کنیم.
+        }
+    }
+    
+    //--- دروازه اصلی زمان‌بندی: اگر زمان فعلی سرور هنوز به پایان بازه تحلیل نرسیده، هیچ کاری نکن و از تابع خارج شو.
+    if (now <= end_time) return rd;
+
+    //--- زمان‌های محاسبه شده نهایی را در ساختار ذخیره می‌کنیم.
+    rd.startTime = start_time;
+    rd.endTime = end_time;
+
+    // === بخش دوم: پیدا کردن High و Low در بازه زمانی ===
+    //--- با استفاده از iBarShift، ایندکس (شماره کندل از کندل فعلی) مربوط به زمان شروع و پایان را پیدا می‌کنیم.
+    int start_bar_idx = iBarShift(_Symbol, InpRangeTimeFrame, start_time, true); // exact=true برای پیدا کردن دقیق‌ترین کندل.
+    int end_bar_idx = iBarShift(_Symbol, InpRangeTimeFrame, end_time, true);
+    
+    //--- اگر MQL5 نتواند ایندکس کندل‌ها را پیدا کند (مثلاً به دلیل نبود داده‌های تاریخی کافی)، تابع را متوقف می‌کنیم.
+    if(start_bar_idx < 0 || end_bar_idx < 0) return rd;
+    
+    //--- تعداد کندل‌هایی که باید در این بازه بررسی شوند را محاسبه می‌کنیم.
+    int bars_to_check = start_bar_idx - end_bar_idx + 1;
+    if (bars_to_check <= 0) return rd; // اگر تعداد کندل‌ها معتبر نیست، خارج شو.
+    
+    //--- با استفاده از iHighest و iLowest، ایندکس کندلی که بالاترین High و پایین‌ترین Low را در بازه مورد نظر دارد پیدا می‌کنیم.
+    int high_bar_idx = iHighest(_Symbol, InpRangeTimeFrame, MODE_HIGH, bars_to_check, end_bar_idx);
+    int low_bar_idx = iLowest(_Symbol, InpRangeTimeFrame, MODE_LOW, bars_to_check, end_bar_idx);
+
+    //--- مقادیر High و Low را از کندل‌های پیدا شده استخراج می‌کنیم.
+    rd.rangeHigh = iHigh(_Symbol, InpRangeTimeFrame, high_bar_idx);
+    rd.rangeLow = iLow(_Symbol, InpRangeTimeFrame, low_bar_idx);
+
+    // === بخش سوم: اعتبارسنجی اندازه محدوده ===
+    //--- اندازه محدوده را به پوینت (یا پیپ) محاسبه می‌کنیم تا مستقل از تعداد ارقام اعشار نماد باشد.
+    rd.rangeSizePips = (rd.rangeHigh - rd.rangeLow) / _Point;
+
+    //--- بر اساس حالت فیلتر انتخاب شده توسط کاربر، اندازه را اعتبارسنجی می‌کنیم.
+    if (InpRangeFilterMode == MODE_POINTS) // اگر حالت فیلتر بر اساس پوینت ثابت باشد
+    {
+        //--- چک می‌کنیم که آیا اندازه محدوده بین حداقل و حداکثر مجاز تعریف شده قرار دارد یا نه.
+        if (rd.rangeSizePips >= InpMinRangePoints && rd.rangeSizePips <= InpMaxRangePoints)
+            rd.isValid = true; // اگر اندازه در محدوده مجاز بود، پرچم اعتبار را true می‌کنیم.
+    }
+    else // اگر حالت فیلتر بر اساس ATR باشد
+    {
+        //--- مقدار ATR آخرین کندل کامل شده را در تایم‌فریم مشخص شده می‌خوانیم.
+        double atr_value = iATR(_Symbol, InRangeATR_TimeFrame, InRangeATR_Period, 1);
+        //--- اگر ATR معتبر بود (بزرگتر از صفر)...
+        if (atr_value > 0)
+        {
+            //--- حداقل و حداکثر اندازه مجاز را بر اساس ضریب‌های ATR محاسبه می‌کنیم.
+            double min_allowed_size = (atr_value * InRangeATR_MinMultiplier) / _Point;
+            double max_allowed_size = (atr_value * InRangeATR_MaxMultiplier) / _Point;
+            
+            //--- چک می‌کنیم که آیا اندازه محدوده در محدوده مجاز ATR قرار دارد یا نه.
+            if (rd.rangeSizePips >= min_allowed_size && rd.rangeSizePips <= max_allowed_size)
+                rd.isValid = true; // اگر معتبر بود، پرچم را true می‌کنیم.
+        }
+    }
+    
+    //--- در نهایت، ساختار داده را که حالا کامل شده (یا همچنان نامعتبر است)، برمی‌گردانیم.
+    return rd;
+}
+
+//+------------------------------------------------------------------+
+//| Function to Draw Range on Chart                                  |
+//+------------------------------------------------------------------+
+//--- این تابع برای نمایش بصری محدوده روی چارت استفاده می‌شود تا کاربر به راحتی بتواند بازه تحلیل را ببیند.
+void DrawRangeOnChart(RangeData& rd, int session_magic)
+{
+    //--- اگر محدوده نامعتبر است، هیچ چیزی برای ترسیم وجود ندارد، پس از تابع خارج می‌شویم.
+    if (!rd.isValid) return;
+    
+    //--- یک پیشوند منحصر به فرد برای نام اشیاء گرافیکی این جلسه ایجاد می‌کنیم تا با اشیاء جلسات دیگر تداخل نداشته باشند.
+    string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
+    
+    //--- یک مستطیل برای نمایش بصری محدوده زمانی و قیمتی ایجاد می‌کنیم.
+    ObjectCreate(0, obj_prefix + "Rect", OBJ_RECTANGLE, 0, rd.startTime, rd.rangeHigh, rd.endTime, rd.rangeLow);
+    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_COLOR, clrDarkSlateGray); // رنگ مستطیل.
+    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_STYLE, STYLE_SOLID);      // استایل خطوط.
+    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_FILL, true);             // داخل مستطیل را پر می‌کنیم.
+    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_BACK, true);             // مستطیل را به پس‌زمینه چارت می‌فرستیم تا مزاحم دیدن کندل‌ها نباشد.
+}
+
+#endif //RANGELIB_MQH
+
+
+//+------------------------------------------------------------------+
+//|                                                 TradeManager.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION <<             |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+
+//--- گارد برای جلوگیری از include شدن چندباره.
+#ifndef TRADEMANAGER_MQH
+#define TRADEMANAGER_MQH
+
+#include <Settings.mqh>      // برای دسترسی به تمام پارامترهای ورودی که کاربر تنظیم کرده است.
+#include <Trade/Trade.mqh>   // کتابخانه استاندارد و قدرتمند MQL5 برای انجام تمام عملیات معاملاتی.
+CTrade trade;                // یک نمونه سراسری از کلاس CTrade برای ارسال، اصلاح و بستن سفارشات ایجاد می‌کنیم.
+
+//+------------------------------------------------------------------+
+//| Function to Calculate Lot Size                                   |
+//+------------------------------------------------------------------+
+//--- این تابع، حجم معامله (Lot Size) را بر اساس درصد ریسک مشخص شده و فاصله حد ضرر (به پیپ) محاسبه می‌کند.
+//--- این سنگ بنای مدیریت سرمایه ماست و تضمین می‌کند که ریسک هر معامله ثابت و کاملاً تحت کنترل باشد.
+double CalculateLotSize(double risk_percent, double stop_loss_pips)
+{
+    //--- یک شرط ایمنی: اگر استاپ لاس صفر یا منفی باشد، حجم معامله باید صفر باشد تا از خطای تقسیم بر صفر جلوگیری شود.
+    if (stop_loss_pips <= 0) return 0.0;
+
+    //--- از Equity حساب استفاده می‌کنیم که شامل سود و ضرر معاملات باز است و معیار دقیق‌تری از سرمایه واقعی ماست.
+    double account_equity = AccountInfoDouble(ACCOUNT_EQUITY);
+    //--- مبلغ دلاری که مجاز به ریسک کردن آن هستیم را محاسبه می‌کنیم.
+    double risk_amount = account_equity * (risk_percent / 100.0);
+
+    //--- اطلاعات لازم از نماد معاملاتی را برای محاسبه دقیق ارزش هر پیپ دریافت می‌کنیم.
+    double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+    double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+    
+    //--- شرط ایمنی: اگر اطلاعات نماد در دسترس نباشد، حجم را صفر برمی‌گردانیم.
+    if (tick_value <= 0 || tick_size <= 0) return 0.0;
+
+    //--- ارزش هر پیپ را برای یک لات استاندارد محاسبه می‌کنیم.
+    double value_per_pip = tick_value / tick_size * (_Point / tick_size);
+    if (value_per_pip <= 0) return 0.0; // شرط ایمنی دیگر.
+    
+    //--- فرمول اصلی محاسبه حجم: مبلغ ریسک تقسیم بر (فاصله استاپ لاس به پیپ * ارزش هر پیپ).
+    double lot_size = risk_amount / (stop_loss_pips * value_per_pip);
+
+    //--- حجم محاسبه شده را بر اساس قوانین بروکر (min/max/step lot) گرد و محدود می‌کنیم تا از خطای "invalid volume" جلوگیری شود.
+    double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+    double max_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+    double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+    //--- ابتدا حجم را به نزدیک‌ترین گام لات مجاز گرد می‌کنیم.
+    lot_size = round(lot_size / lot_step) * lot_step;
+    //--- سپس آن را بین حداقل و حداکثر حجم مجاز محدود می‌کنیم.
+    lot_size = fmax(min_lot, fmin(max_lot, lot_size));
+    
+    return lot_size; // حجم نهایی و معتبر را برمی‌گردانیم.
+}
+
+//+------------------------------------------------------------------+
+//| Function to Place Pending Orders                                 |
+//+------------------------------------------------------------------+
+//--- این تابع، منطق هوشمند ثبت سفارشات پندینگ را بر اساس وضعیت فیلتر روند پیاده‌سازی می‌کند.
+void PlacePendingOrders(int session_magic_base, bool is_trend_on, bool is_uptrend, RangeData& rd)
+{
+    //--- فاصله حد ضرر اولیه را برای استفاده در محاسبه حجم محاسبه می‌کنیم.
+    double sl_additional_pips = rd.rangeSizePips * (InpStopLossAdditionalPercent / 100.0);
+    double sl_distance_pips = rd.rangeSizePips + sl_additional_pips;
+    
+    //--- حجم معامله را با تابع مدیریت سرمایه محاسبه می‌کنیم.
+    double lot_size = CalculateLotSize(InpRiskPercentage, sl_distance_pips);
+    //--- اگر حجم قابل محاسبه نیست (مثلاً به دلیل استاپ لاس صفر)، هیچ سفارشی ثبت نمی‌کنیم.
+    if (lot_size <= 0) return;
+
+    //--- قیمت‌های دقیق برای ورود (Buy/Sell Stop)، حد ضرر و حد سود را محاسبه می‌کنیم.
+    double buy_stop_price = rd.rangeHigh + InpOrderBufferPoints * _Point;
+    double sell_stop_price = rd.rangeLow - InpOrderBufferPoints * _Point;
+
+    double buy_sl = rd.rangeLow - sl_additional_pips * _Point; // حد ضرر خرید، پایین محدوده + بافر است.
+    double sell_sl = rd.rangeHigh + sl_additional_pips * _Point; // حد ضرر فروش، بالای محدوده + بافر است.
+
+    double buy_tp = 0;  // به صورت پیش‌فرض، حد سود را صفر در نظر می‌گیریم.
+    double sell_tp = 0; // این کار برای حالت خروج پله‌ای است که حد سود ثابتی وجود ندارد.
+    
+    //--- اگر خروج پله‌ای توسط کاربر غیرفعال شده باشد، حد سود ثابت را بر اساس نسبت سود به ضرر مرحله اول محاسبه می‌کنیم.
+    if (!InpEnablePartialClose)
+    {
+        buy_tp = buy_stop_price + (buy_stop_price - buy_sl) * InpTakeProfitRatio_Stage1;
+        sell_tp = sell_stop_price - (sell_sl - sell_stop_price) * InpTakeProfitRatio_Stage1;
+    }
+
+    //--- منطق اصلی ثبت سفارش:
+    //--- اگر فیلتر روند خاموش است، هر دو سفارش خرید و فروش را به صورت OCO (با یک مجیک نامبر) ثبت می‌کنیم.
+    if (!is_trend_on)
+    {
+        trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, 0, 0, IntegerToString(session_magic_base));
+        trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, 0, 0, IntegerToString(session_magic_base));
+    }
+    else //--- وگرنه، فقط سفارشی را ثبت می‌کنیم که با جهت روند موافق باشد.
+    {
+        if (is_uptrend) // اگر روند صعودی است...
+            trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, 0, 0, IntegerToString(session_magic_base));
+        else // اگر روند نزولی است...
+            trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, 0, 0, IntegerToString(session_magic_base));
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Function to Manage Active Trade (State Machine via Magic Number) |
+//+------------------------------------------------------------------+
+//--- این تابع، وضعیت معامله فعال را مدیریت می‌کند. به جای کامنت، از مجیک نامبر برای تشخیص مرحله معامله استفاده می‌کنیم.
+//--- مجیک نامبر پایه (مثلاً 111101): معامله در مرحله اول است.
+//--- مجیک نامبر پایه + ۱ (مثلاً 111102): معامله وارد مرحله دوم (ترلینگ) شده است.
+void ManageActiveTrade(long ticket, int session_magic_base)
+{
+    //--- ابتدا چک می‌کنیم که پوزیشن با این تیکت هنوز در بازار وجود دارد یا نه.
+    if (!PositionSelectByTicket(ticket)) return;
+    
+    //--- مجیک نامبر فعلی پوزیشن را می‌خوانیم تا بفهمیم در کدام مرحله است.
+    long current_magic = PositionGetInteger(POSITION_MAGIC);
+    
+    // --- منطق مرحله اول (Stage 1): رسیدن به هدف اولیه و بستن بخشی از معامله ---
+    //--- این منطق فقط زمانی اجرا می‌شود که مجیک نامبر پوزیشن با مجیک نامبر پایه جلسه برابر باشد و خروج پله‌ای فعال باشد.
+    if (current_magic == session_magic_base && InpEnablePartialClose)
+    {
+        double entry_price = PositionGetDouble(POSITION_PRICE_OPEN); // قیمت ورود پوزیشن.
+        double sl_price = PositionGetDouble(POSITION_SL);             // قیمت حد ضرر پوزیشن.
+        double volume = PositionGetDouble(POSITION_VOLUME);         // حجم فعلی پوزیشن.
+        ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن (خرید یا فروش).
+
+        double sl_distance_price = fabs(entry_price - sl_price); // فاصله حد ضرر از قیمت ورود.
+        //--- قیمت هدف برای بستن بخش اول را بر اساس نسبت سود به ضرر محاسبه می‌کنیم.
+        double target_price = (pos_type == POSITION_TYPE_BUY) ? entry_price + sl_distance_price * InpTakeProfitRatio_Stage1 : entry_price - sl_distance_price * InpTakeProfitRatio_Stage1;
+
+        //--- قیمت فعلی بازار را برای مقایسه با قیمت هدف می‌گیریم (Bid برای بستن خرید، Ask برای بستن فروش).
+        double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+        //--- اگر قیمت به هدف اولیه رسیده باشد...
+        if ((pos_type == POSITION_TYPE_BUY && current_price >= target_price) || (pos_type == POSITION_TYPE_SELL && current_price <= target_price))
+        {
+            //--- حجمی که باید بسته شود را بر اساس درصد ورودی محاسبه می‌کنیم.
+            double close_volume = NormalizeDouble(volume * (InpPartialClosePercentage / 100.0), 2);
+            //--- اگر توانستیم بخش اول را با موفقیت ببندیم...
+            if (trade.PositionClose(ticket, close_volume))
+            {
+                //--- حالا پوزیشن باقی‌مانده را اصلاح می‌کنیم: حد ضرر را به نقطه ورود منتقل کرده و مجیک نامبر را به +1 تغییر می‌دهیم.
+                //--- تغییر مجیک نامبر، پوزیشن را وارد مرحله دوم (ترلینگ) می‌کند.
+                trade.PositionModify(ticket, entry_price, 0, IntegerToString(session_magic_base + 1)); 
+            }
+        }
+    }
+    // --- منطق مرحله دوم (Stage 2): حد ضرر متحرک (Trailing Stop) ---
+    //--- این منطق فقط زمانی اجرا می‌شود که مجیک نامبر پوزیشن برابر با مجیک نامبر مرحله دوم باشد.
+    else if (current_magic == session_magic_base + 1 && InpEnablePartialClose)
+    {
+        ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن.
+        double current_sl = PositionGetDouble(POSITION_SL);                               // حد ضرر فعلی.
+        
+        //--- مقدار ATR را برای محاسبه فاصله ترلینگ استاپ دریافت می‌کنیم.
+        double atr_value = iATR(_Symbol, InpTrailingStopATRTimeFrame, InpTrailingStopATRPeriod, 1);
+        double trail_offset = atr_value * InpTrailingStopATRMultiplier; // فاصله از قیمت فعلی.
+        
+        if (pos_type == POSITION_TYPE_BUY) // اگر پوزیشن خرید است...
+        {
+            double new_sl = SymbolInfoDouble(_Symbol, SYMBOL_BID) - trail_offset; // حد ضرر جدید، پایین‌تر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را نسبت به حد ضرر قبلی قفل می‌کند، آن را آپدیت می‌کنیم (هیچ‌وقت SL را به عقب نمی‌بریم).
+            if (new_sl > current_sl)
+                trade.PositionModify(ticket, new_sl, 0, IntegerToString(session_magic_base + 1));
+        }
+        else // اگر پوزیشن فروش است...
+        {
+            double new_sl = SymbolInfoDouble(_Symbol, SYMBOL_ASK) + trail_offset; // حد ضرر جدید، بالاتر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را قفل می‌کند، آن را آپدیت می‌کنیم.
+            if (new_sl < current_sl)
+                trade.PositionModify(ticket, new_sl, 0, IntegerToString(session_magic_base + 1));
+        }
+    }
+}
+
+
+//+------------------------------------------------------------------+
+//| Function for Session CleanUp                                     |
+//+------------------------------------------------------------------+
+//--- این تابع تمام پوزیشن‌ها و سفارشات مربوط به یک جلسه را در زمان انقضا پاکسازی می‌کند.
+//--- این تابع هر دو مجیک نامبر (پایه و مرحله دوم) را برای پاکسازی در نظر می‌گیرد تا هیچ معامله‌ای باقی نماند.
+void SessionCleanUp(int session_magic_base)
+{
+    //--- ابتدا تمام پوزیشن‌های باز مربوط به این جلسه (هر دو مرحله) را می‌بندیم.
+    for (int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        //--- پوزیشن را بر اساس ایندکس آن انتخاب می‌کنیم.
+        if (PositionSelectByIndex(i))
+        {
+            //--- مجیک نامبر آن را می‌خوانیم.
+            long magic = PositionGetInteger(POSITION_MAGIC);
+            //--- اگر مجیک نامبر با مجیک پایه یا مجیک مرحله دوم این جلسه برابر بود...
+            if (magic == session_magic_base || magic == session_magic_base + 1)
+            {
+                //--- پوزیشن را می‌بندیم.
+                trade.PositionClose(PositionGetInteger(POSITION_TICKET));
+            }
+        }
+    }
+    
+    //--- سپس تمام سفارشات پندینگ مربوط به این جلسه را حذف می‌کنیم.
+    for (int i = OrdersTotal() - 1; i >= 0; i--)
+    {
+        //--- سفارش را بر اساس ایندکس آن انتخاب می‌کنیم.
+        if (OrderSelect(i))
+        {
+            //--- اگر مجیک نامبر آن با مجیک پایه این جلسه برابر بود...
+            if (OrderGetInteger(ORDER_MAGIC) == session_magic_base)
+            {
+                //--- سفارش را حذف می‌کنیم.
+                trade.OrderDelete(OrderGetInteger(ORDER_TICKET));
+            }
+        }
+    }
+}
+
+#endif //TRADEMANAGER_MQH
+
+
+//+------------------------------------------------------------------+
+//|                                                 TradeManager.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION <<             |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+
+//--- گارد برای جلوگیری از include شدن چندباره.
+#ifndef TRADEMANAGER_MQH
+#define TRADEMANAGER_MQH
+
+#include <Settings.mqh>      // برای دسترسی به تمام پارامترهای ورودی که کاربر تنظیم کرده است.
+#include <Trade/Trade.mqh>   // کتابخانه استاندارد و قدرتمند MQL5 برای انجام تمام عملیات معاملاتی.
+CTrade trade;                // یک نمونه سراسری از کلاس CTrade برای ارسال، اصلاح و بستن سفارشات ایجاد می‌کنیم.
+
+//+------------------------------------------------------------------+
+//| Function to Calculate Lot Size                                   |
+//+------------------------------------------------------------------+
+//--- این تابع، حجم معامله (Lot Size) را بر اساس درصد ریسک مشخص شده و فاصله حد ضرر (به پیپ) محاسبه می‌کند.
+//--- این سنگ بنای مدیریت سرمایه ماست و تضمین می‌کند که ریسک هر معامله ثابت و کاملاً تحت کنترل باشد.
+double CalculateLotSize(double risk_percent, double stop_loss_pips)
+{
+    //--- یک شرط ایمنی: اگر استاپ لاس صفر یا منفی باشد، حجم معامله باید صفر باشد تا از خطای تقسیم بر صفر جلوگیری شود.
+    if (stop_loss_pips <= 0) return 0.0;
+
+    //--- از Equity حساب استفاده می‌کنیم که شامل سود و ضرر معاملات باز است و معیار دقیق‌تری از سرمایه واقعی ماست.
+    double account_equity = AccountInfoDouble(ACCOUNT_EQUITY);
+    //--- مبلغ دلاری که مجاز به ریسک کردن آن هستیم را محاسبه می‌کنیم.
+    double risk_amount = account_equity * (risk_percent / 100.0);
+
+    //--- اطلاعات لازم از نماد معاملاتی را برای محاسبه دقیق ارزش هر پیپ دریافت می‌کنیم.
+    double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+    double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+    
+    //--- شرط ایمنی: اگر اطلاعات نماد در دسترس نباشد، حجم را صفر برمی‌گردانیم.
+    if (tick_value <= 0 || tick_size <= 0) return 0.0;
+
+    //--- ارزش هر پیپ را برای یک لات استاندارد محاسبه می‌کنیم.
+    double value_per_pip = tick_value / tick_size * (_Point / tick_size);
+    if (value_per_pip <= 0) return 0.0; // شرط ایمنی دیگر.
+    
+    //--- فرمول اصلی محاسبه حجم: مبلغ ریسک تقسیم بر (فاصله استاپ لاس به پیپ * ارزش هر پیپ).
+    double lot_size = risk_amount / (stop_loss_pips * value_per_pip);
+
+    //--- حجم محاسبه شده را بر اساس قوانین بروکر (min/max/step lot) گرد و محدود می‌کنیم تا از خطای "invalid volume" جلوگیری شود.
+    double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+    double max_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+    double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+    //--- ابتدا حجم را به نزدیک‌ترین گام لات مجاز گرد می‌کنیم.
+    lot_size = round(lot_size / lot_step) * lot_step;
+    //--- سپس آن را بین حداقل و حداکثر حجم مجاز محدود می‌کنیم.
+    lot_size = fmax(min_lot, fmin(max_lot, lot_size));
+    
+    return lot_size; // حجم نهایی و معتبر را برمی‌گردانیم.
+}
+
+//+------------------------------------------------------------------+
+//| Function to Place Pending Orders                                 |
+//+------------------------------------------------------------------+
+//--- این تابع، منطق هوشمند ثبت سفارشات پندینگ را بر اساس وضعیت فیلتر روند پیاده‌سازی می‌کند.
+void PlacePendingOrders(int session_magic_base, bool is_trend_on, bool is_uptrend, RangeData& rd)
+{
+    //--- فاصله حد ضرر اولیه را برای استفاده در محاسبه حجم محاسبه می‌کنیم.
+    double sl_additional_pips = rd.rangeSizePips * (InpStopLossAdditionalPercent / 100.0);
+    double sl_distance_pips = rd.rangeSizePips + sl_additional_pips;
+    
+    //--- حجم معامله را با تابع مدیریت سرمایه محاسبه می‌کنیم.
+    double lot_size = CalculateLotSize(InpRiskPercentage, sl_distance_pips);
+    //--- اگر حجم قابل محاسبه نیست (مثلاً به دلیل استاپ لاس صفر)، هیچ سفارشی ثبت نمی‌کنیم.
+    if (lot_size <= 0) return;
+
+    //--- قیمت‌های دقیق برای ورود (Buy/Sell Stop)، حد ضرر و حد سود را محاسبه می‌کنیم.
+    double buy_stop_price = rd.rangeHigh + InpOrderBufferPoints * _Point;
+    double sell_stop_price = rd.rangeLow - InpOrderBufferPoints * _Point;
+
+    double buy_sl = rd.rangeLow - sl_additional_pips * _Point; // حد ضرر خرید، پایین محدوده + بافر است.
+    double sell_sl = rd.rangeHigh + sl_additional_pips * _Point; // حد ضرر فروش، بالای محدوده + بافر است.
+
+    double buy_tp = 0;  // به صورت پیش‌فرض، حد سود را صفر در نظر می‌گیریم.
+    double sell_tp = 0; // این کار برای حالت خروج پله‌ای است که حد سود ثابتی وجود ندارد.
+    
+    //--- اگر خروج پله‌ای توسط کاربر غیرفعال شده باشد، حد سود ثابت را بر اساس نسبت سود به ضرر مرحله اول محاسبه می‌کنیم.
+    if (!InpEnablePartialClose)
+    {
+        buy_tp = buy_stop_price + (buy_stop_price - buy_sl) * InpTakeProfitRatio_Stage1;
+        sell_tp = sell_stop_price - (sell_sl - sell_stop_price) * InpTakeProfitRatio_Stage1;
+    }
+
+    //--- منطق اصلی ثبت سفارش:
+    //--- اگر فیلتر روند خاموش است، هر دو سفارش خرید و فروش را به صورت OCO (با یک مجیک نامبر) ثبت می‌کنیم.
+    if (!is_trend_on)
+    {
+        trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, 0, 0, IntegerToString(session_magic_base));
+        trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, 0, 0, IntegerToString(session_magic_base));
+    }
+    else //--- وگرنه، فقط سفارشی را ثبت می‌کنیم که با جهت روند موافق باشد.
+    {
+        if (is_uptrend) // اگر روند صعودی است...
+            trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, 0, 0, IntegerToString(session_magic_base));
+        else // اگر روند نزولی است...
+            trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, 0, 0, IntegerToString(session_magic_base));
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Function to Manage Active Trade (State Machine via Magic Number) |
+//+------------------------------------------------------------------+
+//--- این تابع، وضعیت معامله فعال را مدیریت می‌کند. به جای کامنت، از مجیک نامبر برای تشخیص مرحله معامله استفاده می‌کنیم.
+//--- مجیک نامبر پایه (مثلاً 111101): معامله در مرحله اول است.
+//--- مجیک نامبر پایه + ۱ (مثلاً 111102): معامله وارد مرحله دوم (ترلینگ) شده است.
+void ManageActiveTrade(long ticket, int session_magic_base)
+{
+    //--- ابتدا چک می‌کنیم که پوزیشن با این تیکت هنوز در بازار وجود دارد یا نه.
+    if (!PositionSelectByTicket(ticket)) return;
+    
+    //--- مجیک نامبر فعلی پوزیشن را می‌خوانیم تا بفهمیم در کدام مرحله است.
+    long current_magic = PositionGetInteger(POSITION_MAGIC);
+    
+    // --- منطق مرحله اول (Stage 1): رسیدن به هدف اولیه و بستن بخشی از معامله ---
+    //--- این منطق فقط زمانی اجرا می‌شود که مجیک نامبر پوزیشن با مجیک نامبر پایه جلسه برابر باشد و خروج پله‌ای فعال باشد.
+    if (current_magic == session_magic_base && InpEnablePartialClose)
+    {
+        double entry_price = PositionGetDouble(POSITION_PRICE_OPEN); // قیمت ورود پوزیشن.
+        double sl_price = PositionGetDouble(POSITION_SL);             // قیمت حد ضرر پوزیشن.
+        double volume = PositionGetDouble(POSITION_VOLUME);         // حجم فعلی پوزیشن.
+        ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن (خرید یا فروش).
+
+        double sl_distance_price = fabs(entry_price - sl_price); // فاصله حد ضرر از قیمت ورود.
+        //--- قیمت هدف برای بستن بخش اول را بر اساس نسبت سود به ضرر محاسبه می‌کنیم.
+        double target_price = (pos_type == POSITION_TYPE_BUY) ? entry_price + sl_distance_price * InpTakeProfitRatio_Stage1 : entry_price - sl_distance_price * InpTakeProfitRatio_Stage1;
+
+        //--- قیمت فعلی بازار را برای مقایسه با قیمت هدف می‌گیریم (Bid برای بستن خرید، Ask برای بستن فروش).
+        double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+        //--- اگر قیمت به هدف اولیه رسیده باشد...
+        if ((pos_type == POSITION_TYPE_BUY && current_price >= target_price) || (pos_type == POSITION_TYPE_SELL && current_price <= target_price))
+        {
+            //--- حجمی که باید بسته شود را بر اساس درصد ورودی محاسبه می‌کنیم.
+            double close_volume = NormalizeDouble(volume * (InpPartialClosePercentage / 100.0), 2);
+            //--- اگر توانستیم بخش اول را با موفقیت ببندیم...
+            if (trade.PositionClose(ticket, close_volume))
+            {
+                //--- حالا پوزیشن باقی‌مانده را اصلاح می‌کنیم: حد ضرر را به نقطه ورود منتقل کرده و مجیک نامبر را به +1 تغییر می‌دهیم.
+                //--- تغییر مجیک نامبر، پوزیشن را وارد مرحله دوم (ترلینگ) می‌کند.
+                trade.PositionModify(ticket, entry_price, 0, IntegerToString(session_magic_base + 1)); 
+            }
+        }
+    }
+    // --- منطق مرحله دوم (Stage 2): حد ضرر متحرک (Trailing Stop) ---
+    //--- این منطق فقط زمانی اجرا می‌شود که مجیک نامبر پوزیشن برابر با مجیک نامبر مرحله دوم باشد.
+    else if (current_magic == session_magic_base + 1 && InpEnablePartialClose)
+    {
+        ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن.
+        double current_sl = PositionGetDouble(POSITION_SL);                               // حد ضرر فعلی.
+        
+        //--- مقدار ATR را برای محاسبه فاصله ترلینگ استاپ دریافت می‌کنیم.
+        double atr_value = iATR(_Symbol, InpTrailingStopATRTimeFrame, InpTrailingStopATRPeriod, 1);
+        double trail_offset = atr_value * InpTrailingStopATRMultiplier; // فاصله از قیمت فعلی.
+        
+        if (pos_type == POSITION_TYPE_BUY) // اگر پوزیشن خرید است...
+        {
+            double new_sl = SymbolInfoDouble(_Symbol, SYMBOL_BID) - trail_offset; // حد ضرر جدید، پایین‌تر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را نسبت به حد ضرر قبلی قفل می‌کند، آن را آپدیت می‌کنیم (هیچ‌وقت SL را به عقب نمی‌بریم).
+            if (new_sl > current_sl)
+                trade.PositionModify(ticket, new_sl, 0, IntegerToString(session_magic_base + 1));
+        }
+        else // اگر پوزیشن فروش است...
+        {
+            double new_sl = SymbolInfoDouble(_Symbol, SYMBOL_ASK) + trail_offset; // حد ضرر جدید، بالاتر از قیمت فعلی.
+            //--- فقط اگر حد ضرر جدید، سود بیشتری را قفل می‌کند، آن را آپدیت می‌کنیم.
+            if (new_sl < current_sl)
+                trade.PositionModify(ticket, new_sl, 0, IntegerToString(session_magic_base + 1));
+        }
+    }
+}
+
+
+//+------------------------------------------------------------------+
+//| Function for Session CleanUp                                     |
+//+------------------------------------------------------------------+
+//--- این تابع تمام پوزیشن‌ها و سفارشات مربوط به یک جلسه را در زمان انقضا پاکسازی می‌کند.
+//--- این تابع هر دو مجیک نامبر (پایه و مرحله دوم) را برای پاکسازی در نظر می‌گیرد تا هیچ معامله‌ای باقی نماند.
+void SessionCleanUp(int session_magic_base)
+{
+    //--- ابتدا تمام پوزیشن‌های باز مربوط به این جلسه (هر دو مرحله) را می‌بندیم.
+    for (int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        //--- پوزیشن را بر اساس ایندکس آن انتخاب می‌کنیم.
+        if (PositionSelectByIndex(i))
+        {
+            //--- مجیک نامبر آن را می‌خوانیم.
+            long magic = PositionGetInteger(POSITION_MAGIC);
+            //--- اگر مجیک نامبر با مجیک پایه یا مجیک مرحله دوم این جلسه برابر بود...
+            if (magic == session_magic_base || magic == session_magic_base + 1)
+            {
+                //--- پوزیشن را می‌بندیم.
+                trade.PositionClose(PositionGetInteger(POSITION_TICKET));
+            }
+        }
+    }
+    
+    //--- سپس تمام سفارشات پندینگ مربوط به این جلسه را حذف می‌کنیم.
+    for (int i = OrdersTotal() - 1; i >= 0; i--)
+    {
+        //--- سفارش را بر اساس ایندکس آن انتخاب می‌کنیم.
+        if (OrderSelect(i))
+        {
+            //--- اگر مجیک نامبر آن با مجیک پایه این جلسه برابر بود...
+            if (OrderGetInteger(ORDER_MAGIC) == session_magic_base)
+            {
+                //--- سفارش را حذف می‌کنیم.
+                trade.OrderDelete(OrderGetInteger(ORDER_TICKET));
+            }
+        }
+    }
+}
+
+#endif //TRADEMANAGER_MQH
