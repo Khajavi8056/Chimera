@@ -1,10 +1,305 @@
-undeclared identifier	SessionTrader.mqh	118	7
-undeclared identifier	SessionTrader.mqh	119	7
-undeclared identifier	SessionTrader.mqh	120	7
-undeclared identifier	SessionTrader.mqh	121	45
-variable expected	SessionTrader.mqh	121	45
-   built-in: datetime StructToTime(const MqlDateTime&)	SessionTrader.mqh	121	32
-possible loss of data due to type conversion from 'double' to 'ulong'	SessionTrader.mqh	172	51
-undeclared identifier	SessionTrader.mqh	239	11
-'rd' - some operator expected	SessionTrader.mqh	239	30
-7 errors, 1 warnings		7	1
+//+------------------------------------------------------------------+
+//|                                             SessionTrader.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION 3.0 <<        |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
+
+#ifndef SESSIONTRADER_MQH
+#define SESSIONTRADER_MQH
+
+#include "Settings.mqh"
+#include "RangeLib.mqh"
+#include "TradeManager.mqh"
+
+//+------------------------------------------------------------------+
+//| Class CSessionTrader                                             |
+//+------------------------------------------------------------------+
+class CSessionTrader
+  {
+private:
+   bool              m_is_active;
+   int               m_magic_number;
+   ENUM_TIMEFRAMES   m_timeframe;
+   int               m_start_hour, m_start_min;
+   int               m_end_hour, m_end_min;
+   int               m_expiry_hour, m_expiry_min;
+
+   int               m_ichimoku_handle;
+   int               m_placement_atr_handle;
+   int               m_range_atr_handle;
+   int               m_ema_handle;
+   int               m_trail_atr_handle;
+
+   datetime          m_last_analysis_date;
+   bool              m_partial_closed;
+   bool              m_breakeven_set;
+
+public:
+                     CSessionTrader(void) : m_is_active(false), m_magic_number(0), m_timeframe(PERIOD_M15),
+                     m_start_hour(0),m_start_min(0), m_end_hour(0),m_end_min(0), m_expiry_hour(0),m_expiry_min(0),
+                     m_ichimoku_handle(INVALID_HANDLE), m_placement_atr_handle(INVALID_HANDLE), m_range_atr_handle(INVALID_HANDLE),
+                     m_ema_handle(INVALID_HANDLE), m_trail_atr_handle(INVALID_HANDLE), m_last_analysis_date(0),
+                     m_partial_closed(false), m_breakeven_set(false) {}
+
+   void              Init(bool is_active,ENUM_TIMEFRAMES timeframe,int start_h,int start_m,int end_h,int end_m,int expiry_h,int expiry_m,int magic)
+     {
+      m_is_active = is_active;
+      m_timeframe = timeframe;
+      m_start_hour = start_h;
+      m_start_min = start_m;
+      m_end_hour = end_h;
+      m_end_min = end_m;
+      m_expiry_hour = expiry_h;
+      m_expiry_min = expiry_m;
+      m_magic_number = magic;
+
+      if(!m_is_active) return;
+
+      m_ichimoku_handle = iIchimoku(_Symbol,m_timeframe,InpIchimoku_Tenkan,InpIchimoku_Kijun,InpIchimoku_Senkou);
+      if(m_ichimoku_handle == INVALID_HANDLE)
+        {
+         if(InpEnableLogging) Print("خطا در ایجاد هندل ایچیموکو برای جلسه " + IntegerToString(magic) + ".");
+        }
+
+      m_placement_atr_handle = iATR(_Symbol,m_timeframe,InRangeATR_Period);
+      if(m_placement_atr_handle == INVALID_HANDLE)
+        {
+         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR قرارگیری برای جلسه " + IntegerToString(magic) + ".");
+        }
+
+      m_range_atr_handle = iATR(_Symbol,InRangeATR_TimeFrame,InRangeATR_Period);
+      if(m_range_atr_handle == INVALID_HANDLE)
+        {
+         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR اعتبارسنجی برای جلسه " + IntegerToString(magic) + ".");
+        }
+
+      m_ema_handle = iMA(_Symbol,InpTrendEMATimeFrame,InpTrendEMAPeriod,0,MODE_EMA,InpTrendEMAAppliedPrice);
+      if(m_ema_handle == INVALID_HANDLE)
+        {
+         if(InpEnableLogging) Print("خطا در ایجاد هندل EMA برای جلسه " + IntegerToString(magic) + ".");
+        }
+
+      m_trail_atr_handle = iATR(_Symbol,InpTrailingStopATRTimeFrame,InpTrailingStopATRPeriod);
+      if(m_trail_atr_handle == INVALID_HANDLE)
+        {
+         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR ترلینگ برای جلسه " + IntegerToString(magic) + ".");
+        }
+
+      if(InpEnableLogging) Print("جلسه " + IntegerToString(magic) + " اولیه‌سازی شد.");
+     }
+
+   void              Deinit(void)
+     {
+      if(m_ichimoku_handle != INVALID_HANDLE) IndicatorRelease(m_ichimoku_handle);
+      if(m_placement_atr_handle != INVALID_HANDLE) IndicatorRelease(m_placement_atr_handle);
+      if(m_range_atr_handle != INVALID_HANDLE) IndicatorRelease(m_range_atr_handle);
+      if(m_ema_handle != INVALID_HANDLE) IndicatorRelease(m_ema_handle);
+      if(m_trail_atr_handle != INVALID_HANDLE) IndicatorRelease(m_trail_atr_handle);
+      ObjectsDeleteAll(0,"Range_"+IntegerToString(m_magic_number)+"_");
+
+      if(InpEnableLogging) Print("جلسه " + IntegerToString(m_magic_number) + " خاتمه یافت.");
+     }
+
+   void              OnTimerUpdate(void)
+     {
+      if(!m_is_active) return;
+
+      datetime now = TimeCurrent();
+      MqlDateTime now_struct;
+      TimeToStruct(now,now_struct);
+
+      if(now_struct.hour == m_expiry_hour && now_struct.min == m_expiry_min)
+        {
+         SessionCleanUp(m_magic_number);
+         if(InpEnableLogging) Print("انقضای جلسه " + IntegerToString(m_magic_number) + " رسید و پاکسازی انجام شد.");
+         return;
+        }
+
+      MqlDateTime end_dt_struct; //--- اصلاح: متغیر تعریف شد
+      end_dt_struct.hour = m_end_hour;
+      end_dt_struct.min = m_end_min;
+      end_dt_struct.sec = 0;
+      datetime analysis_time = StructToTime(end_dt_struct);
+
+      if(now >= analysis_time && !IsSameDay(m_last_analysis_date,now))
+        {
+         AnalyzeAndPlaceOrders();
+         m_last_analysis_date = now;
+         if(InpEnableLogging) Print("تحلیل جلسه " + IntegerToString(m_magic_number) + " در زمان " + TimeToString(now) + " انجام شد.");
+        }
+     }
+
+   int               GetMagicNumber(void) { return m_magic_number; }
+
+   bool              ManageActiveTrade(ulong ticket)
+     {
+      if(!PositionSelectByTicket(ticket))
+        {
+         if(InpEnableLogging) Print("خطا در انتخاب پوزیشن با تیکت " + IntegerToString(ticket) + ".");
+         return false;
+        }
+
+      long current_magic = PositionGetInteger(POSITION_MAGIC);
+      if(current_magic != m_magic_number) return false;
+
+      if(!InpEnablePartialClose) return false;
+
+      double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
+      double current_sl = PositionGetDouble(POSITION_SL);
+      double volume = PositionGetDouble(POSITION_VOLUME);
+      ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      
+      //--- محاسبه سود پوزیشن به پیپ برای تصمیم‌گیری دقیق
+      double profit_pips = 0;
+      if (pos_type == POSITION_TYPE_BUY) profit_pips = (SymbolInfoDouble(_Symbol, SYMBOL_BID) - entry_price) / _Point;
+      else profit_pips = (entry_price - SymbolInfoDouble(_Symbol, SYMBOL_ASK)) / _Point;
+
+      //--- محاسبه فاصله استاپ لاس از قیمت ورود به پیپ
+      double sl_distance_pips = MathAbs(entry_price - current_sl) / _Point;
+      
+      //--- منطق خروج پله‌ای
+      if (!m_partial_closed)
+      {
+          if (profit_pips >= sl_distance_pips * InpTakeProfitRatio_Stage1)
+          {
+              double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+              double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+              double close_volume = MathRound((volume * (InpPartialClosePercentage / 100.0)) / lot_step) * lot_step;
+
+              if (volume - close_volume < min_lot && volume > min_lot) close_volume = volume;
+
+              if (close_volume >= min_lot)
+              {
+                  if (trade.PositionClose(ticket, close_volume))
+                  {
+                      if (InpEnableLogging) Print("خروج پله‌ای موفق: تیکت=" + IntegerToString(ticket) + ", حجم بسته‌شده=" + DoubleToString(close_volume, 2) + ".");
+                      m_partial_closed = true;
+                      
+                      if (PositionSelectByTicket(ticket))
+                      {
+                          trade.PositionModify(ticket, entry_price, 0.0);
+                          if (InpEnableLogging) Print("استاپ به breakeven منتقل شد: تیکت=" + IntegerToString(ticket) + ".");
+                          m_breakeven_set = true;
+                      }
+                      return true;
+                  }
+                  else
+                  {
+                      if (InpEnableLogging) Print("خطا در خروج پله‌ای: تیکت=" + IntegerToString(ticket) + ".");
+                      return false;
+                  }
+              }
+          }
+      }
+      
+      //--- منطق ترلینگ استاپ
+      if (m_breakeven_set)
+      {
+          double atr_buffer[1];
+          if(m_trail_atr_handle == INVALID_HANDLE || CopyBuffer(m_trail_atr_handle, 0, 1, 1, atr_buffer) != 1)
+          {
+             if(InpEnableLogging) Print("خطا در کپی بافر ATR ترلینگ: تیکت=" + IntegerToString(ticket) + ".");
+             return false;
+          }
+          double trail_offset = atr_buffer[0] * InpTrailingStopATRMultiplier;
+          
+          if (pos_type == POSITION_TYPE_BUY)
+          {
+              double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+              double new_sl = current_bid - trail_offset;
+              if (new_sl > current_sl)
+              {
+                  if(trade.PositionModify(ticket, new_sl, 0.0))
+                  {
+                      if (InpEnableLogging) Print("ترلینگ استاپ بروزرسانی شد (خرید): SL جدید=" + DoubleToString(new_sl, _Digits) + ", تیکت=" + IntegerToString(ticket) + ".");
+                      return true;
+                  }
+              }
+          }
+          else if (pos_type == POSITION_TYPE_SELL)
+          {
+              double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+              double new_sl = current_ask + trail_offset;
+              if (new_sl < current_sl)
+              {
+                  if(trade.PositionModify(ticket, new_sl, 0.0))
+                  {
+                      if (InpEnableLogging) Print("ترلینگ استاپ بروزرسانی شد (فروش): SL جدید=" + DoubleToString(new_sl, _Digits) + ", تیکت=" + IntegerToString(ticket) + ".");
+                      return true;
+                  }
+              }
+          }
+      }
+      return false;
+     }
+
+   void              AnalyzeAndPlaceOrders(void)
+     {
+      RangeData rd;
+      if(!IdentifyValidRange(rd))
+        {
+         if(InpEnableLogging) Print("محدوده نامعتبر در جلسه " + IntegerToString(m_magic_number) + ". تحلیل متوقف شد.");
+         return;
+        }
+
+      DrawRangeOnChart(rd,m_magic_number);
+
+      bool is_trend_on = InpTrendFilterIsOn;
+      bool is_uptrend = false;
+
+      if(is_trend_on)
+        {
+         double ema_buffer[1];
+         if(CopyBuffer(m_ema_handle,0,1,1,ema_buffer) == 1)
+           {
+            double current_price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
+            is_uptrend = current_price > ema_buffer[0];
+            if(InpEnableLogging) Print("فیلتر روند: " + (is_uptrend ? "صعودی" : "نزولی") + " (قیمت=" + DoubleToString(current_price, _Digits) + ", EMA=" + DoubleToString(ema_buffer[0], _Digits) + ") در جلسه " + IntegerToString(m_magic_number) + ".");
+           }
+         else
+          {
+           if(InpEnableLogging) Print("خطا در کپی بافر EMA در جلسه " + IntegerToString(m_magic_number) + ".");
+          }
+        }
+
+      double atr_buffer[1];
+      if(CopyBuffer(m_placement_atr_handle,0,1,1,atr_buffer) != 1)
+        {
+         if(InpEnableLogging) Print("خطا در کپی بافر ATR قرارگیری در جلسه " + IntegerToString(m_magic_number) + ".");
+         return;
+        }
+      double atr_value = atr_buffer[0];
+      double buffer = atr_value * InpAtrMultiplier_Placement;
+
+      double buy_stop_price = rd.rangeHigh + buffer;
+      double sell_stop_price = rd.rangeLow - buffer;
+
+      double current_bid = SymbolInfoDouble(_Symbol,SYMBOL_BID);
+      double current_ask = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+      if((is_trend_on && is_uptrend && current_ask >= buy_stop_price) ||
+         (is_trend_on && !is_uptrend && current_bid <= sell_stop_price) ||
+         (!is_trend_on && (current_ask >= buy_stop_price || current_bid <= sell_stop_price)))
+         {
+          if(InpEnableLogging) Print("Safety check: قیمت قبلاً از محدوده عبور کرده - سفارش قرار نمی‌گیرد (جلسه " + IntegerToString(m_magic_number) + ").");
+          return;
+         }
+
+      PlacePendingOrders(m_magic_number,is_trend_on,is_uptrend,rd,buy_stop_price,sell_stop_price);
+      
+      //--- ریست کردن متغیرهای وضعیت برای معامله جدید
+      m_partial_closed = false;
+      m_breakeven_set = false;
+     }
+
+   bool              IsSameDay(datetime d1,datetime d2)
+     {
+      MqlDateTime s1,s2;
+      TimeToStruct(d1,s1);
+      TimeToStruct(d2,s2);
+      return (s1.year == s2.year && s1.mon == s2.mon && s1.day == s2.day);
+     }
+  };
+
+#endif //SESSIONTRADER_MQH
