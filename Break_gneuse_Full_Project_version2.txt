@@ -1,29 +1,197 @@
-
-// ... داخل تابع ManageActiveTrade، در بخش Stage 1
-if(close_volume >= min_lot)
-{
-    if(trade.PositionClose(ticket,close_volume))
-    {
-        // این لاگ برای اطمینان از موفقیت اضافه شده
-        PrintFormat("موفقیت: %.2f لات از پوزیشن %d در مرحله اول بسته شد. انتقال SL به نقطه ورود...", close_volume, ticket);
-
-        if(PositionSelectByTicket(ticket)) // چک می‌کنیم که هنوز حجمی باقی مانده یا نه
-        {
-            trade.PositionModify(ticket,entry_price,0.0);
-        }
-        return true; // عملیات با موفقیت انجام شد
-    }
-    else
-    {
-        // *** این بخش حیاتی برای پیدا کردن باگ اضافه شده ***
-        PrintFormat("!!! خطا: بستن پله‌ای پوزیشن %d ناموفق بود | کد خطای سرور: %d | پیام: %s",
-                    ticket,
-                    trade.ResultRetcode(),
-                    trade.ResultComment());
-        return false; // عملیات ناموفق بود، در تیک بعدی دوباره تلاش می‌شود
-    }
-}
-
+2025.08.27 20:06:35.207	EURUSD,M15: history cache allocated for 116322 bars and contains 24914 bars from 2021.01.04 00:00 to 2021.12.31 23:00
+2025.08.27 20:06:35.207	EURUSD,M15: history begins from 2021.01.04 00:00
+2025.08.27 20:06:35.285	EURUSD,Daily: history cache allocated for 1212 bars and contains 260 bars from 2021.01.04 00:00 to 2021.12.31 00:00
+2025.08.27 20:06:35.285	EURUSD,Daily: history begins from 2021.01.04 00:00
+2025.08.27 20:06:35.355	EURUSD,H4: history cache allocated for 7273 bars and contains 1560 bars from 2021.01.04 00:00 to 2021.12.31 20:00
+2025.08.27 20:06:35.355	EURUSD,H4: history begins from 2021.01.04 00:00
+2025.08.27 20:06:51.927	2022.01.10 06:00:00   buy stop 0.05 EURUSD at 1.13486 sl: 1.13366 (1.13377 / 1.13378 / 1.13377)
+2025.08.27 20:06:51.930	2022.01.10 06:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13486 sl: 1.13366 [done]
+2025.08.27 20:06:51.930	2022.01.10 06:00:00   sell stop 0.05 EURUSD at 1.13363 sl: 1.13483 (1.13377 / 1.13378 / 1.13377)
+2025.08.27 20:06:51.932	2022.01.10 06:00:00   CTrade::OrderSend: sell stop 0.05 EURUSD at 1.13363 sl: 1.13483 [done]
+2025.08.27 20:06:51.934	2022.01.10 06:18:39   order [#3 sell stop 0.05 EURUSD at 1.13363] triggered
+2025.08.27 20:06:51.934	2022.01.10 06:18:39   deal #2 sell 0.05 EURUSD at 1.13362 done (based on order #3)
+2025.08.27 20:06:51.934	2022.01.10 06:18:39   deal performed [#2 sell 0.05 EURUSD at 1.13362]
+2025.08.27 20:06:51.934	2022.01.10 06:18:39   order performed sell 0.05 at 1.13362 [#3 sell stop 0.05 EURUSD at 1.13363]
+2025.08.27 20:06:51.938	2022.01.10 06:18:39   order canceled [#2 buy stop 0.05 EURUSD at 1.13486]
+2025.08.27 20:06:51.940	2022.01.10 06:18:39   CTrade::OrderSend: cancel #2 [done]
+2025.08.27 20:06:51.967	2022.01.10 10:00:00   buy stop 0.05 EURUSD at 1.13370 sl: 1.13257 (1.13292 / 1.13293 / 1.13292)
+2025.08.27 20:06:51.969	2022.01.10 10:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13370 sl: 1.13257 [done]
+2025.08.27 20:06:51.969	2022.01.10 10:00:00   sell stop 0.05 EURUSD at 1.13250 sl: 1.13363 (1.13292 / 1.13293 / 1.13292)
+2025.08.27 20:06:51.971	2022.01.10 10:00:00   CTrade::OrderSend: sell stop 0.05 EURUSD at 1.13250 sl: 1.13363 [done]
+2025.08.27 20:06:51.972	2022.01.10 10:06:27   order [#5 sell stop 0.05 EURUSD at 1.13250] triggered
+2025.08.27 20:06:51.972	2022.01.10 10:06:27   deal #3 sell 0.05 EURUSD at 1.13248 done (based on order #5)
+2025.08.27 20:06:51.972	2022.01.10 10:06:27   deal performed [#3 sell 0.05 EURUSD at 1.13248]
+2025.08.27 20:06:51.972	2022.01.10 10:06:27   order performed sell 0.05 at 1.13248 [#5 sell stop 0.05 EURUSD at 1.13250]
+2025.08.27 20:06:51.972	2022.01.10 10:06:28   order canceled [#4 buy stop 0.05 EURUSD at 1.13370]
+2025.08.27 20:06:51.974	2022.01.10 10:06:28   CTrade::OrderSend: cancel #4 [done]
+2025.08.27 20:06:51.986	2022.01.10 10:58:16   stop loss triggered #5 sell 0.05 EURUSD 1.13248 sl: 1.13363 [#6 buy 0.05 EURUSD at 1.13363]
+2025.08.27 20:06:51.986	2022.01.10 10:58:16   deal #4 buy 0.05 EURUSD at 1.13364 done (based on order #6)
+2025.08.27 20:06:51.986	2022.01.10 10:58:16   deal performed [#4 buy 0.05 EURUSD at 1.13364]
+2025.08.27 20:06:51.986	2022.01.10 10:58:16   order performed buy 0.05 at 1.13364 [#6 buy 0.05 EURUSD at 1.13363]
+2025.08.27 20:06:52.133	2022.01.11 10:05:39   stop loss triggered #3 sell 0.05 EURUSD 1.13362 sl: 1.13483 [#7 buy 0.05 EURUSD at 1.13483]
+2025.08.27 20:06:52.133	2022.01.11 10:05:39   deal #5 buy 0.05 EURUSD at 1.13483 done (based on order #7)
+2025.08.27 20:06:52.133	2022.01.11 10:05:39   deal performed [#5 buy 0.05 EURUSD at 1.13483]
+2025.08.27 20:06:52.133	2022.01.11 10:05:39   order performed buy 0.05 at 1.13483 [#7 buy 0.05 EURUSD at 1.13483]
+2025.08.27 20:07:12.607	2022.01.19 10:00:00   buy stop 0.07 EURUSD at 1.13354 sl: 1.13263 (1.13308 / 1.13315 / 1.13308)
+2025.08.27 20:07:12.609	2022.01.19 10:00:00   CTrade::OrderSend: buy stop 0.07 EURUSD at 1.13354 sl: 1.13263 [done]
+2025.08.27 20:07:12.609	2022.01.19 10:00:00   sell stop 0.07 EURUSD at 1.13252 sl: 1.13343 (1.13308 / 1.13315 / 1.13308)
+2025.08.27 20:07:12.611	2022.01.19 10:00:00   CTrade::OrderSend: sell stop 0.07 EURUSD at 1.13252 sl: 1.13343 [done]
+2025.08.27 20:07:12.615	2022.01.19 10:10:36   order [#8 buy stop 0.07 EURUSD at 1.13354] triggered
+2025.08.27 20:07:12.615	2022.01.19 10:10:36   deal #6 buy 0.07 EURUSD at 1.13355 done (based on order #8)
+2025.08.27 20:07:12.615	2022.01.19 10:10:36   deal performed [#6 buy 0.07 EURUSD at 1.13355]
+2025.08.27 20:07:12.615	2022.01.19 10:10:36   order performed buy 0.07 at 1.13355 [#8 buy stop 0.07 EURUSD at 1.13354]
+2025.08.27 20:07:12.615	2022.01.19 10:10:36   order canceled [#9 sell stop 0.07 EURUSD at 1.13252]
+2025.08.27 20:07:12.617	2022.01.19 10:10:36   CTrade::OrderSend: cancel #9 [done]
+2025.08.27 20:07:12.919	2022.01.20 20:05:04   stop loss triggered #8 buy 0.07 EURUSD 1.13355 sl: 1.13263 [#10 sell 0.07 EURUSD at 1.13263]
+2025.08.27 20:07:12.919	2022.01.20 20:05:04   deal #7 sell 0.07 EURUSD at 1.13263 done (based on order #10)
+2025.08.27 20:07:12.919	2022.01.20 20:05:04   deal performed [#7 sell 0.07 EURUSD at 1.13263]
+2025.08.27 20:07:12.919	2022.01.20 20:05:04   order performed sell 0.07 at 1.13263 [#10 sell 0.07 EURUSD at 1.13263]
+2025.08.27 20:07:12.960	2022.01.21 06:00:00   buy stop 0.03 EURUSD at 1.13369 sl: 1.13165 (1.13258 / 1.13265 / 1.13258)
+2025.08.27 20:07:12.962	2022.01.21 06:00:00   CTrade::OrderSend: buy stop 0.03 EURUSD at 1.13369 sl: 1.13165 [done]
+2025.08.27 20:07:12.962	2022.01.21 06:00:00   sell stop 0.03 EURUSD at 1.13161 sl: 1.13365 (1.13258 / 1.13265 / 1.13258)
+2025.08.27 20:07:12.964	2022.01.21 06:00:00   CTrade::OrderSend: sell stop 0.03 EURUSD at 1.13161 sl: 1.13365 [done]
+2025.08.27 20:07:12.975	2022.01.21 09:29:05   order [#11 buy stop 0.03 EURUSD at 1.13369] triggered
+2025.08.27 20:07:12.975	2022.01.21 09:29:05   deal #8 buy 0.03 EURUSD at 1.13369 done (based on order #11)
+2025.08.27 20:07:12.975	2022.01.21 09:29:05   deal performed [#8 buy 0.03 EURUSD at 1.13369]
+2025.08.27 20:07:12.975	2022.01.21 09:29:05   order performed buy 0.03 at 1.13369 [#11 buy stop 0.03 EURUSD at 1.13369]
+2025.08.27 20:07:12.975	2022.01.21 09:29:05   order canceled [#12 sell stop 0.03 EURUSD at 1.13161]
+2025.08.27 20:07:12.977	2022.01.21 09:29:05   CTrade::OrderSend: cancel #12 [done]
+2025.08.27 20:07:12.980	2022.01.21 10:00:00   buy stop 0.08 EURUSD at 1.13299 sl: 1.13220 (1.13286 / 1.13293 / 1.13286)
+2025.08.27 20:07:12.982	2022.01.21 10:00:00   CTrade::OrderSend: buy stop 0.08 EURUSD at 1.13299 sl: 1.13220 [done]
+2025.08.27 20:07:12.982	2022.01.21 10:00:00   sell stop 0.08 EURUSD at 1.13210 sl: 1.13289 (1.13286 / 1.13293 / 1.13286)
+2025.08.27 20:07:12.984	2022.01.21 10:00:00   CTrade::OrderSend: sell stop 0.08 EURUSD at 1.13210 sl: 1.13289 [done]
+2025.08.27 20:07:12.984	2022.01.21 10:00:18   order [#13 buy stop 0.08 EURUSD at 1.13299] triggered
+2025.08.27 20:07:12.984	2022.01.21 10:00:18   deal #9 buy 0.08 EURUSD at 1.13299 done (based on order #13)
+2025.08.27 20:07:12.984	2022.01.21 10:00:18   deal performed [#9 buy 0.08 EURUSD at 1.13299]
+2025.08.27 20:07:12.984	2022.01.21 10:00:18   order performed buy 0.08 at 1.13299 [#13 buy stop 0.08 EURUSD at 1.13299]
+2025.08.27 20:07:12.984	2022.01.21 10:00:18   order canceled [#14 sell stop 0.08 EURUSD at 1.13210]
+2025.08.27 20:07:12.986	2022.01.21 10:00:18   CTrade::OrderSend: cancel #14 [done]
+2025.08.27 20:07:13.176	2022.01.24 07:59:18   stop loss triggered #13 buy 0.08 EURUSD 1.13299 sl: 1.13220 [#15 sell 0.08 EURUSD at 1.13220]
+2025.08.27 20:07:13.176	2022.01.24 07:59:18   deal #10 sell 0.08 EURUSD at 1.13219 done (based on order #15)
+2025.08.27 20:07:13.176	2022.01.24 07:59:18   deal performed [#10 sell 0.08 EURUSD at 1.13219]
+2025.08.27 20:07:13.176	2022.01.24 07:59:18   order performed sell 0.08 at 1.13219 [#15 sell 0.08 EURUSD at 1.13220]
+2025.08.27 20:07:13.176	2022.01.24 07:59:40   stop loss triggered #11 buy 0.03 EURUSD 1.13369 sl: 1.13165 [#16 sell 0.03 EURUSD at 1.13165]
+2025.08.27 20:07:13.176	2022.01.24 07:59:40   deal #11 sell 0.03 EURUSD at 1.13163 done (based on order #16)
+2025.08.27 20:07:13.176	2022.01.24 07:59:40   deal performed [#11 sell 0.03 EURUSD at 1.13163]
+2025.08.27 20:07:13.177	2022.01.24 07:59:40   order performed sell 0.03 at 1.13163 [#16 sell 0.03 EURUSD at 1.13165]
+2025.08.27 20:07:13.856	2022.01.28 06:00:00   buy stop 0.07 EURUSD at 1.11536 sl: 1.11458 (1.11532 / 1.11535 / 1.11532)
+2025.08.27 20:07:13.858	2022.01.28 06:00:00   CTrade::OrderSend: buy stop 0.07 EURUSD at 1.11536 sl: 1.11458 [done]
+2025.08.27 20:07:13.858	2022.01.28 06:00:00   sell stop 0.07 EURUSD at 1.11451 sl: 1.11529 (1.11532 / 1.11535 / 1.11532)
+2025.08.27 20:07:13.860	2022.01.28 06:00:00   CTrade::OrderSend: sell stop 0.07 EURUSD at 1.11451 sl: 1.11529 [done]
+2025.08.27 20:07:13.860	2022.01.28 06:00:01   order [#17 buy stop 0.07 EURUSD at 1.11536] triggered
+2025.08.27 20:07:13.860	2022.01.28 06:00:01   deal #12 buy 0.07 EURUSD at 1.11536 done (based on order #17)
+2025.08.27 20:07:13.860	2022.01.28 06:00:01   deal performed [#12 buy 0.07 EURUSD at 1.11536]
+2025.08.27 20:07:13.860	2022.01.28 06:00:01   order performed buy 0.07 at 1.11536 [#17 buy stop 0.07 EURUSD at 1.11536]
+2025.08.27 20:07:13.862	2022.01.28 06:00:01   order canceled [#18 sell stop 0.07 EURUSD at 1.11451]
+2025.08.27 20:07:13.864	2022.01.28 06:00:01   CTrade::OrderSend: cancel #18 [done]
+2025.08.27 20:07:13.880	2022.01.28 09:00:28   stop loss triggered #17 buy 0.07 EURUSD 1.11536 sl: 1.11458 [#19 sell 0.07 EURUSD at 1.11458]
+2025.08.27 20:07:13.880	2022.01.28 09:00:28   deal #13 sell 0.07 EURUSD at 1.11458 done (based on order #19)
+2025.08.27 20:07:13.880	2022.01.28 09:00:28   deal performed [#13 sell 0.07 EURUSD at 1.11458]
+2025.08.27 20:07:13.880	2022.01.28 09:00:28   order performed sell 0.07 at 1.11458 [#19 sell 0.07 EURUSD at 1.11458]
+2025.08.27 20:07:14.544	2022.02.03 06:00:00   buy stop 0.05 EURUSD at 1.13095 sl: 1.12984 (1.13048 / 1.13055 / 1.13048)
+2025.08.27 20:07:14.546	2022.02.03 06:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13095 sl: 1.12984 [done]
+2025.08.27 20:07:14.546	2022.02.03 06:00:00   sell stop 0.05 EURUSD at 1.12978 sl: 1.13089 (1.13048 / 1.13055 / 1.13048)
+2025.08.27 20:07:14.548	2022.02.03 06:00:00   CTrade::OrderSend: sell stop 0.05 EURUSD at 1.12978 sl: 1.13089 [done]
+2025.08.27 20:07:14.551	2022.02.03 06:24:25   order [#21 sell stop 0.05 EURUSD at 1.12978] triggered
+2025.08.27 20:07:14.551	2022.02.03 06:24:25   deal #14 sell 0.05 EURUSD at 1.12977 done (based on order #21)
+2025.08.27 20:07:14.551	2022.02.03 06:24:25   deal performed [#14 sell 0.05 EURUSD at 1.12977]
+2025.08.27 20:07:14.551	2022.02.03 06:24:25   order performed sell 0.05 at 1.12977 [#21 sell stop 0.05 EURUSD at 1.12978]
+2025.08.27 20:07:14.551	2022.02.03 06:24:25   order canceled [#20 buy stop 0.05 EURUSD at 1.13095]
+2025.08.27 20:07:14.553	2022.02.03 06:24:25   CTrade::OrderSend: cancel #20 [done]
+2025.08.27 20:07:14.663	2022.02.03 15:38:41   stop loss triggered #21 sell 0.05 EURUSD 1.12977 sl: 1.13089 [#22 buy 0.05 EURUSD at 1.13089]
+2025.08.27 20:07:14.663	2022.02.03 15:38:41   deal #15 buy 0.05 EURUSD at 1.13096 done (based on order #22)
+2025.08.27 20:07:14.663	2022.02.03 15:38:41   deal performed [#15 buy 0.05 EURUSD at 1.13096]
+2025.08.27 20:07:14.663	2022.02.03 15:38:41   order performed buy 0.05 at 1.13096 [#22 buy 0.05 EURUSD at 1.13089]
+2025.08.27 20:08:07.103	2022.02.16 06:00:00   buy stop 0.05 EURUSD at 1.13548 sl: 1.13439 (1.13457 / 1.13458 / 1.13457)
+2025.08.27 20:08:07.105	2022.02.16 06:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13548 sl: 1.13439 [done]
+2025.08.27 20:08:07.105	2022.02.16 06:00:00   sell stop 0.05 EURUSD at 1.13435 sl: 1.13544 (1.13457 / 1.13458 / 1.13457)
+2025.08.27 20:08:07.107	2022.02.16 06:00:00   CTrade::OrderSend: sell stop 0.05 EURUSD at 1.13435 sl: 1.13544 [done]
+2025.08.27 20:08:07.112	2022.02.16 07:43:35   order [#23 buy stop 0.05 EURUSD at 1.13548] triggered
+2025.08.27 20:08:07.112	2022.02.16 07:43:35   deal #16 buy 0.05 EURUSD at 1.13548 done (based on order #23)
+2025.08.27 20:08:07.112	2022.02.16 07:43:35   deal performed [#16 buy 0.05 EURUSD at 1.13548]
+2025.08.27 20:08:07.112	2022.02.16 07:43:35   order performed buy 0.05 at 1.13548 [#23 buy stop 0.05 EURUSD at 1.13548]
+2025.08.27 20:08:07.112	2022.02.16 07:43:35   order canceled [#24 sell stop 0.05 EURUSD at 1.13435]
+2025.08.27 20:08:07.114	2022.02.16 07:43:35   CTrade::OrderSend: cancel #24 [done]
+2025.08.27 20:08:07.365	2022.02.17 05:56:21   stop loss triggered #23 buy 0.05 EURUSD 1.13548 sl: 1.13439 [#25 sell 0.05 EURUSD at 1.13439]
+2025.08.27 20:08:07.365	2022.02.17 05:56:21   deal #17 sell 0.05 EURUSD at 1.13439 done (based on order #25)
+2025.08.27 20:08:07.365	2022.02.17 05:56:21   deal performed [#17 sell 0.05 EURUSD at 1.13439]
+2025.08.27 20:08:07.365	2022.02.17 05:56:21   order performed sell 0.05 at 1.13439 [#25 sell 0.05 EURUSD at 1.13439]
+2025.08.27 20:08:13.328	2022.02.23 06:00:00   buy stop 0.04 EURUSD at 1.13372 sl: 1.13236 (1.13257 / 1.13260 / 1.13257)
+2025.08.27 20:08:13.330	2022.02.23 06:00:00   CTrade::OrderSend: buy stop 0.04 EURUSD at 1.13372 sl: 1.13236 [done]
+2025.08.27 20:08:13.330	2022.02.23 06:00:00   sell stop 0.04 EURUSD at 1.13232 sl: 1.13368 (1.13257 / 1.13260 / 1.13257)
+2025.08.27 20:08:13.332	2022.02.23 06:00:00   CTrade::OrderSend: sell stop 0.04 EURUSD at 1.13232 sl: 1.13368 [done]
+2025.08.27 20:08:13.334	2022.02.23 06:44:30   order [#27 sell stop 0.04 EURUSD at 1.13232] triggered
+2025.08.27 20:08:13.334	2022.02.23 06:44:30   deal #18 sell 0.04 EURUSD at 1.13231 done (based on order #27)
+2025.08.27 20:08:13.334	2022.02.23 06:44:30   deal performed [#18 sell 0.04 EURUSD at 1.13231]
+2025.08.27 20:08:13.334	2022.02.23 06:44:30   order performed sell 0.04 at 1.13231 [#27 sell stop 0.04 EURUSD at 1.13232]
+2025.08.27 20:08:13.334	2022.02.23 06:44:30   order canceled [#26 buy stop 0.04 EURUSD at 1.13372]
+2025.08.27 20:08:13.336	2022.02.23 06:44:30   CTrade::OrderSend: cancel #26 [done]
+2025.08.27 20:08:13.354	2022.02.23 09:36:39   stop loss triggered #27 sell 0.04 EURUSD 1.13231 sl: 1.13368 [#28 buy 0.04 EURUSD at 1.13368]
+2025.08.27 20:08:13.354	2022.02.23 09:36:39   deal #19 buy 0.04 EURUSD at 1.13368 done (based on order #28)
+2025.08.27 20:08:13.354	2022.02.23 09:36:39   deal performed [#19 buy 0.04 EURUSD at 1.13368]
+2025.08.27 20:08:13.354	2022.02.23 09:36:39   order performed buy 0.04 at 1.13368 [#28 buy 0.04 EURUSD at 1.13368]
+2025.08.27 20:08:32.352	2022.03.08 06:00:00   buy stop 0.03 EURUSD at 1.08875 sl: 1.08691 (1.08675 / 1.08679 / 1.08675)
+2025.08.27 20:08:32.354	2022.03.08 06:00:00   CTrade::OrderSend: buy stop 0.03 EURUSD at 1.08875 sl: 1.08691 [done]
+2025.08.27 20:08:32.354	2022.03.08 06:00:00   sell stop 0.03 EURUSD at 1.08668 sl: 1.08853 (1.08675 / 1.08679 / 1.08675)
+2025.08.27 20:08:32.356	2022.03.08 06:00:00   CTrade::OrderSend: sell stop 0.03 EURUSD at 1.08668 sl: 1.08852 [done]
+2025.08.27 20:08:32.360	2022.03.08 06:03:03   order [#30 sell stop 0.03 EURUSD at 1.08668] triggered
+2025.08.27 20:08:32.360	2022.03.08 06:03:03   deal #20 sell 0.03 EURUSD at 1.08666 done (based on order #30)
+2025.08.27 20:08:32.360	2022.03.08 06:03:03   deal performed [#20 sell 0.03 EURUSD at 1.08666]
+2025.08.27 20:08:32.360	2022.03.08 06:03:03   order performed sell 0.03 at 1.08666 [#30 sell stop 0.03 EURUSD at 1.08668]
+2025.08.27 20:08:32.360	2022.03.08 06:03:03   order canceled [#29 buy stop 0.03 EURUSD at 1.08875]
+2025.08.27 20:08:32.362	2022.03.08 06:03:03   CTrade::OrderSend: cancel #29 [done]
+2025.08.27 20:08:32.428	2022.03.08 10:10:31   stop loss triggered #30 sell 0.03 EURUSD 1.08666 sl: 1.08853 [#31 buy 0.03 EURUSD at 1.08853]
+2025.08.27 20:08:32.428	2022.03.08 10:10:31   deal #21 buy 0.03 EURUSD at 1.08854 done (based on order #31)
+2025.08.27 20:08:32.428	2022.03.08 10:10:31   deal performed [#21 buy 0.03 EURUSD at 1.08854]
+2025.08.27 20:08:32.428	2022.03.08 10:10:31   order performed buy 0.03 at 1.08854 [#31 buy 0.03 EURUSD at 1.08853]
+2025.08.27 20:08:32.754	2022.03.09 06:00:00   buy stop 0.02 EURUSD at 1.09224 sl: 1.08999 (1.09071 / 1.09074 / 1.09071)
+2025.08.27 20:08:32.757	2022.03.09 06:00:00   CTrade::OrderSend: buy stop 0.02 EURUSD at 1.09224 sl: 1.08999 [done]
+2025.08.27 20:08:32.757	2022.03.09 06:00:00   sell stop 0.02 EURUSD at 1.08990 sl: 1.09215 (1.09071 / 1.09074 / 1.09071)
+2025.08.27 20:08:32.759	2022.03.09 06:00:00   CTrade::OrderSend: sell stop 0.02 EURUSD at 1.08990 sl: 1.09215 [done]
+2025.08.27 20:08:32.768	2022.03.09 07:14:26   order [#32 buy stop 0.02 EURUSD at 1.09224] triggered
+2025.08.27 20:08:32.768	2022.03.09 07:14:26   deal #22 buy 0.02 EURUSD at 1.09224 done (based on order #32)
+2025.08.27 20:08:32.768	2022.03.09 07:14:26   deal performed [#22 buy 0.02 EURUSD at 1.09224]
+2025.08.27 20:08:32.768	2022.03.09 07:14:26   order performed buy 0.02 at 1.09224 [#32 buy stop 0.02 EURUSD at 1.09224]
+2025.08.27 20:08:32.768	2022.03.09 07:14:26   order canceled [#33 sell stop 0.02 EURUSD at 1.08990]
+2025.08.27 20:08:32.770	2022.03.09 07:14:26   CTrade::OrderSend: cancel #33 [done]
+2025.08.27 20:08:35.792	2022.03.10 06:00:00   buy stop 0.01 EURUSD at 1.10806 sl: 1.10417 (1.10585 / 1.10588 / 1.10585)
+2025.08.27 20:08:35.795	2022.03.10 06:00:00   CTrade::OrderSend: buy stop 0.01 EURUSD at 1.10806 sl: 1.10417 [done]
+2025.08.27 20:08:35.795	2022.03.10 06:00:00   sell stop 0.01 EURUSD at 1.10421 sl: 1.10810 (1.10585 / 1.10588 / 1.10585)
+2025.08.27 20:08:35.797	2022.03.10 06:00:00   CTrade::OrderSend: sell stop 0.01 EURUSD at 1.10421 sl: 1.10810 [done]
+2025.08.27 20:08:35.833	2022.03.10 10:11:39   order [#35 sell stop 0.01 EURUSD at 1.10421] triggered
+2025.08.27 20:08:35.833	2022.03.10 10:11:39   deal #23 sell 0.01 EURUSD at 1.10421 done (based on order #35)
+2025.08.27 20:08:35.833	2022.03.10 10:11:39   deal performed [#23 sell 0.01 EURUSD at 1.10421]
+2025.08.27 20:08:35.833	2022.03.10 10:11:39   order performed sell 0.01 at 1.10421 [#35 sell stop 0.01 EURUSD at 1.10421]
+2025.08.27 20:08:35.834	2022.03.10 10:11:39   order canceled [#34 buy stop 0.01 EURUSD at 1.10806]
+2025.08.27 20:08:35.836	2022.03.10 10:11:39   CTrade::OrderSend: cancel #34 [done]
+2025.08.27 20:08:35.971	2022.03.10 14:45:39   stop loss triggered #35 sell 0.01 EURUSD 1.10421 sl: 1.10810 [#36 buy 0.01 EURUSD at 1.10810]
+2025.08.27 20:08:35.971	2022.03.10 14:45:39   deal #24 buy 0.01 EURUSD at 1.10815 done (based on order #36)
+2025.08.27 20:08:35.971	2022.03.10 14:45:39   deal performed [#24 buy 0.01 EURUSD at 1.10815]
+2025.08.27 20:08:35.971	2022.03.10 14:45:39   order performed buy 0.01 at 1.10815 [#36 buy 0.01 EURUSD at 1.10810]
+2025.08.27 20:08:37.212	2022.03.16 06:00:00   buy stop 0.03 EURUSD at 1.09725 sl: 1.09536 (1.09672 / 1.09677 / 1.09672)
+2025.08.27 20:08:37.214	2022.03.16 06:00:00   CTrade::OrderSend: buy stop 0.03 EURUSD at 1.09725 sl: 1.09536 [done]
+2025.08.27 20:08:37.214	2022.03.16 06:00:00   sell stop 0.03 EURUSD at 1.09528 sl: 1.09717 (1.09672 / 1.09677 / 1.09672)
+2025.08.27 20:08:37.216	2022.03.16 06:00:00   CTrade::OrderSend: sell stop 0.03 EURUSD at 1.09528 sl: 1.09717 [done]
+2025.08.27 20:08:37.222	2022.03.16 07:27:14   order [#37 buy stop 0.03 EURUSD at 1.09725] triggered
+2025.08.27 20:08:37.222	2022.03.16 07:27:14   deal #25 buy 0.03 EURUSD at 1.09725 done (based on order #37)
+2025.08.27 20:08:37.222	2022.03.16 07:27:14   deal performed [#25 buy 0.03 EURUSD at 1.09725]
+2025.08.27 20:08:37.222	2022.03.16 07:27:14   order performed buy 0.03 at 1.09725 [#37 buy stop 0.03 EURUSD at 1.09725]
+2025.08.27 20:08:37.222	2022.03.16 07:27:14   order canceled [#38 sell stop 0.03 EURUSD at 1.09528]
+2025.08.27 20:08:37.224	2022.03.16 07:27:14   CTrade::OrderSend: cancel #38 [done]
+2025.08.27 20:08:37.538	2022.03.16 20:10:39   stop loss triggered #37 buy 0.03 EURUSD 1.09725 sl: 1.09536 [#39 sell 0.03 EURUSD at 1.09536]
+2025.08.27 20:08:37.538	2022.03.16 20:10:39   deal #26 sell 0.03 EURUSD at 1.09536 done (based on order #39)
+2025.08.27 20:08:37.538	2022.03.16 20:10:39   deal performed [#26 sell 0.03 EURUSD at 1.09536]
+2025.08.27 20:08:37.538	2022.03.16 20:10:39   order performed sell 0.03 at 1.09536 [#39 sell 0.03 EURUSD at 1.09536]
+2025.08.27 20:08:37.949	2022.03.18 06:00:00   buy stop 0.03 EURUSD at 1.10988 sl: 1.10800 (1.10835 / 1.10842 / 1.10835)
+2025.08.27 20:08:37.951	2022.03.18 06:00:00   CTrade::OrderSend: buy stop 0.03 EURUSD at 1.10988 sl: 1.10800 [done]
+2025.08.27 20:08:37.951	2022.03.18 06:00:00   sell stop 0.03 EURUSD at 1.10788 sl: 1.10976 (1.10835 / 1.10842 / 1.10835)
+2025.08.27 20:08:37.953	2022.03.18 06:00:00   CTrade::OrderSend: sell stop 0.03 EURUSD at 1.10788 sl: 1.10976 [done]
+2025.08.27 20:08:37.956	2022.03.18 06:53:59   order [#41 sell stop 0.03 EURUSD at 1.10788] triggered
+2025.08.27 20:08:37.956	2022.03.18 06:53:59   deal #27 sell 0.03 EURUSD at 1.10787 done (based on order #41)
+2025.08.27 20:08:37.956	2022.03.18 06:53:59   deal performed [#27 sell 0.03 EURUSD at 1.10787]
+2025.08.27 20:08:37.956	2022.03.18 06:53:59   order performed sell 0.03 at 1.10787 [#41 sell stop 0.03 EURUSD at 1.10788]
+2025.08.27 20:08:37.956	2022.03.18 06:53:59   order canceled [#40 buy stop 0.03 EURUSD at 1.10988]
+2025.08.27 20:08:37.958	2022.03.18 06:53:59   CTrade::OrderSend: cancel #40 [done]
 
 
 
