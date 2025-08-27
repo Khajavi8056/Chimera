@@ -1,8 +1,6 @@
 2025.08.27 20:06:35.207	EURUSD,M15: history cache allocated for 116322 bars and contains 24914 bars from 2021.01.04 00:00 to 2021.12.31 23:00
-2025.08.27 20:06:35.207	EURUSD,M15: history begins from 2021.01.04 00:00
-2025.08.27 20:06:35.285	EURUSD,Daily: history cache allocated for 1212 bars and contains 260 bars from 2021.01.04 00:00 to 2021.12.31 00:00
-2025.08.27 20:06:35.285	EURUSD,Daily: history begins from 2021.01.04 00:00
-2025.08.27 20:06:35.355	EURUSD,H4: history cache allocated for 7273 bars and contains 1560 bars from 2021.01.04 00:00 to 2021.12.31 20:00
+2025.08.27 if(InpEnableLogging) PrintFormat("Diag TP1: Ticket %d | Target Price: %.5f | Current Price: %.5f", ticket, target_price, current_price);
+
 2025.08.27 20:06:35.355	EURUSD,H4: history begins from 2021.01.04 00:00
 2025.08.27 20:06:51.927	2022.01.10 06:00:00   buy stop 0.05 EURUSD at 1.13486 sl: 1.13366 (1.13377 / 1.13378 / 1.13377)
 2025.08.27 20:06:51.930	2022.01.10 06:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13486 sl: 1.13366 [done]
