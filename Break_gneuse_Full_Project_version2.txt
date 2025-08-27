@@ -117,7 +117,7 @@ public:
          return;
         }
 
-      MqlDateTime end_dt_struct; //--- اصلاح: متغیر تعریف شد
+      MqlDateTime end_dt_struct = now_struct;
       end_dt_struct.hour = m_end_hour;
       end_dt_struct.min = m_end_min;
       end_dt_struct.sec = 0;
@@ -288,7 +288,6 @@ public:
 
       PlacePendingOrders(m_magic_number,is_trend_on,is_uptrend,rd,buy_stop_price,sell_stop_price);
       
-      //--- ریست کردن متغیرهای وضعیت برای معامله جدید
       m_partial_closed = false;
       m_breakeven_set = false;
      }
