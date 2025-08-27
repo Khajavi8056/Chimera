@@ -1,4 +1,42 @@
 
+// ... داخل تابع ManageActiveTrade، در بخش Stage 1
+if(close_volume >= min_lot)
+{
+    if(trade.PositionClose(ticket,close_volume))
+    {
+        // این لاگ برای اطمینان از موفقیت اضافه شده
+        PrintFormat("موفقیت: %.2f لات از پوزیشن %d در مرحله اول بسته شد. انتقال SL به نقطه ورود...", close_volume, ticket);
+
+        if(PositionSelectByTicket(ticket)) // چک می‌کنیم که هنوز حجمی باقی مانده یا نه
+        {
+            trade.PositionModify(ticket,entry_price,0.0);
+        }
+        return true; // عملیات با موفقیت انجام شد
+    }
+    else
+    {
+        // *** این بخش حیاتی برای پیدا کردن باگ اضافه شده ***
+        PrintFormat("!!! خطا: بستن پله‌ای پوزیشن %d ناموفق بود | کد خطای سرور: %d | پیام: %s",
+                    ticket,
+                    trade.ResultRetcode(),
+                    trade.ResultComment());
+        return false; // عملیات ناموفق بود، در تیک بعدی دوباره تلاش می‌شود
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //+------------------------------------------------------------------+
