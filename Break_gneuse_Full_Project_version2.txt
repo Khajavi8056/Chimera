@@ -1,14 +1,7 @@
-ببین من کدو نوشتم همون مواردی که گفتی رو پیاده کردم و یه دستی روش کلاً کشیدیم و مرتبش کردم ببین
-
-ببین کد زیر رو بررسی کن ببینش از هر لحاظی خیلی دقیق و جزئی بررسی کن ببین هیچ مشکلی که نداره ببین هندلا درسته نمی‌دونم تایم‌ها درسته دیگه هماهنگ اختلال نمی‌ندازه مشکل آرایه نداریم مشکل حالت نداریم همه حالت‌ها درستن همه چی بدون مشکله یا نه؟
 
 
 
-
-
-
-
-```mql5
+```mql5a
 //+------------------------------------------------------------------+
 //|                                                   Settings.mqh   |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
@@ -729,54 +722,61 @@ bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
 //|                          >> FINAL REVISED VERSION 4.0 <<         |
 //+------------------------------------------------------------------+
-// توضیح: این فایل شامل کلاس CSessionTrader است که منطق کامل یک جلسه معاملاتی را کپسوله می‌کند. این کلاس به یک ماشین وضعیت هوشمند تبدیل شده که وضعیت‌های جلسه را مدیریت می‌کند و از پردازش غیرضروری جلوگیری می‌کند. در نسخه 4.0، منطق پویا، مدیریت سفارشات، و استاپ لاس بهبود یافته و خطاهای مربوط به تعریف متغیرها و سینتکس برطرف شده‌اند.
+// توضیح: این فایل شامل کلاس CSessionTrader است که به عنوان قلب تپنده هر جلسه معاملاتی عمل می‌کند.
+// این کلاس به یک "ماشین وضعیت" (State Machine) هوشمند تبدیل شده که وضعیت‌های مختلف جلسه را مدیریت کرده
+// و تمام تصمیمات مربوط به تحلیل، ورود، و مدیریت معاملات را به صورت مستقل و در زمان بهینه (با هر کندل جدید) اتخاذ می‌کند.
 
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy" // کپی‌رایت برای حفاظت قانونی.
-#property link      "https://..." // لینک پروژه برای ارجاع.
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
+#property link      "https://..."
 
-// گارد برای جلوگیری از include چندباره فایل.
+// گارد برای جلوگیری از include چندباره.
 #ifndef SESSIONTRADER_MQH
 #define SESSIONTRADER_MQH
 
-#include "Settings.mqh"     // تنظیمات ورودی کاربر.
-#include "RangeLib.mqh"     // توابع کمکی برای تحلیل محدوده.
-#include "TradeManager.mqh" // توابع مدیریت معاملات.
+#include "Settings.mqh"
+#include "RangeLib.mqh"
+#include "TradeManager.mqh"
 
 //+------------------------------------------------------------------+
 //| Class CSessionTrader                                             |
 //+------------------------------------------------------------------+
-// توضیح: این کلاس هسته اصلی منطق معاملاتی هر جلسه را تشکیل می‌دهد. هر نمونه از این کلاس یک جلسه مستقل را مدیریت می‌کند و از تداخل بین جلسات جلوگیری می‌کند. در نسخه 4.0، متغیرهای وضعیت و منطق پویا بهبود یافته‌اند و خطاهای سینتکسی برطرف شده‌اند.
 class CSessionTrader
   {
 private:
-   // متغیرهای پیکربندی - این متغیرها تنظیمات اصلی جلسه را ذخیره می‌کنند.
-   bool              m_is_active; // وضعیت فعال بودن جلسه - true اگر جلسه فعال باشد.
-   int               m_magic_number; // مجیک نامبر منحصر به فرد برای شناسایی معاملات این جلسه.
-   ENUM_TIMEFRAMES   m_timeframe; // تایم فریم تحلیل جلسه.
-   int               m_start_hour, m_start_min; // ساعت و دقیقه شروع بازه تحلیل.
-   int               m_end_hour, m_end_min; // ساعت و دقیقه پایان بازه تحلیل.
-   int               m_expiry_hour, m_expiry_min; // ساعت و دقیقه انقضای جلسه.
+   // --- متغیرهای پیکربندی (Configuration) ---
+   // این متغیرها در زمان شروع اکسپرت (OnInit) مقداردهی شده و در طول اجرای آن ثابت می‌مانند.
+   bool              m_is_active;                  // آیا این جلسه فعال است؟
+   int               m_magic_number;               // مجیک نامبر منحصر به فرد این جلسه.
+   ENUM_TIMEFRAMES   m_timeframe;                  // تایم فریم تحلیل این جلسه.
+   int               m_start_hour, m_start_min;    // زمان شروع جلسه.
+   int               m_end_hour, m_end_min;        // زمان پایان جلسه.
+   int               m_expiry_hour, m_expiry_min;  // زمان انقضای نهایی تمام فعالیت‌های جلسه.
 
-   // هندل‌های اندیکاتور - برای دسترسی به داده‌های ایچیموکو، ATR، و EMA.
-   int               m_ichimoku_handle; // هندل ایچیموکو برای فیلتر تعادل.
-   int               m_placement_atr_handle; // هندل ATR برای بافر قرارگیری سفارشات.
-   int               m_range_atr_handle; // هندل ATR برای اعتبارسنجی محدوده و SL.
-   int               m_ema_handle; // هندل EMA برای فیلتر روند.
-   int               m_trail_atr_handle; // هندل ATR برای ترلینگ استاپ.
+   // --- هندل‌های اندیکاتور (Indicator Handles) ---
+   // این هندل‌ها برای دسترسی به داده‌های اندیکاتورها بدون نیاز به محاسبه مجدد استفاده می‌شوند.
+   int               m_ichimoku_handle;            // هندل ایچیموکو برای فیلتر تعادل بازار.
+   int               m_placement_atr_handle;       // هندل ATR برای بافر قرارگیری سفارشات.
+   int               m_range_atr_handle;           // هندل ATR برای اعتبارسنجی محدوده و محاسبه SL.
+   int               m_ema_handle;                 // هندل EMA برای فیلتر روند.
+   int               m_trail_atr_handle;           // هندل ATR برای تریلینگ استاپ.
 
-   // متغیرهای وضعیت (جدید در نسخه 4.0) - برای تبدیل کلاس به ماشین وضعیت.
-   datetime          m_last_bar_time; // زمان آخرین کندل پردازش‌شده برای تشخیص بار جدید.
-   bool              m_orders_placed_this_session; // آیا در این جلسه سفارش ثبت شده؟ - برای جلوگیری از سفارشات تکراری در حالت پست-سشن.
-   datetime          m_session_day; // روز فعلی جلسه برای ریست وضعیت‌ها در روز جدید.
-   bool              m_is_building_range; // آیا در حال ساخت سکانس تعادل هستیم؟ - برای حالت پویا.
-   int               m_sequence_start_bar; // ایندکس کندل شروع سکانس تعادل.
-   double            m_dynamic_range_high; // بالاترین قیمت در سکانس تعادل (حالت پویا).
-   double            m_dynamic_range_low; // پایین‌ترین قیمت در سکانس تعادل (حالت پویا).
-   ulong             m_buy_order_ticket; // تیکت سفارش BuyStop - اصلاح به ulong برای رفع هشدار کامپایلر.
-   ulong             m_sell_order_ticket; // تیکت سفارش SellStop - اصلاح به ulong.
+   // --- متغیرهای وضعیت (State Management) ---
+   // این متغیرها وضعیت فعلی جلسه را در لحظه نگه می‌دارند و با هر روز یا هر جلسه جدید، ریست می‌شوند.
+   datetime          m_last_bar_time;              // زمان آخرین کندل پردازش‌شده (برای شبیه‌سازی OnNewBar).
+   bool              m_orders_placed_this_session; // فقط برای حالت Post-Session: آیا سفارش ثبت شده؟
+   datetime          m_session_day;                // تاریخ روز جاری برای ریست کردن وضعیت‌ها در روز جدید.
+   bool              m_is_building_range;          // برای حالت Dynamic: آیا در حال ساخت یک سکانس تعادل هستیم؟
+   int               m_sequence_start_bar;         // ایندکس کندل شروع سکانس تعادل فعلی.
+   double            m_dynamic_range_high;         // High کلی تمام کندل‌های تعادل یافت‌شده در جلسه (برای حالت Dynamic).
+   double            m_dynamic_range_low;          // Low کلی تمام کندل‌های تعادل یافت‌شده در جلسه (برای حالت Dynamic).
+   ulong             m_buy_order_ticket;           // تیکت سفارش BuyStop برای مدیریت و حذف آن. (نوع ulong برای ایمنی).
+   ulong             m_sell_order_ticket;          // تیکت سفارش SellStop برای مدیریت و حذف آن. (نوع ulong برای ایمنی).
 
 public:
-   // سازنده کلاس - تمام متغیرها را با مقادیر پیش‌فرض ایمن مقداردهی می‌کند.
+   //+------------------------------------------------------------------+
+   //| سازنده کلاس                                                      |
+   //+------------------------------------------------------------------+
+   // تمام متغیرها را با مقادیر پیش‌فرض ایمن مقداردهی اولیه می‌کند تا از خطاهای زمان اجرا جلوگیری شود.
    CSessionTrader(void) : m_is_active(false), m_magic_number(0), m_timeframe(PERIOD_CURRENT),
                          m_start_hour(0), m_start_min(0), m_end_hour(0), m_end_min(0),
                          m_expiry_hour(0), m_expiry_min(0),
@@ -789,69 +789,82 @@ public:
                          m_dynamic_range_low(DBL_MAX), m_buy_order_ticket(0),
                          m_sell_order_ticket(0) {}
 
-   // تابع اولیه‌سازی - تنظیمات جلسه را مقداردهی کرده و هندل‌های اندیکاتور را ایجاد می‌کند.
+   //+------------------------------------------------------------------+
+   //| تابع اولیه‌سازی (Init)                                            |
+   //+------------------------------------------------------------------+
+   // این تابع در OnInit اکسپرت فراخوانی شده و تنظیمات جلسه را از ورودی‌ها گرفته و هندل‌های اندیکاتور را ایجاد می‌کند.
    void Init(bool is_active, ENUM_TIMEFRAMES timeframe, int start_h, int start_m, int end_h, int end_m, int expiry_h, int expiry_m, int magic)
      {
-      m_is_active = is_active; // تنظیم وضعیت فعال بودن.
-      m_timeframe = timeframe; // تنظیم تایم فریم.
-      m_start_hour = start_h; m_start_min = start_m; // تنظیم زمان شروع.
-      m_end_hour = end_h; m_end_min = end_m; // تنظیم زمان پایان.
-      m_expiry_hour = expiry_h; m_expiry_min = expiry_m; // تنظیم زمان انقضا.
-      m_magic_number = magic; // تنظیم مجیک نامبر.
-      m_session_day = 0; // روز جلسه برای ریست روزانه.
+      m_is_active = is_active;
+      m_timeframe = timeframe;
+      m_start_hour = start_h; m_start_min = start_m;
+      m_end_hour = end_h; m_end_min = end_m;
+      m_expiry_hour = expiry_h; m_expiry_min = expiry_m;
+      m_magic_number = magic;
+      m_session_day = 0;
 
       // ریست متغیرهای وضعیت برای شروع تمیز.
       ResetState();
 
-      if(!m_is_active) return; // اگر غیرفعال، هندل‌ها ساخته نشوند.
+      if(!m_is_active) return; // اگر جلسه فعال نیست، ادامه نده.
 
-      // ایجاد هندل ایچیموکو با پارامترهای کاربر.
+      // ایجاد هندل‌ها. هر هندل به صورت مستقل برای هر جلسه ساخته می‌شود.
       m_ichimoku_handle = iIchimoku(_Symbol, m_timeframe, InpIchimoku_Tenkan, InpIchimoku_Kijun, InpIchimoku_Senkou);
-      if(m_ichimoku_handle == INVALID_HANDLE)
-         if(InpEnableLogging) Print("خطا در ایجاد هندل ایچیموکو برای جلسه " + IntegerToString(magic) + ".");
-
-      // ایجاد هندل ATR برای بافر قرارگیری سفارشات (با تایم فریم جلسه).
       m_placement_atr_handle = iATR(_Symbol, m_timeframe, InRangeATR_Period);
-      if(m_placement_atr_handle == INVALID_HANDLE)
-         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR قرارگیری برای جلسه " + IntegerToString(magic) + ".");
-
-      // ایجاد هندل ATR برای اعتبارسنجی محدوده و SL.
       m_range_atr_handle = iATR(_Symbol, InRangeATR_TimeFrame, InRangeATR_Period);
-      if(m_range_atr_handle == INVALID_HANDLE)
-         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR اعتبارسنجی برای جلسه " + IntegerToString(magic) + ".");
-
-      // ایجاد هندل EMA برای فیلتر روند.
       m_ema_handle = iMA(_Symbol, InpTrendEMATimeFrame, InpTrendEMAPeriod, 0, MODE_EMA, InpTrendEMAAppliedPrice);
-      if(m_ema_handle == INVALID_HANDLE)
-         if(InpEnableLogging) Print("خطا در ایجاد هندل EMA برای جلسه " + IntegerToString(magic) + ".");
-
-      // ایجاد هندل ATR برای ترلینگ استاپ (با تایم فریم جلسه).
       m_trail_atr_handle = iATR(_Symbol, m_timeframe, InpTrailingStopATRPeriod);
-      if(m_trail_atr_handle == INVALID_HANDLE)
-         if(InpEnableLogging) Print("خطا در ایجاد هندل ATR ترلینگ برای جلسه " + IntegerToString(magic) + ".");
+
+      // چک کردن موفقیت ساخت هندل‌ها.
+      if(m_ichimoku_handle == INVALID_HANDLE || m_placement_atr_handle == INVALID_HANDLE || 
+         m_range_atr_handle == INVALID_HANDLE || m_ema_handle == INVALID_HANDLE || 
+         m_trail_atr_handle == INVALID_HANDLE)
+         if(InpEnableLogging) Print("خطا در ایجاد یک یا چند هندل برای جلسه " + IntegerToString(magic) + ".");
 
       if(InpEnableLogging) Print("جلسه " + IntegerToString(magic) + " با تایم فریم " + EnumToString(timeframe) + " اولیه‌سازی شد.");
      }
 
-   // تابع خاتمه - آزادسازی منابع و حذف اشیاء گرافیکی.
+   //+------------------------------------------------------------------+
+   //| تابع خاتمه (Deinit)                                               |
+   //+------------------------------------------------------------------+
+   // این تابع در OnDeinit اکسپرت فراخوانی شده و تمام منابع تخصیص داده شده (هندل‌ها و اشیاء چارت) را آزاد می‌کند.
    void Deinit(void)
      {
       if(!m_is_active) return;
-      IndicatorRelease(m_ichimoku_handle); // آزادسازی هندل ایچیموکو.
-      IndicatorRelease(m_placement_atr_handle); // آزادسازی هندل ATR قرارگیری.
-      IndicatorRelease(m_range_atr_handle); // آزادسازی هندل ATR اعتبارسنجی.
-      IndicatorRelease(m_ema_handle); // آزادسازی هندل EMA.
-      IndicatorRelease(m_trail_atr_handle); // آزادسازی هندل ATR ترلینگ.
-      ObjectsDeleteAll(0, "Range_" + IntegerToString(m_magic_number) + "_"); // حذف اشیاء گرافیکی جلسه.
+      IndicatorRelease(m_ichimoku_handle);
+      IndicatorRelease(m_placement_atr_handle);
+      IndicatorRelease(m_range_atr_handle);
+      IndicatorRelease(m_ema_handle);
+      IndicatorRelease(m_trail_atr_handle);
+      ObjectsDeleteAll(0, "Range_" + IntegerToString(m_magic_number) + "_");
       if(InpEnableLogging) Print("جلسه " + IntegerToString(m_magic_number) + " خاتمه یافت.");
      }
 
-   // تابع اصلی که هر 60 ثانیه از OnTimer فراخوانی می‌شود - قلب منطق جلسه.
+   //+------------------------------------------------------------------+
+   //| تابع اصلی تیک تایمر (OnTimerTick)                                |
+   //+------------------------------------------------------------------+
+   // این تابع از OnTimer اصلی اکسپرت فراخوانی می‌شود و به عنوان مدیر ارشد جلسه، وظایف را در زمان مناسب اجرا می‌کند.
    void OnTimerTick(datetime now)
      {
-      if(!m_is_active) return; // خروج سریع اگر جلسه غیرفعال است.
+      if(!m_is_active) return;
 
-      // چک اگر روز جدید است برای ریست وضعیت‌ها.
+      MqlDateTime now_struct;
+      TimeToStruct(now, now_struct);
+      
+      // اولویت اول: چک کردن زمان انقضای جلسه برای بستن همه چیز.
+      if(now_struct.hour > m_expiry_hour || (now_struct.hour == m_expiry_hour && now_struct.min >= m_expiry_min))
+        {
+         // اگر قبلاً پاکسازی نشده باشد (برای جلوگیری از لاگ تکراری).
+         if(m_session_day != 0)
+           {
+            SessionCleanUp(m_magic_number);
+            if(InpEnableLogging) Print("جلسه " + IntegerToString(m_magic_number) + " منقضی شد و پاکسازی انجام شد.");
+            m_session_day = 0; // علامت‌گذاری به عنوان پاکسازی شده.
+           }
+         return;
+        }
+
+      // اولویت دوم: ریست کردن وضعیت‌ها در ابتدای روز جدید.
       datetime current_day = now - (now % 86400);
       if(current_day != m_session_day)
         {
@@ -860,17 +873,7 @@ public:
          if(InpEnableLogging) Print("روز جدید برای جلسه " + IntegerToString(m_magic_number) + ". وضعیت‌ها ریست شدند.");
         }
 
-      // چک انقضای جلسه (اصلاح‌شده: بعد از ریست روزانه برای ایمنی بیشتر).
-      MqlDateTime now_struct;
-      TimeToStruct(now, now_struct);
-      if(now_struct.hour >= m_expiry_hour && (now_struct.hour > m_expiry_hour || now_struct.min >= m_expiry_min))
-        {
-         SessionCleanUp(m_magic_number);
-         if(InpEnableLogging) Print("جلسه " + IntegerToString(m_magic_number) + " منقضی شد و پاکسازی انجام شد.");
-         return;
-        }
-
-      // همیشه چک بار جدید برای مدیریت معاملات، حتی خارج از سشن.
+      // اولویت سوم: همیشه با هر تیک تایمر، چک کردن کندل جدید برای مدیریت معاملات باز.
       CheckForNewBar(now);
      }
 
@@ -878,39 +881,49 @@ public:
    bool IsActive(void) const { return m_is_active; }
 
 private:
-   // ریست متغیرهای وضعیت برای شروع تمیز یا روز جدید.
+   //+------------------------------------------------------------------+
+   //| ریست کردن وضعیت‌ها (ResetState)                                  |
+   //+------------------------------------------------------------------+
+   // این تابع تمام متغیرهای وضعیت را به حالت اولیه برمی‌گرداند تا جلسه برای روز جدید آماده شود.
    void ResetState()
      {
-      m_last_bar_time = 0; // ریست زمان آخرین بار.
-      m_orders_placed_this_session = false; // ریست وضعیت سفارشات.
-      m_is_building_range = false; // ریست وضعیت ساخت محدوده.
-      m_sequence_start_bar = -1; // ریست ایندکس شروع سکانس.
-      m_dynamic_range_high = 0.0; // ریست High محدوده پویا.
-      m_dynamic_range_low = DBL_MAX; // ریست Low محدوده پویا (اصلاح‌شده برای سازگاری با MathMin).
-      m_buy_order_ticket = 0; // ریست تیکت خرید.
-      m_sell_order_ticket = 0; // ریست تیکت فروش.
-      DeletePendingOrders(); // حذف سفارشات قبلی برای ایمنی.
+      m_last_bar_time = 0;
+      m_orders_placed_this_session = false; // این متغیر فقط برای حالت Post-Session است.
+      m_is_building_range = false;
+      m_sequence_start_bar = -1;
+      m_dynamic_range_high = 0.0;
+      m_dynamic_range_low = DBL_MAX; // **اصلاح شد:** برای محاسبات MathMin باید با DBL_MAX شروع شود.
+      DeletePendingOrders(); // حذف سفارشات باقی‌مانده از روز قبل (برای ایمنی).
      }
 
-   // چک بار جدید و اجرای منطق اصلی.
+   //+------------------------------------------------------------------+
+   //| چک کردن کندل جدید (CheckForNewBar)                               |
+   //+------------------------------------------------------------------+
+   // این تابع منطق OnNewBar را شبیه‌سازی می‌کند. اگر کندل جدیدی در تایم فریم جلسه شکل گرفته باشد، توابع مربوطه را فراخوانی می‌کند.
    void CheckForNewBar(datetime now)
      {
       datetime current_bar_time = (datetime)SeriesInfoInteger(_Symbol, m_timeframe, SERIES_LASTBAR_DATE);
       if(current_bar_time > m_last_bar_time)
         {
          m_last_bar_time = current_bar_time;
-         ManageOpenTrades(); // مدیریت معاملات همیشه با بار جدید انجام شود.
+         
+         // ۱. **اصلاح شد:** مدیریت معاملات باز همیشه با هر کندل جدید (تا قبل از انقضا) اجرا می‌شود.
+         ManageOpenTrades();
+
+         // ۲. تحلیل برای پیدا کردن رنج فقط در بازه زمانی سشن انجام می‌شود.
          if(IsInSessionTime(now))
            {
             if(InpRangeDetectionMode == MODE_DYNAMIC)
-               FindRange_Dynamic(1); // همیشه در حالت پویا چک شود.
+               FindRange_Dynamic(1); // با ایندکس 1 (کندل قبلی که بسته شده) کار می‌کنیم.
             else if(InpRangeDetectionMode == MODE_POST_SESSION && !m_orders_placed_this_session && IsSessionEndTime(now))
                FindRange_PostSession();
            }
         }
      }
 
-   // تشخیص محدوده در حالت پست-سشن (روش قدیمی).
+   //+------------------------------------------------------------------+
+   //| تشخیص محدوده در حالت پست-سشن (FindRange_PostSession)             |
+   //+------------------------------------------------------------------+
    void FindRange_PostSession()
      {
       RangeData rd;
@@ -945,49 +958,35 @@ private:
         }
      }
 
-   // تشخیص محدوده در حالت پویا - بهبودیافته برای مدیریت سکانس‌های تعادل و آپدیت هوشمندانه.
-   void FindRange_Dynamic(int current_bar_idx)
+   //+------------------------------------------------------------------+
+   //| تشخیص محدوده در حالت پویا (FindRange_Dynamic)                    |
+   //+------------------------------------------------------------------+
+   // این تابع به صورت زنده با هر کندل جدید, محدوده تعادل را شناسایی و در صورت لزوم آپدیت می‌کند.
+   void FindRange_Dynamic(int bar_idx)
      {
-      // چک اگر پوزیشنی با این مجیک باز است، دنبال رنج جدید نگرد (اصلاح‌شده).
-      bool has_open_position = false;
-      for(int i = PositionsTotal() - 1; i >= 0; i--)
-        {
-         ulong ticket = PositionGetTicket(i);
-         if(ticket > 0 && PositionSelectByTicket(ticket))
-           {
-            if(PositionGetInteger(POSITION_MAGIC) == m_magic_number)
-              {
-               has_open_position = true;
-               break;
-              }
-           }
-        }
-      if(has_open_position) return; // اگر معامله باز بود، ناحیه جدید جستجو نشود.
-
+      // **اصلاح ۱:** اگر پوزیشنی از این جلسه باز است، دیگر به دنبال محدوده جدید نگرد.
+      if(PositionSelectByMagic(_Symbol, m_magic_number)) return;
+      
       bool is_equilibrium = InpUseIchimokuFilter ?
-                           (IsCandleInKumo(m_ichimoku_handle, current_bar_idx, m_timeframe) && IsKijunFlat(m_ichimoku_handle, current_bar_idx, m_timeframe)) :
-                           true; // اگر فیلتر خاموش باشد، هر کندل تعادل فرض می‌شود.
+                           (IsCandleInKumo(m_ichimoku_handle, bar_idx, m_timeframe) && IsKijunFlat(m_ichimoku_handle, bar_idx, m_timeframe)) :
+                           true;
 
       if(is_equilibrium)
         {
          if(!m_is_building_range)
            {
             m_is_building_range = true;
-            m_sequence_start_bar = current_bar_idx;
-            m_dynamic_range_high = iHigh(_Symbol, m_timeframe, current_bar_idx);
-            m_dynamic_range_low = iLow(_Symbol, m_timeframe, current_bar_idx);
-            if(InpEnableLogging) Print("شروع سکانس تعادل جدید در ایندکس " + IntegerToString(current_bar_idx) + " برای جلسه " + IntegerToString(m_magic_number) + ".");
+            m_sequence_start_bar = bar_idx;
            }
-         else
-           {
-            m_dynamic_range_high = MathMax(m_dynamic_range_high, iHigh(_Symbol, m_timeframe, current_bar_idx));
-            m_dynamic_range_low = MathMin(m_dynamic_range_low, iLow(_Symbol, m_timeframe, current_bar_idx));
-           }
+         // **اصلاح ۲:** High و Low کلی جلسه همیشه آپدیت می‌شود تا محدوده یکپارچه باشد.
+         m_dynamic_range_high = MathMax(m_dynamic_range_high, iHigh(_Symbol, m_timeframe, bar_idx));
+         m_dynamic_range_low = MathMin(m_dynamic_range_low, iLow(_Symbol, m_timeframe, bar_idx));
         }
       else if(m_is_building_range)
         {
          m_is_building_range = false;
-         int bars_in_sequence = m_sequence_start_bar - current_bar_idx + 1; // محاسبه تعداد کندل‌های متوالی (اصلاح‌شده برای دقت).
+         int bars_in_sequence = m_sequence_start_bar - bar_idx; 
+         
          if(bars_in_sequence >= InpMinConsecutiveCandles)
            {
             RangeData rd;
@@ -995,7 +994,7 @@ private:
             rd.rangeLow = m_dynamic_range_low;
             rd.rangeSizePips = (rd.rangeHigh - rd.rangeLow) / _Point;
             rd.startTime = iTime(_Symbol, m_timeframe, m_sequence_start_bar);
-            rd.endTime = iTime(_Symbol, m_timeframe, current_bar_idx + 1); // بار بعد از پایان سکانس.
+            rd.endTime = iTime(_Symbol, m_timeframe, bar_idx + 1);
             rd.isValid = ValidateRange(rd);
 
             if(rd.isValid)
@@ -1003,18 +1002,17 @@ private:
                DeletePendingOrders(); // حذف سفارشات قبلی برای آپدیت.
                DrawRangeOnChart(rd, m_magic_number);
                PlacePendingOrders(rd);
-               // m_orders_placed_this_session را true نکنیم تا اجازه آپدیت‌های بعدی را بدهیم.
-               if(InpEnableLogging) Print("محدوده پویا معتبر شناسایی و آپدیت شد: High=" + DoubleToString(rd.rangeHigh, _Digits) + ", Low=" + DoubleToString(rd.rangeLow, _Digits) + " برای جلسه " + IntegerToString(m_magic_number) + ".");
+               if(InpEnableLogging) Print("محدوده پویا شناسایی/آپدیت شد برای جلسه " + IntegerToString(m_magic_number));
               }
            }
-         // ریست برای سکانس بعدی.
          m_sequence_start_bar = -1;
-         m_dynamic_range_high = 0.0;
-         m_dynamic_range_low = DBL_MAX;
         }
      }
 
-   // مدیریت معاملات باز - ترلینگ و خروج پله‌ای با چک‌های امنیتی.
+   //+------------------------------------------------------------------+
+   //| مدیریت معاملات باز (ManageOpenTrades)                             |
+   //+------------------------------------------------------------------+
+   // این تابع با هر کندل جدید فراخوانی شده و منطق خروج پله‌ای و تریلینگ استاپ را برای پوزیشن‌های باز این جلسه اجرا می‌کند.
    void ManageOpenTrades()
      {
       double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
@@ -1033,11 +1031,9 @@ private:
                double volume = PositionGetDouble(POSITION_VOLUME);
                ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
 
-               // چک اگر در مرحله اولیه (SL دور از ورود) یا بریک‌اون/سود.
                bool is_initial_stage = (pos_type == POSITION_TYPE_BUY) ? (current_sl < entry_price - 2 * _Point) : (current_sl > entry_price + 2 * _Point);
                bool is_breakeven_stage = MathAbs(current_sl - entry_price) < 2 * _Point;
 
-               // خروج پله‌ای در مرحله اول با چک حجم.
                if(InpEnablePartialClose && is_initial_stage)
                  {
                   double sl_distance = MathAbs(entry_price - current_sl);
@@ -1051,30 +1047,32 @@ private:
                     {
                      double close_volume = volume * (InpPartialClosePercentage / 100.0);
                      close_volume = MathRound(close_volume / lot_step) * lot_step;
-                     double remaining_volume = volume - close_volume;
-                     if(remaining_volume < min_lot) // اگر باقی‌مانده کمتر از min_lot، کل پوزیشن را ببند (اصلاح‌شده).
+                     
+                     // **اصلاح شده:** چک کردن حجم باقی‌مانده.
+                     if(volume - close_volume < min_lot && volume > min_lot)
                        {
                         close_volume = volume;
                        }
+
                      if(close_volume >= min_lot)
                        {
-                        if(trade.PositionClosePartial(ticket, close_volume))
+                        // **اصلاح شده:** استفاده از تابع صحیح PositionClose
+                        if(trade.PositionClose(ticket, close_volume))
                           {
                            if(PositionSelectByTicket(ticket) && close_volume != volume)
                              {
                               trade.PositionModify(ticket, entry_price, current_tp);
-                              if(InpEnableLogging) Print("خروج پله‌ای برای تیکت " + IntegerToString(ticket) + ": حجم " + DoubleToString(close_volume, 2) + " بسته شد و SL به بریک‌اون منتقل شد.");
+                              if(InpEnableLogging) Print("خروج پله‌ای برای تیکت " + (string)ticket + ": " + DoubleToString(close_volume, 2) + " لات بسته شد و SL به بریک‌اون منتقل شد.");
                              }
                            else if(close_volume == volume)
                              {
-                              if(InpEnableLogging) Print("کل پوزیشن برای تیکت " + IntegerToString(ticket) + " بسته شد زیرا باقی‌مانده کمتر از min_lot بود.");
+                              if(InpEnableLogging) Print("کل پوزیشن تیکت " + (string)ticket + " بسته شد (باقی‌مانده کمتر از min_lot).");
                              }
                           }
                        }
                     }
                  }
 
-               // ترلینگ استاپ برای پوزیشن‌های سودده یا بریک‌اون با چک اعتبار SL جدید.
                bool profitable = (pos_type == POSITION_TYPE_BUY && SymbolInfoDouble(_Symbol, SYMBOL_BID) > entry_price) ||
                                 (pos_type == POSITION_TYPE_SELL && SymbolInfoDouble(_Symbol, SYMBOL_ASK) < entry_price);
                if(is_breakeven_stage || profitable)
@@ -1086,12 +1084,15 @@ private:
                      double new_sl = (pos_type == POSITION_TYPE_BUY) ?
                                      SymbolInfoDouble(_Symbol, SYMBOL_BID) - trail_offset :
                                      SymbolInfoDouble(_Symbol, SYMBOL_ASK) + trail_offset;
-                     // چک اعتبار SL جدید.
+                     
+                     // **اصلاح شده:** چک امنیتی برای اعتبار SL جدید.
                      if(new_sl > 0 && ((pos_type == POSITION_TYPE_BUY && new_sl > current_sl) ||
                                        (pos_type == POSITION_TYPE_SELL && new_sl < current_sl)))
                        {
-                        trade.PositionModify(ticket, new_sl, current_tp);
-                        if(InpEnableLogging) Print("ترلینگ استاپ برای تیکت " + IntegerToString(ticket) + ": SL جدید=" + DoubleToString(new_sl, _Digits) + ".");
+                        if(trade.PositionModify(ticket, new_sl, current_tp))
+                          {
+                           if(InpEnableLogging) Print("تریلینگ استاپ برای تیکت " + (string)ticket + ": SL جدید=" + DoubleToString(new_sl, _Digits) + ".");
+                          }
                        }
                     }
                  }
@@ -1100,7 +1101,10 @@ private:
         }
      }
 
-   // قرارگیری سفارشات پندینگ - منتقل‌شده از TradeManager با بهبودها.
+   //+------------------------------------------------------------------+
+   //| قرار دادن سفارشات پندینگ (PlacePendingOrders)                     |
+   //+------------------------------------------------------------------+
+   // این تابع تمام منطق مربوط به محاسبه SL، حجم، و قیمت ورود را انجام داده و سفارشات را ثبت می‌کند.
    void PlacePendingOrders(RangeData &rd)
      {
       trade.SetExpertMagicNumber(m_magic_number); // تنظیم مجیک برای این جلسه.
@@ -1127,10 +1131,18 @@ private:
         }
 
       double lot_size = CalculateLotSize(InpRiskPercentage, stop_loss_pips);
-      if(lot_size <= 0) return;
+      if(lot_size <= 0)
+        {
+         if(InpEnableLogging) Print("حجم محاسبه‌شده نامعتبر برای جلسه " + IntegerToString(m_magic_number) + ".");
+         return;
+        }
 
       double atr_buffer[1];
-      if(CopyBuffer(m_placement_atr_handle, 0, 1, 1, atr_buffer) != 1) return;
+      if(CopyBuffer(m_placement_atr_handle, 0, 1, 1, atr_buffer) != 1)
+        {
+         if(InpEnableLogging) Print("خطا در خواندن ATR برای قرارگیری سفارش در جلسه " + IntegerToString(m_magic_number) + ".");
+         return;
+        }
       double buffer = atr_buffer[0] * InpAtrMultiplier_Placement;
 
       double buy_stop_price = rd.rangeHigh + buffer;
@@ -1141,7 +1153,11 @@ private:
       if(is_trend_on)
         {
          double ema_buffer[1];
-         if(CopyBuffer(m_ema_handle, 0, 1, 1, ema_buffer) != 1) return;
+         if(CopyBuffer(m_ema_handle, 0, 1, 1, ema_buffer) != 1)
+           {
+            if(InpEnableLogging) Print("خطا در خواندن EMA برای فیلتر روند در جلسه " + IntegerToString(m_magic_number) + ".");
+            return;
+           }
          is_uptrend = SymbolInfoDouble(_Symbol, SYMBOL_BID) > ema_buffer[0];
         }
 
@@ -1149,7 +1165,11 @@ private:
       double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       if((is_trend_on && is_uptrend && current_ask >= buy_stop_price) ||
          (is_trend_on && !is_uptrend && current_bid <= sell_stop_price) ||
-         (!is_trend_on && (current_ask >= buy_stop_price || current_bid <= sell_stop_price))) return;
+         (!is_trend_on && (current_ask >= buy_stop_price || current_bid <= sell_stop_price)))
+        {
+         if(InpEnableLogging) Print("قیمت فعلی مانع ثبت سفارش پندینگ شد برای جلسه " + IntegerToString(m_magic_number) + ".");
+         return;
+        }
 
       double buy_tp = 0.0, sell_tp = 0.0;
       if(!InpEnablePartialClose)
@@ -1162,42 +1182,66 @@ private:
         {
          trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, 0, 0, "BuyStop_" + IntegerToString(m_magic_number));
          m_buy_order_ticket = trade.ResultOrder();
-         if(InpEnableLogging && m_buy_order_ticket > 0) Print("سفارش BuyStop با تیکت " + IntegerToString(m_buy_order_ticket) + " ثبت شد.");
+         if(InpEnableLogging && m_buy_order_ticket > 0)
+            Print("سفارش BuyStop با تیکت " + IntegerToString(m_buy_order_ticket) + " ثبت شد.");
+         else if(m_buy_order_ticket == 0)
+            Print("خطا در ثبت سفارش BuyStop برای جلسه " + IntegerToString(m_magic_number) + ".");
         }
       if(!is_trend_on || !is_uptrend)
         {
          trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, 0, 0, "SellStop_" + IntegerToString(m_magic_number));
          m_sell_order_ticket = trade.ResultOrder();
-         if(InpEnableLogging && m_sell_order_ticket > 0) Print("سفارش SellStop با تیکت " + IntegerToString(m_sell_order_ticket) + " ثبت شد.");
+         if(InpEnableLogging && m_sell_order_ticket > 0)
+            Print("سفارش SellStop با تیکت " + IntegerToString(m_sell_order_ticket) + " ثبت شد.");
+         else if(m_sell_order_ticket == 0)
+            Print("خطا در ثبت سفارش SellStop برای جلسه " + IntegerToString(m_magic_number) + ".");
         }
 
       trade.SetExpertMagicNumber(0); // ریست مجیک.
      }
 
-   // حذف سفارشات پندینگ قبلی.
+   //+------------------------------------------------------------------+
+   //| حذف سفارشات پندینگ (DeletePendingOrders)                         |
+   //+------------------------------------------------------------------+
+   // این تابع سفارشات پندینگ قبلی را حذف می‌کند.
    void DeletePendingOrders()
      {
       if(m_buy_order_ticket > 0)
         {
          if(OrderSelect(m_buy_order_ticket))
            {
-            trade.OrderDelete(m_buy_order_ticket);
-            if(InpEnableLogging) Print("سفارش BuyStop با تیکت " + IntegerToString(m_buy_order_ticket) + " حذف شد.");
+            if(trade.OrderDelete(m_buy_order_ticket))
+              {
+               if(InpEnableLogging) Print("سفارش BuyStop با تیکت " + IntegerToString(m_buy_order_ticket) + " حذف شد.");
+              }
+            else
+              {
+               if(InpEnableLogging) Print("خطا در حذف سفارش BuyStop با تیکت " + IntegerToString(m_buy_order_ticket) + ".");
+              }
            }
-         m_buy_order_ticket = 0;
+         m_buy_order_ticket = 0; // همیشه صفر کن برای جلوگیری از گیر کردن.
         }
       if(m_sell_order_ticket > 0)
         {
          if(OrderSelect(m_sell_order_ticket))
            {
-            trade.OrderDelete(m_sell_order_ticket);
-            if(InpEnableLogging) Print("سفارش SellStop با تیکت " + IntegerToString(m_sell_order_ticket) + " حذف شد.");
+            if(trade.OrderDelete(m_sell_order_ticket))
+              {
+               if(InpEnableLogging) Print("سفارش SellStop با تیکت " + IntegerToString(m_sell_order_ticket) + " حذف شد.");
+              }
+            else
+              {
+               if(InpEnableLogging) Print("خطا در حذف سفارش SellStop با تیکت " + IntegerToString(m_sell_order_ticket) + ".");
+              }
            }
-         m_sell_order_ticket = 0;
+         m_sell_order_ticket = 0; // همیشه صفر کن برای جلوگیری از گیر کردن.
         }
      }
 
-   // اعتبارسنجی اندازه محدوده.
+   //+------------------------------------------------------------------+
+   //| اعتبارسنجی اندازه محدوده (ValidateRange)                         |
+   //+------------------------------------------------------------------+
+   // این تابع بررسی می‌کند که آیا محدوده شناسایی‌شده معتبر است یا خیر.
    bool ValidateRange(RangeData &rd)
      {
       if(InpRangeFilterMode == MODE_POINTS)
@@ -1218,7 +1262,10 @@ private:
         }
      }
 
-   // شناسایی محدوده (بهینه‌شده برای هماهنگی با حالت پویا).
+   //+------------------------------------------------------------------+
+   //| شناسایی محدوده (IdentifyRange)                                   |
+   //+------------------------------------------------------------------+
+   // این تابع محدوده را با توجه به فیلتر ایچیموکو یا بدون آن شناسایی می‌کند.
    bool IdentifyRange(RangeData &rd, int start_idx, int end_idx)
      {
       rd.isValid = false;
@@ -1255,7 +1302,9 @@ private:
       return rd.isValid;
      }
 
-   // چک بازه زمانی جلسه.
+   //+------------------------------------------------------------------+
+   //| چک بازه زمانی جلسه (IsInSessionTime)                             |
+   //+------------------------------------------------------------------+
    bool IsInSessionTime(datetime now)
      {
       MqlDateTime now_struct;
@@ -1270,7 +1319,9 @@ private:
          return (current_time_min >= start_time_min || current_time_min < end_time_min);
      }
 
-   // چک زمان پایان جلسه.
+   //+------------------------------------------------------------------+
+   //| چک زمان پایان جلسه (IsSessionEndTime)                             |
+   //+------------------------------------------------------------------+
    bool IsSessionEndTime(datetime now)
      {
       MqlDateTime dt;
@@ -1278,7 +1329,9 @@ private:
       return (dt.hour == m_end_hour && dt.min >= m_end_min);
      }
 
-   // گرفتن زمان شروع جلسه.
+   //+------------------------------------------------------------------+
+   //| گرفتن زمان شروع جلسه (GetSessionStartTime)                        |
+   //+------------------------------------------------------------------+
    datetime GetSessionStartTime(datetime now)
      {
       MqlDateTime struct_now;
@@ -1291,7 +1344,9 @@ private:
       return start;
      }
 
-   // گرفتن زمان پایان جلسه.
+   //+------------------------------------------------------------------+
+   //| گرفتن زمان پایان جلسه (GetSessionEndTime)                         |
+   //+------------------------------------------------------------------+
    datetime GetSessionEndTime(datetime now)
      {
       MqlDateTime struct_now;
