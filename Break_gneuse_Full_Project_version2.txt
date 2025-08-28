@@ -136,6 +136,7 @@ input int InpMaxAcceptableDrawdown = 15; // حداکثر دراوداون قاب
 
 
 
+
 //+------------------------------------------------------------------+
 //|                                                   hipobreck.mq5 |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy      |
@@ -476,6 +477,149 @@ int CountActiveSessions()
 
 
 
+//+------------------------------------------------------------------+
+//|                                                    RangeLib.mqh |
+//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
+//|                          >> FINAL REVISED VERSION 3.0 <<        |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy" // تعریف کپی‌رایت فایل برای حفاظت.
+#property link      "https://..." // لینک پروژه.
+
+//--- این گارد از include شدن چندباره فایل در پروژه جلوگیری می‌کند و کد را تمیز نگه می‌دارد.
+#ifndef RANGELIB_MQH // چک گارد.
+#define RANGELIB_MQH // تعریف گارد.
+
+#include "Settings.mqh"     // کتابخانه تنظیمات ورودی کاربر برای دسترسی به پارامترها.
+
+//+------------------------------------------------------------------+
+//| STRUCT for Range Data                                            |
+//+------------------------------------------------------------------+
+//--- ساختار برای نگهداری داده‌های محدوده. این ساختار مثل یک کلاس ساده عمل می‌کند و تمام داده‌های مرتبط را در یک جا نگه می‌دارد تا کد خواناتر شود و مدیریت داده آسان‌تر باشد.
+struct RangeData
+  {
+   double            rangeHigh;      // بالاترین قیمت شناسایی شده در بازه (High محدوده) برای شکست صعودی.
+   double            rangeLow;       // پایین‌ترین قیمت شناسایی شده در بازه (Low محدوده) برای شکست نزولی.
+   bool              isValid;        // پرچم اعتبار محدوده (true اگر پس از اعتبارسنجی معتبر باشد) برای چک قبل از معامله.
+   datetime          startTime;      // زمان شروع بازه به فرمت datetime برای ترسیم و محاسبات زمانی.
+   datetime          endTime;        // زمان پایان بازه به فرمت datetime برای تعریف دقیق بازه.
+   double            rangeSizePips;  // اندازه محدوده به پیپ (برای محاسبات ریسک و استاپ لاس) که پایه SL است.
+  };
+
+//+------------------------------------------------------------------+
+//| Function to Draw Range on Chart                                  |
+//+------------------------------------------------------------------+
+//--- این تابع برای نمایش بصری محدوده روی چارت استفاده می‌شود تا کاربر بتواند محدوده شناسایی‌شده را به صورت گرافیکی ببیند و استراتژی را ارزیابی کند. این برای دیباگ و آموزش مفید است.
+void DrawRangeOnChart(RangeData &rd,int session_magic)
+  {
+   //--- اگر محدوده نامعتبر باشد، هیچ چیزی ترسیم نکن تا از خطاهای غیرضروری جلوگیری شود و منابع هدر نرود.
+   if(!rd.isValid) return;
+
+   //--- ساخت پیشوند منحصر به فرد برای اشیاء این جلسه تا با جلسات دیگر تداخل نداشته باشد و مدیریت اشیاء آسان شود.
+   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
+
+   //--- ایجاد مستطیل برای نمایش محدوده زمانی و قیمتی روی چارت.
+   ObjectCreate(0,obj_prefix + "Rect",OBJ_RECTANGLE,0,rd.startTime,rd.rangeHigh,rd.endTime,rd.rangeLow);
+   //--- تنظیم رنگ مستطیل برای تمایز بصری (رنگ خاکستری تیره برای وضوح).
+   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_COLOR,clrDarkSlateGray);
+   //--- تنظیم استایل خطوط مستطیل (جامد برای وضوح بهتر).
+   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_STYLE,STYLE_SOLID);
+   //--- پر کردن داخل مستطیل برای نمایش بهتر محدوده و تمایز از کندل‌ها.
+   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_FILL,true);
+   //--- ارسال مستطیل به پس‌زمینه تا مزاحم دیدن کندل‌ها نشود و چارت خوانا بماند.
+   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_BACK,true);
+
+   if(InpEnableLogging) Print("محدوده روی چارت ترسیم شد: High=" + DoubleToString(rd.rangeHigh, _Digits) + ", Low=" + DoubleToString(rd.rangeLow, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ")."); // لاگ ترسیم.
+  }
+
+//+------------------------------------------------------------------+
+//| Helper Function: IsKijunFlat                                     |
+//+------------------------------------------------------------------+
+//--- این تابع چک می‌کند آیا کیجون‌سن صاف است (شیب نزدیک به صفر با رگرسیون خطی). تایم فریم را به عنوان ورودی می‌گیرد تا مستقل از چارت باشد.
+//--- نکته آموزشی: از رگرسیون خطی ساده برای محاسبه شیب استفاده می‌شود. دوره (InpKijunFlatPeriod) اجازه می‌دهد تا حساسیت را تنظیم کنید: دوره کوتاه (مثل ۳) سیگنال‌های بیشتری می‌دهد اما ممکن است نویز داشته باشد؛ دوره بلند (مثل ۲۰) سیگنال‌های باکیفیت‌تری می‌دهد اما کمتر. این فیلتر برای تأیید تعادل بازار کلیدی است.
+bool IsKijunFlat(int ichimoku_handle,int bar_idx,ENUM_TIMEFRAMES timeframe)
+  {
+  //چک تعداد کندل برای اطمینان مجود بودن 
+  if(bar_idx<InpKijunFlatPeriod)
+    {
+     return false;
+     
+    }
+   //--- تعریف آرایه دینامیک برای کیجون‌سن بر اساس دوره ورودی برای محاسبه شیب.
+   double kijun_buffer[]; // آرایه برای مقادیر کیجون.
+   ArrayResize(kijun_buffer, InpKijunFlatPeriod); // تغییر اندازه آرایه به دوره مشخص‌شده برای دقت.
+   //--- کپی مقادیر کیجون از هندل (از دوره-۱ کندل قبل تا کندل فعلی) برای تحلیل.
+   if(CopyBuffer(ichimoku_handle,1,bar_idx - InpKijunFlatPeriod + 1,InpKijunFlatPeriod,kijun_buffer) != InpKijunFlatPeriod) 
+     {
+      if(InpEnableLogging) Print("خطا در کپی بافر کیجون: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ خطا.
+      return false; // اگر کپی شکست خورد، false برگردان.
+     }
+
+   //--- محاسبه شیب رگرسیون خطی ساده برای دوره کندل با استفاده از فرمول استاندارد.
+   double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0; // متغیرهای جمع برای فرمول رگرسیون.
+   double n = InpKijunFlatPeriod; // تعداد نقاط (دوره) برای محاسبه.
+   for(int k = 0; k < InpKijunFlatPeriod; k++) // حلقه روی دوره برای محاسبه جمع‌ها.
+     {
+      double x = k + 1.0; // x ایندکس از ۱ تا n برای رگرسیون.
+      double y = kijun_buffer[InpKijunFlatPeriod - 1 - k]; // y مقادیر کیجون از قدیمی به جدید (چون بافر از جدید به قدیمی است).
+      sum_x += x; // جمع x.
+      sum_y += y; // جمع y.
+      sum_xy += x * y; // جمع xy.
+      sum_x2 += x * x; // جمع x^2.
+     }
+
+   double denominator = (n * sum_x2 - sum_x * sum_x); // دنومیناتور شیب برای جلوگیری از تقسیم بر صفر.
+   if (denominator == 0) // چک ایمنی.
+     {
+      if(InpEnableLogging) Print("خطا در محاسبه شیب کیجون: دنومیناتور صفر."); // لاگ.
+      return false; // جلوگیری از تقسیم بر صفر (هرچند بعید است).
+     }
+
+   //--- فرمول شیب رگرسیون برای چک صاف بودن.
+   double slope = (n * sum_xy - sum_x * sum_y) / denominator;
+
+   //--- اگر شیب مطلق کمتر از آستانه (مثل ۰.۰۰۰۱) باشد، صاف در نظر بگیر. این آستانه را می‌توان تنظیم کرد اگر نیاز به حساسیت بیشتر باشد.
+   bool is_flat = MathAbs(slope) < 0.0001;
+   if(InpEnableLogging && is_flat) Print("کیجون صاف تشخیص داده شد: شیب=" + DoubleToString(slope, 6) + " (ایندکس: " + IntegerToString(bar_idx) + ")."); // لاگ موفقیت.
+   return is_flat;
+  }
+
+//+------------------------------------------------------------------+
+//| Helper Function: IsCandleInKumo                                  |
+//+------------------------------------------------------------------+
+//--- این تابع چک می‌کند آیا کندل کاملاً درون ابر کومو است. تایم فریم را به عنوان ورودی می‌گیرد تا با تایم فریم جلسه همخوانی داشته باشد.
+//--- نکته آموزشی: چک می‌کند آیا High کندل زیر سقف کومو و Low بالای کف کومو باشد، که نشان‌دهنده تعادل بازار است. این فیلتر برای جلوگیری از سیگنال در روند قوی مفید است.
+bool IsCandleInKumo(int ichimoku_handle,int bar_idx,ENUM_TIMEFRAMES timeframe)
+  {
+   //--- خواندن سنکو A و B برای کندل مشخص با استفاده از CopyBuffer.
+   double senkou_a[1], senkou_b[1]; // بافرها برای سنکو A و B.
+   if(CopyBuffer(ichimoku_handle,2,bar_idx,1,senkou_a) != 1) // کپی سنکو A.
+     {
+      if(InpEnableLogging) Print("خطا در کپی بافر سنکو A: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ خطا.
+      return false; // اگر شکست false.
+     }
+   if(CopyBuffer(ichimoku_handle,3,bar_idx,1,senkou_b) != 1) // کپی سنکو B.
+     {
+      if(InpEnableLogging) Print("خطا در کپی بافر سنکو B: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ.
+      return false; // اگر شکست false.
+     }
+
+   //--- گرفتن High و Low کندل از تایم فریم جلسه برای چک موقعیت.
+   double high = iHigh(_Symbol,timeframe,bar_idx); // بالاترین قیمت کندل.
+   double low = iLow(_Symbol,timeframe,bar_idx); // پایین‌ترین قیمت کندل.
+
+   //--- تعیین سقف و کف ابر کومو (سقف Max سنکوها، کف Min) برای مقایسه.
+   double kumo_top = MathMax(senkou_a[0],senkou_b[0]); // سقف کومو.
+   double kumo_bottom = MathMin(senkou_a[0],senkou_b[0]); // کف کومو.
+
+   //--- چک شرط تعادل: High <= سقف و Low >= کف برای تأیید داخل کومو بودن.
+   bool in_kumo = (high <= kumo_top && low >= kumo_bottom);
+   if(InpEnableLogging && in_kumo) Print("کندل داخل کومو تشخیص داده شد: High=" + DoubleToString(high, _Digits) + ", Low=" + DoubleToString(low, _Digits) + " (ایندکس: " + IntegerToString(bar_idx) + ")."); // لاگ موفقیت.
+   return in_kumo;
+  }
+
+#endif //RANGELIB_MQH
+
+
 
 
 
@@ -655,162 +799,6 @@ void SessionCleanUp(int session_magic_base)
 
 
 
-
-
-
-
-
-//+------------------------------------------------------------------+
-//|                                                    RangeLib.mqh |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
-//|                          >> FINAL REVISED VERSION 3.0 <<        |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy" // تعریف کپی‌رایت فایل برای حفاظت.
-#property link      "https://..." // لینک پروژه.
-
-//--- این گارد از include شدن چندباره فایل در پروژه جلوگیری می‌کند و کد را تمیز نگه می‌دارد.
-#ifndef RANGELIB_MQH // چک گارد.
-#define RANGELIB_MQH // تعریف گارد.
-
-#include "Settings.mqh"     // کتابخانه تنظیمات ورودی کاربر برای دسترسی به پارامترها.
-
-//+------------------------------------------------------------------+
-//| STRUCT for Range Data                                            |
-//+------------------------------------------------------------------+
-//--- ساختار برای نگهداری داده‌های محدوده. این ساختار مثل یک کلاس ساده عمل می‌کند و تمام داده‌های مرتبط را در یک جا نگه می‌دارد تا کد خواناتر شود و مدیریت داده آسان‌تر باشد.
-struct RangeData
-  {
-   double            rangeHigh;      // بالاترین قیمت شناسایی شده در بازه (High محدوده) برای شکست صعودی.
-   double            rangeLow;       // پایین‌ترین قیمت شناسایی شده در بازه (Low محدوده) برای شکست نزولی.
-   bool              isValid;        // پرچم اعتبار محدوده (true اگر پس از اعتبارسنجی معتبر باشد) برای چک قبل از معامله.
-   datetime          startTime;      // زمان شروع بازه به فرمت datetime برای ترسیم و محاسبات زمانی.
-   datetime          endTime;        // زمان پایان بازه به فرمت datetime برای تعریف دقیق بازه.
-   double            rangeSizePips;  // اندازه محدوده به پیپ (برای محاسبات ریسک و استاپ لاس) که پایه SL است.
-  };
-
-//+------------------------------------------------------------------+
-//| Function to Draw Range on Chart                                  |
-//+------------------------------------------------------------------+
-//--- این تابع برای نمایش بصری محدوده روی چارت استفاده می‌شود تا کاربر بتواند محدوده شناسایی‌شده را به صورت گرافیکی ببیند و استراتژی را ارزیابی کند. این برای دیباگ و آموزش مفید است.
-void DrawRangeOnChart(RangeData &rd,int session_magic)
-  {
-   //--- اگر محدوده نامعتبر باشد، هیچ چیزی ترسیم نکن تا از خطاهای غیرضروری جلوگیری شود و منابع هدر نرود.
-   if(!rd.isValid) return;
-
-   //--- ساخت پیشوند منحصر به فرد برای اشیاء این جلسه تا با جلسات دیگر تداخل نداشته باشد و مدیریت اشیاء آسان شود.
-   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
-
-   //--- ایجاد مستطیل برای نمایش محدوده زمانی و قیمتی روی چارت.
-   ObjectCreate(0,obj_prefix + "Rect",OBJ_RECTANGLE,0,rd.startTime,rd.rangeHigh,rd.endTime,rd.rangeLow);
-   //--- تنظیم رنگ مستطیل برای تمایز بصری (رنگ خاکستری تیره برای وضوح).
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_COLOR,clrDarkSlateGray);
-   //--- تنظیم استایل خطوط مستطیل (جامد برای وضوح بهتر).
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_STYLE,STYLE_SOLID);
-   //--- پر کردن داخل مستطیل برای نمایش بهتر محدوده و تمایز از کندل‌ها.
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_FILL,true);
-   //--- ارسال مستطیل به پس‌زمینه تا مزاحم دیدن کندل‌ها نشود و چارت خوانا بماند.
-   ObjectSetInteger(0,obj_prefix + "Rect",OBJPROP_BACK,true);
-
-   if(InpEnableLogging) Print("محدوده روی چارت ترسیم شد: High=" + DoubleToString(rd.rangeHigh, _Digits) + ", Low=" + DoubleToString(rd.rangeLow, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ")."); // لاگ ترسیم.
-  }
-
-//+------------------------------------------------------------------+
-//| Helper Function: IsKijunFlat                                     |
-//+------------------------------------------------------------------+
-//--- این تابع چک می‌کند آیا کیجون‌سن صاف است (شیب نزدیک به صفر با رگرسیون خطی). تایم فریم را به عنوان ورودی می‌گیرد تا مستقل از چارت باشد.
-//--- نکته آموزشی: از رگرسیون خطی ساده برای محاسبه شیب استفاده می‌شود. دوره (InpKijunFlatPeriod) اجازه می‌دهد تا حساسیت را تنظیم کنید: دوره کوتاه (مثل ۳) سیگنال‌های بیشتری می‌دهد اما ممکن است نویز داشته باشد؛ دوره بلند (مثل ۲۰) سیگنال‌های باکیفیت‌تری می‌دهد اما کمتر. این فیلتر برای تأیید تعادل بازار کلیدی است.
-bool IsKijunFlat(int ichimoku_handle,int bar_idx,ENUM_TIMEFRAMES timeframe)
-  {
-  //چک تعداد کندل برای اطمینان مجود بودن 
-  if(bar_idx<InpKijunFlatPeriod)
-    {
-     return false;
-     
-    }
-   //--- تعریف آرایه دینامیک برای کیجون‌سن بر اساس دوره ورودی برای محاسبه شیب.
-   double kijun_buffer[]; // آرایه برای مقادیر کیجون.
-   ArrayResize(kijun_buffer, InpKijunFlatPeriod); // تغییر اندازه آرایه به دوره مشخص‌شده برای دقت.
-   //--- کپی مقادیر کیجون از هندل (از دوره-۱ کندل قبل تا کندل فعلی) برای تحلیل.
-   if(CopyBuffer(ichimoku_handle,1,bar_idx - InpKijunFlatPeriod + 1,InpKijunFlatPeriod,kijun_buffer) != InpKijunFlatPeriod) 
-     {
-      if(InpEnableLogging) Print("خطا در کپی بافر کیجون: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ خطا.
-      return false; // اگر کپی شکست خورد، false برگردان.
-     }
-
-   //--- محاسبه شیب رگرسیون خطی ساده برای دوره کندل با استفاده از فرمول استاندارد.
-   double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0; // متغیرهای جمع برای فرمول رگرسیون.
-   double n = InpKijunFlatPeriod; // تعداد نقاط (دوره) برای محاسبه.
-   for(int k = 0; k < InpKijunFlatPeriod; k++) // حلقه روی دوره برای محاسبه جمع‌ها.
-     {
-      double x = k + 1.0; // x ایندکس از ۱ تا n برای رگرسیون.
-      double y = kijun_buffer[InpKijunFlatPeriod - 1 - k]; // y مقادیر کیجون از قدیمی به جدید (چون بافر از جدید به قدیمی است).
-      sum_x += x; // جمع x.
-      sum_y += y; // جمع y.
-      sum_xy += x * y; // جمع xy.
-      sum_x2 += x * x; // جمع x^2.
-     }
-
-   double denominator = (n * sum_x2 - sum_x * sum_x); // دنومیناتور شیب برای جلوگیری از تقسیم بر صفر.
-   if (denominator == 0) // چک ایمنی.
-     {
-      if(InpEnableLogging) Print("خطا در محاسبه شیب کیجون: دنومیناتور صفر."); // لاگ.
-      return false; // جلوگیری از تقسیم بر صفر (هرچند بعید است).
-     }
-
-   //--- فرمول شیب رگرسیون برای چک صاف بودن.
-   double slope = (n * sum_xy - sum_x * sum_y) / denominator;
-
-   //--- اگر شیب مطلق کمتر از آستانه (مثل ۰.۰۰۰۱) باشد، صاف در نظر بگیر. این آستانه را می‌توان تنظیم کرد اگر نیاز به حساسیت بیشتر باشد.
-   bool is_flat = MathAbs(slope) < 0.0001;
-   if(InpEnableLogging && is_flat) Print("کیجون صاف تشخیص داده شد: شیب=" + DoubleToString(slope, 6) + " (ایندکس: " + IntegerToString(bar_idx) + ")."); // لاگ موفقیت.
-   return is_flat;
-  }
-
-//+------------------------------------------------------------------+
-//| Helper Function: IsCandleInKumo                                  |
-//+------------------------------------------------------------------+
-//--- این تابع چک می‌کند آیا کندل کاملاً درون ابر کومو است. تایم فریم را به عنوان ورودی می‌گیرد تا با تایم فریم جلسه همخوانی داشته باشد.
-//--- نکته آموزشی: چک می‌کند آیا High کندل زیر سقف کومو و Low بالای کف کومو باشد، که نشان‌دهنده تعادل بازار است. این فیلتر برای جلوگیری از سیگنال در روند قوی مفید است.
-bool IsCandleInKumo(int ichimoku_handle,int bar_idx,ENUM_TIMEFRAMES timeframe)
-  {
-   //--- خواندن سنکو A و B برای کندل مشخص با استفاده از CopyBuffer.
-   double senkou_a[1], senkou_b[1]; // بافرها برای سنکو A و B.
-   if(CopyBuffer(ichimoku_handle,2,bar_idx,1,senkou_a) != 1) // کپی سنکو A.
-     {
-      if(InpEnableLogging) Print("خطا در کپی بافر سنکو A: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ خطا.
-      return false; // اگر شکست false.
-     }
-   if(CopyBuffer(ichimoku_handle,3,bar_idx,1,senkou_b) != 1) // کپی سنکو B.
-     {
-      if(InpEnableLogging) Print("خطا در کپی بافر سنکو B: ایندکس=" + IntegerToString(bar_idx) + "."); // لاگ.
-      return false; // اگر شکست false.
-     }
-
-   //--- گرفتن High و Low کندل از تایم فریم جلسه برای چک موقعیت.
-   double high = iHigh(_Symbol,timeframe,bar_idx); // بالاترین قیمت کندل.
-   double low = iLow(_Symbol,timeframe,bar_idx); // پایین‌ترین قیمت کندل.
-
-   //--- تعیین سقف و کف ابر کومو (سقف Max سنکوها، کف Min) برای مقایسه.
-   double kumo_top = MathMax(senkou_a[0],senkou_b[0]); // سقف کومو.
-   double kumo_bottom = MathMin(senkou_a[0],senkou_b[0]); // کف کومو.
-
-   //--- چک شرط تعادل: High <= سقف و Low >= کف برای تأیید داخل کومو بودن.
-   bool in_kumo = (high <= kumo_top && low >= kumo_bottom);
-   if(InpEnableLogging && in_kumo) Print("کندل داخل کومو تشخیص داده شد: High=" + DoubleToString(high, _Digits) + ", Low=" + DoubleToString(low, _Digits) + " (ایندکس: " + IntegerToString(bar_idx) + ")."); // لاگ موفقیت.
-   return in_kumo;
-  }
-
-#endif //RANGELIB_MQH
-
-
-
-
-
-
-
-
-
-
 //+------------------------------------------------------------------+
 //|                                             SessionTrader.mqh |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy     |
@@ -959,105 +947,207 @@ public:
    int               GetMagicNumber(void) { return m_magic_number; } // بازگشت ساده مجیک نامبر برای شناسایی.
 
    //--- این تابع مدیریت معاملات فعال (خروج پله‌ای و ترلینگ استاپ) را انجام می‌دهد. حالا داخل کلاس است تا به هندل ATR دسترسی داشته باشد و مستقل باشد.
-   bool              ManageActiveTrade(ulong ticket)
-     {
-      if(!PositionSelectByTicket(ticket)) 
+  //--- این تابع مدیریت معاملات فعال (خروج پله‌ای و ترلینگ استاپ) را با جزئیات کامل لاگ انجام می‌دهد.
+bool ManageActiveTrade(ulong ticket)
+{
+    // ========================================================================================
+    // بخش ۱: مقداردهی اولیه و جمع‌آوری اطلاعات پایه
+    // ========================================================================================
+    PrintFormat("--- ManageActiveTrade START for Ticket: %s ---", (string)ticket);
+
+    if (!PositionSelectByTicket(ticket))
+    {
+        PrintFormat("[ERROR] Ticket %s: Could not select the position. Exiting.", (string)ticket);
+        return false;
+    }
+    PrintFormat("[INFO] Ticket %s: Position selected successfully.", (string)ticket);
+
+    long current_magic = PositionGetInteger(POSITION_MAGIC);
+    if (current_magic != m_magic_number)
+    {
+        // این لاگ معمولاً نباید دیده بشه چون در OnTick فیلتر شده، ولی برای اطمینان هست
+        PrintFormat("[DEBUG] Ticket %s: Magic number %d does not match session magic %d. Skipping.", (string)ticket, current_magic, m_magic_number);
+        return false;
+    }
+
+    // --- جمع‌آوری تمام داده‌های مورد نیاز از پوزیشن
+    double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
+    double current_sl = PositionGetDouble(POSITION_SL);
+    double current_tp = PositionGetDouble(POSITION_TP);
+    double volume = PositionGetDouble(POSITION_VOLUME);
+    ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+    string s_pos_type = (pos_type == POSITION_TYPE_BUY ? "BUY" : "SELL");
+
+    PrintFormat("[DATA] Ticket %s: Type=%s, Volume=%.2f, Entry=%.5f, SL=%.5f, TP=%.5f",
+                (string)ticket, s_pos_type, volume, entry_price, current_sl, current_tp);
+
+    bool action_taken = false; // پرچمی برای اینکه بفهمیم آیا در این تیک کاری انجام دادیم یا نه
+
+    // ========================================================================================
+    // بخش ۲: تشخیص وضعیت فعلی معامله (State Detection)
+    // ========================================================================================
+    
+    // --- چک می‌کنیم آیا معامله در وضعیت اولیه (Initial) قرار دارد یا به نقطه سر به سر (Breakeven) رسیده ---
+    // برای تشخیص دقیق، از یک بافر کوچک (2 * _Point) استفاده می‌کنیم تا خطاهای اعشاری را پوشش دهیم
+    bool is_initial_stage = (pos_type == POSITION_TYPE_BUY) ? (current_sl < entry_price - 2 * _Point) : (current_sl > entry_price + 2 * _Point);
+    bool is_breakeven_stage = MathAbs(current_sl - entry_price) < 2 * _Point;
+
+    PrintFormat("[STATE] Ticket %s: Is in Initial Stage? -> %s. Is in Breakeven Stage? -> %s.",
+                (string)ticket, (is_initial_stage ? "YES" : "NO"), (is_breakeven_stage ? "YES" : "NO"));
+
+
+    // ========================================================================================
+    // بخش ۳: منطق خروج پله‌ای (فقط در وضعیت اولیه اجرا می‌شود)
+    // ========================================================================================
+    if (InpEnablePartialClose && is_initial_stage)
+    {
+        PrintFormat("[LOGIC] Ticket %s: Partial close is enabled and position is in initial stage. Checking for TP1 target...", (string)ticket);
+
+        double sl_distance_price = MathAbs(entry_price - current_sl);
+        PrintFormat("[CALC] Ticket %s: SL Distance in price = %.5f", (string)ticket, sl_distance_price);
+
+        double target_price = (pos_type == POSITION_TYPE_BUY) ? (entry_price + sl_distance_price * InpTakeProfitRatio_Stage1) : (entry_price - sl_distance_price * InpTakeProfitRatio_Stage1);
+        PrintFormat("[CALC] Ticket %s: Calculated TP1 Target Price = %.5f", (string)ticket, target_price);
+
+        double current_market_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+        PrintFormat("[DATA] Ticket %s: Current Market Price for check = %.5f", (string)ticket, current_market_price);
+
+        bool target_hit = (pos_type == POSITION_TYPE_BUY && current_market_price >= target_price) ||
+                          (pos_type == POSITION_TYPE_SELL && current_market_price <= target_price);
+
+        if (target_hit)
         {
-         if(InpEnableLogging) Print("خطا در انتخاب پوزیشن با تیکت " + IntegerToString(ticket) + "."); // لاگ خطا.
-         return false; // اگر پوزیشن انتخاب نشود، false برگردان.
-        }
+            PrintFormat("[ACTION] Ticket %s: TP1 TARGET HIT! Preparing for partial close and move to BE.", (string)ticket);
 
-      long current_magic = PositionGetInteger(POSITION_MAGIC); // خواندن مجیک پوزیشن.
-      if(current_magic != m_magic_number) return false; // اگر مجیک مطابقت ندارد، false.
+            double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+            double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+            double volume_to_close_raw = volume * (InpPartialClosePercentage / 100.0);
+            double close_volume = MathRound(volume_to_close_raw / lot_step) * lot_step;
+            PrintFormat("[CALC] Ticket %s: Volume to close: Raw=%.4f, Rounded=%.2f (LotStep=%.2f)", (string)ticket, volume_to_close_raw, close_volume, lot_step);
 
-      if(!InpEnablePartialClose) return false; // اگر خروج پله‌ای خاموش، هیچ کاری نکن.
+            // اگر حجم باقی‌مانده کمتر از حداقل لات مجاز بود، کل پوزیشن را ببند
+            if (volume - close_volume < min_lot && volume > min_lot)
+            {
+                close_volume = volume;
+                PrintFormat("[ADJUST] Ticket %s: Remaining volume is less than min_lot. Adjusting to close full position.", (string)ticket);
+            }
 
-      double entry_price = PositionGetDouble(POSITION_PRICE_OPEN); // قیمت ورود پوزیشن.
-      double current_sl = PositionGetDouble(POSITION_SL); // استاپ لاس فعلی.
-      double volume = PositionGetDouble(POSITION_VOLUME); // حجم پوزیشن.
-      ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // نوع پوزیشن (خرید یا فروش).
-
-      // چک مرحله ۱: SL اولیه (زیر/بالای entry با بافر برای تشخیص مرحله).
-      bool is_stage1 = (pos_type == POSITION_TYPE_BUY && current_sl < entry_price - _Point * 10) ||
-                       (pos_type == POSITION_TYPE_SELL && current_sl > entry_price + _Point * 10);
-      if(is_stage1)
-        {
-         double sl_distance_price = MathAbs(entry_price - current_sl); // فاصله استاپ از ورود.
-         double target_price = (pos_type == POSITION_TYPE_BUY) ? entry_price + sl_distance_price * InpTakeProfitRatio_Stage1 : // هدف برای خرید.
-                               entry_price - sl_distance_price * InpTakeProfitRatio_Stage1; // هدف برای فروش.
-
-         double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol,SYMBOL_BID) : // قیمت فعلی برای خرید (Bid).
-                                SymbolInfoDouble(_Symbol,SYMBOL_ASK); // قیمت فعلی برای فروش (Ask).
-         if(InpEnableLogging) PrintFormat("Diag TP1: Ticket %d | Target Price: %.5f | Current Price: %.5f", ticket, target_price, current_price);
-         if((pos_type == POSITION_TYPE_BUY && current_price >= target_price) || // اگر هدف رسیده برای خرید.
-            (pos_type == POSITION_TYPE_SELL && current_price <= target_price)) // اگر هدف رسیده برای فروش.
-           {
-            double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP); // گام لات بروکر.
-            double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN); // حداقل لات.
-            double volume_to_close_raw = volume * (InpPartialClosePercentage / 100.0); // حجم خام برای بستن.
-            double close_volume = MathRound(volume_to_close_raw / lot_step) * lot_step; // گرد به گام.
-
-            if(volume - close_volume < min_lot && volume > min_lot) close_volume = volume; // اگر باقی‌مانده کمتر از min، کل را ببند.
-
-            if(close_volume >= min_lot) // اگر حجم معتبر.
-              {
-               if(trade.PositionClose(ticket,close_volume)) // بستن پله‌ای.
-                 {
-                  if(InpEnableLogging) Print("خروج پله‌ای موفق: تیکت=" + IntegerToString(ticket) + ", حجم بسته‌شده=" + DoubleToString(close_volume, 2) + "."); // لاگ موفقیت.
-                  if(PositionSelectByTicket(ticket)) // اگر هنوز باز است.
+            if (close_volume >= min_lot)
+            {
+                PrintFormat("[TRADE] Ticket %s: Attempting to close %.2f lots...", (string)ticket, close_volume);
+                if (trade.PositionClose(ticket, close_volume))
+                {
+                    PrintFormat("[SUCCESS] Ticket %s: Partial close successful!", (string)ticket);
+                    action_taken = true;
+                    // چک می‌کنیم آیا هنوز پوزیشنی باقی مانده است یا نه
+                    if (PositionSelectByTicket(ticket))
                     {
-                     trade.PositionModify(ticket,entry_price,0.0); // انتقال استاپ به ورود (breakeven).
-                     if(InpEnableLogging) Print("استاپ به breakeven منتقل شد: تیکت=" + IntegerToString(ticket) + "."); // لاگ.
+                        PrintFormat("[TRADE] Ticket %s: Position still open. Attempting to move SL to Breakeven (%.5f)...", (string)ticket, entry_price);
+                        if (trade.PositionModify(ticket, entry_price, current_tp)) // TP را تغییر نمی‌دهیم
+                        {
+                            PrintFormat("[SUCCESS] Ticket %s: SL moved to Breakeven successfully.", (string)ticket);
+                        }
+                        else
+                        {
+                            PrintFormat("[ERROR] Ticket %s: Failed to move SL to Breakeven. Error: %d", (string)ticket, trade.ResultRetcode());
+                        }
                     }
-                  return true; // موفقیت.
-                 }
-               else
-                 {
-                  if(InpEnableLogging) Print("خطا در خروج پله‌ای: تیکت=" + IntegerToString(ticket) + "."); // لاگ شکست.
-                  return false; // شکست.
-                 }
-              }
-           }
+                    else
+                    {
+                         PrintFormat("[INFO] Ticket %s: Full position was closed.", (string)ticket);
+                    }
+                }
+                else
+                {
+                    PrintFormat("[ERROR] Ticket %s: Partial close failed! Error: %d", (string)ticket, trade.ResultRetcode());
+                }
+            }
+            else
+            {
+                PrintFormat("[WARN] Ticket %s: Calculated close volume (%.2f) is less than min_lot (%.2f). No action taken.", (string)ticket, close_volume, min_lot);
+            }
         }
-
-      // چک مرحله ۲: پس از breakeven (SL نزدیک entry).
-      bool is_stage2 = (pos_type == POSITION_TYPE_BUY && current_sl >= entry_price - _Point) ||
-                       (pos_type == POSITION_TYPE_SELL && current_sl <= entry_price + _Point);
-      if(is_stage2)
+        else
         {
-         double atr_buffer[1]; // بافر برای ATR.
-         if(CopyBuffer(m_trail_atr_handle,0,1,1,atr_buffer) !=1) 
-           {
-            if(InpEnableLogging) Print("خطا در کپی بافر ATR ترلینگ: تیکت=" + IntegerToString(ticket) + "."); // لاگ.
-            return false; // خواندن ATR، اگر شکست false.
-           }
-         double trail_offset = atr_buffer[0] * InpTrailingStopATRMultiplier; // افست ترلینگ بر اساس ضریب.
-
-         if(pos_type == POSITION_TYPE_BUY) // برای خرید.
-           {
-            double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_BID) - trail_offset; // استاپ جدید زیر Bid.
-            if(new_sl > current_sl) // اگر بهتر از فعلی.
-              {
-               trade.PositionModify(ticket,new_sl,0.0); // اصلاح استاپ.
-               if(InpEnableLogging) Print("ترلینگ استاپ بروزرسانی شد (خرید): SL جدید=" + DoubleToString(new_sl, _Digits) + ", تیکت=" + IntegerToString(ticket) + "."); // لاگ.
-               return true; // موفقیت.
-              }
-           }
-         else // برای فروش.
-           {
-            double new_sl = SymbolInfoDouble(_Symbol,SYMBOL_ASK) + trail_offset; // استاپ جدید بالای Ask.
-            if(new_sl < current_sl) // اگر بهتر.
-              {
-               trade.PositionModify(ticket,new_sl,0.0); // اصلاح استاپ.
-               if(InpEnableLogging) Print("ترلینگ استاپ بروزرسانی شد (فروش): SL جدید=" + DoubleToString(new_sl, _Digits) + ", تیکت=" + IntegerToString(ticket) + "."); // لاگ.
-               return true; // موفقیت.
-              }
-           }
+             PrintFormat("[DEBUG] Ticket %s: TP1 target not yet hit. No partial close action.", (string)ticket);
         }
+    }
+    
+    // ========================================================================================
+    // بخش ۴: منطق تریلینگ استاپ (پس از خروج پله‌ای یا در صورت سودده بودن اجرا می‌شود)
+    // ========================================================================================
+    
+    // اگر در این تیک، خروج پله‌ای انجام شده باشد، دیگر تریلینگ را چک نمی‌کنیم تا تیک بعدی
+    if (action_taken)
+    {
+        PrintFormat("--- ManageActiveTrade END for Ticket: %s (Action was taken) ---", (string)ticket);
+        return true;
+    }
 
-      return false; // هیچ عملیاتی انجام نشد.
-     }
+    // شرط شروع تریلینگ: یا باید در مرحله سر به سر باشیم، یا معامله در سود باشد
+    bool profitable_enough_to_trail = (pos_type == POSITION_TYPE_BUY && SymbolInfoDouble(_Symbol, SYMBOL_BID) > entry_price) ||
+                                      (pos_type == POSITION_TYPE_SELL && SymbolInfoDouble(_Symbol, SYMBOL_ASK) < entry_price);
 
+    if (is_breakeven_stage || profitable_enough_to_trail)
+    {
+        PrintFormat("[LOGIC] Ticket %s: Position is ready for trailing. (IsBE: %s, IsProfitable: %s). Reading ATR...", 
+                    (string)ticket, (is_breakeven_stage ? "Y" : "N"), (profitable_enough_to_trail ? "Y" : "N"));
+
+        double atr_buffer[1];
+        if (CopyBuffer(m_trail_atr_handle, 0, 1, 1, atr_buffer) == 1 && m_trail_atr_handle != INVALID_HANDLE)
+        {
+            double atr_value = atr_buffer[0];
+            PrintFormat("[DATA] Ticket %s: ATR value read = %.5f", (string)ticket, atr_value);
+
+            double trail_offset = atr_value * InpTrailingStopATRMultiplier;
+            PrintFormat("[CALC] Ticket %s: Trail Offset = %.5f (ATR %.5f * Multiplier %.2f)", (string)ticket, trail_offset, atr_value, InpTrailingStopATRMultiplier);
+            
+            double new_sl = 0.0;
+            if (pos_type == POSITION_TYPE_BUY)
+            {
+                new_sl = SymbolInfoDouble(_Symbol, SYMBOL_BID) - trail_offset;
+            }
+            else // SELL
+            {
+                new_sl = SymbolInfoDouble(_Symbol, SYMBOL_ASK) + trail_offset;
+            }
+            PrintFormat("[CALC] Ticket %s: New potential SL = %.5f", (string)ticket, new_sl);
+
+            // شرط آپدیت استاپ لاس: استاپ جدید باید بهتر از استاپ فعلی باشد
+            bool should_modify_sl = (pos_type == POSITION_TYPE_BUY && new_sl > current_sl) ||
+                                    (pos_type == POSITION_TYPE_SELL && new_sl < current_sl && new_sl > 0);
+
+            if (should_modify_sl)
+            {
+                PrintFormat("[ACTION] Ticket %s: New SL (%.5f) is better than Current SL (%.5f). Attempting to modify...", (string)ticket, new_sl, current_sl);
+                if (trade.PositionModify(ticket, new_sl, current_tp))
+                {
+                    PrintFormat("[SUCCESS] Ticket %s: Trailing stop updated successfully.", (string)ticket);
+                    action_taken = true;
+                }
+                else
+                {
+                    PrintFormat("[ERROR] Ticket %s: Failed to update trailing stop. Error: %d", (string)ticket, trade.ResultRetcode());
+                }
+            }
+            else
+            {
+                PrintFormat("[DEBUG] Ticket %s: New SL is not better than current SL. No trailing action.", (string)ticket);
+            }
+        }
+        else
+        {
+            PrintFormat("[ERROR] Ticket %s: Could not copy ATR buffer for trailing stop. Handle valid: %s.", (string)ticket, (m_trail_atr_handle != INVALID_HANDLE ? "Yes" : "No"));
+        }
+    }
+    else
+    {
+        PrintFormat("[DEBUG] Ticket %s: Position is not yet profitable or at BE. No trailing logic executed.", (string)ticket);
+    }
+    
+    PrintFormat("--- ManageActiveTrade END for Ticket: %s (Action taken: %s) ---", (string)ticket, (action_taken ? "YES" : "NO"));
+    return action_taken;
+}
 private:
    //--- این تابع محدوده معتبر را شناسایی و اعتبارسنجی می‌کند. اگر ایچیموکو روشن باشد، از فیلتر پیشرفته استفاده می‌کند. این تابع پایه استراتژی است.
    bool              IdentifyValidRange(RangeData &rd)
@@ -1268,682 +1358,3 @@ private:
 
 
 
-
-
-
-لاگ :::
-
-
-2025.08.27 21:54:21.215	MetaTester 5 started on 127.0.0.1:3000
-2025.08.27 21:54:21.227	cloud network mode is off
-2025.08.27 21:54:21.227	initialization finished
-2025.08.27 21:54:21.586	login (build 5233)
-2025.08.27 21:54:22.455	9148 bytes of account info loaded
-2025.08.27 21:54:22.455	1478 bytes of tester parameters loaded
-2025.08.27 21:54:22.455	36548 bytes of input parameters loaded
-2025.08.27 21:54:22.497	39940 bytes of symbols list loaded (10462 symbols)
-2025.08.27 21:54:22.497	expert file added: Experts\hipobreck\hipobreck.ex5. 92545 bytes loaded
-2025.08.27 21:54:22.529	1753 Mb available, 21 blocks set for ticks generating
-2025.08.27 21:54:22.529	initial deposit 1000.00 USD, leverage 1:200
-2025.08.27 21:54:22.533	successfully initialized
-2025.08.27 21:54:22.533	132 Kb of total initialization data received
-2025.08.27 21:54:22.533	Intel Core i3-4005U  @ 1.70GHz, 4027 MB
-2025.08.27 21:54:22.569	EURUSD: symbol to be synchronized
-2025.08.27 21:54:22.570	EURUSD: symbol synchronized, 3720 bytes of symbol info received
-2025.08.27 21:54:22.570	EURUSD: history synchronization started
-2025.08.27 21:54:22.599	EURUSD: load 27 bytes of history data to synchronize in 0:00:00.014
-2025.08.27 21:54:22.599	EURUSD: history synchronized from 1971.01.04 to 2025.08.26
-2025.08.27 21:54:22.684	EURUSD,M5: history cache allocated for 348900 bars and contains 74675 bars from 2021.01.04 00:00 to 2021.12.31 23:00
-2025.08.27 21:54:22.684	EURUSD,M5: history begins from 2021.01.04 00:00
-2025.08.27 21:54:22.686	EURUSD,M5 (MetaQuotes-Demo): every tick generating
-2025.08.27 21:54:22.686	testing with execution delay 115 milliseconds
-2025.08.27 21:54:22.686	EURUSD,M5: testing of Experts\hipobreck\hipobreck.ex5 from 2022.01.01 00:00 to 2025.08.26 00:00 started with inputs:
-2025.08.27 21:54:22.686	  =
-2025.08.27 21:54:22.686	  InpRiskPercentage=0.5
-2025.08.27 21:54:22.686	  InpEnableLogging=true
-2025.08.27 21:54:22.686	  =
-2025.08.27 21:54:22.686	  InpUseIchimokuFilter=true
-2025.08.27 21:54:22.686	  InpIchimoku_Tenkan=9
-2025.08.27 21:54:22.686	  InpIchimoku_Kijun=26
-2025.08.27 21:54:22.686	  InpIchimoku_Senkou=52
-2025.08.27 21:54:22.686	  InpMinConsecutiveCandles=3
-2025.08.27 21:54:22.686	  InpAtrMultiplier_Placement=0.4
-2025.08.27 21:54:22.686	  InpKijunFlatPeriod=3
-2025.08.27 21:54:22.686	  =
-2025.08.27 21:54:22.686	  InpS1_IsActive=true
-2025.08.27 21:54:22.686	  InpS1_TimeFrame=15
-2025.08.27 21:54:22.686	  InpS1_StartTime_Hour=0
-2025.08.27 21:54:22.686	  InpS1_StartTime_Minute=0
-2025.08.27 21:54:22.686	  InpS1_EndTime_Hour=6
-2025.08.27 21:54:22.686	  InpS1_EndTime_Minute=0
-2025.08.27 21:54:22.686	  InpS1_ExpiryTime_Hour=12
-2025.08.27 21:54:22.687	  InpS1_ExpiryTime_Minute=0
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpS2_IsActive=true
-2025.08.27 21:54:22.687	  InpS2_TimeFrame=15
-2025.08.27 21:54:22.687	  InpS2_StartTime_Hour=8
-2025.08.27 21:54:22.687	  InpS2_StartTime_Minute=0
-2025.08.27 21:54:22.687	  InpS2_EndTime_Hour=10
-2025.08.27 21:54:22.687	  InpS2_EndTime_Minute=0
-2025.08.27 21:54:22.687	  InpS2_ExpiryTime_Hour=20
-2025.08.27 21:54:22.687	  InpS2_ExpiryTime_Minute=0
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpS3_IsActive=true
-2025.08.27 21:54:22.687	  InpS3_TimeFrame=15
-2025.08.27 21:54:22.687	  InpS3_StartTime_Hour=13
-2025.08.27 21:54:22.687	  InpS3_StartTime_Minute=0
-2025.08.27 21:54:22.687	  InpS3_EndTime_Hour=14
-2025.08.27 21:54:22.687	  InpS3_EndTime_Minute=30
-2025.08.27 21:54:22.687	  InpS3_ExpiryTime_Hour=21
-2025.08.27 21:54:22.687	  InpS3_ExpiryTime_Minute=0
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpS4_IsActive=false
-2025.08.27 21:54:22.687	  InpS4_TimeFrame=15
-2025.08.27 21:54:22.687	  InpS4_StartTime_Hour=0
-2025.08.27 21:54:22.687	  InpS4_StartTime_Minute=0
-2025.08.27 21:54:22.687	  InpS4_EndTime_Hour=0
-2025.08.27 21:54:22.687	  InpS4_EndTime_Minute=0
-2025.08.27 21:54:22.687	  InpS4_ExpiryTime_Hour=0
-2025.08.27 21:54:22.687	  InpS4_ExpiryTime_Minute=0
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpRangeFilterMode=1
-2025.08.27 21:54:22.687	  InpMinRangePoints=50
-2025.08.27 21:54:22.687	  InpMaxRangePoints=500
-2025.08.27 21:54:22.687	  InRangeATR_TimeFrame=16408
-2025.08.27 21:54:22.687	  InRangeATR_Period=14
-2025.08.27 21:54:22.687	  InRangeATR_MinMultiplier=0.2
-2025.08.27 21:54:22.687	  InRangeATR_MaxMultiplier=1.2
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpTrendFilterIsOn=true
-2025.08.27 21:54:22.687	  InpTrendEMATimeFrame=16388
-2025.08.27 21:54:22.687	  InpTrendEMAPeriod=150
-2025.08.27 21:54:22.687	  InpTrendEMAAppliedPrice=1
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpStopLossAdditionalPercent=10.0
-2025.08.27 21:54:22.687	  InpEnablePartialClose=true
-2025.08.27 21:54:22.687	  InpTakeProfitRatio_Stage1=1.5
-2025.08.27 21:54:22.687	  InpPartialClosePercentage=50.0
-2025.08.27 21:54:22.687	  InpTrailingStopATRTimeFrame=15
-2025.08.27 21:54:22.687	  InpTrailingStopATRPeriod=22
-2025.08.27 21:54:22.687	  InpTrailingStopATRMultiplier=1.5
-2025.08.27 21:54:22.687	  =
-2025.08.27 21:54:22.687	  InpMinTradesPerYear=30
-2025.08.27 21:54:22.687	  InpMaxAcceptableDrawdown=15
-2025.08.27 21:54:22.785	EURUSD,M15: history cache allocated for 116322 bars and contains 24914 bars from 2021.01.04 00:00 to 2021.12.31 23:00
-2025.08.27 21:54:22.785	EURUSD,M15: history begins from 2021.01.04 00:00
-2025.08.27 21:54:22.854	EURUSD,Daily: history cache allocated for 1212 bars and contains 260 bars from 2021.01.04 00:00 to 2021.12.31 00:00
-2025.08.27 21:54:22.854	EURUSD,Daily: history begins from 2021.01.04 00:00
-2025.08.27 21:54:22.904	EURUSD,H4: history cache allocated for 7273 bars and contains 1560 bars from 2021.01.04 00:00 to 2021.12.31 20:00
-2025.08.27 21:54:22.904	EURUSD,H4: history begins from 2021.01.04 00:00
-2025.08.27 21:54:22.904	2022.01.01 00:00:00   جلسه 111101 اولیه‌سازی شد.
-2025.08.27 21:54:22.904	2022.01.01 00:00:00   جلسه 222202 اولیه‌سازی شد.
-2025.08.27 21:54:22.904	2022.01.01 00:00:00   جلسه 333303 اولیه‌سازی شد.
-2025.08.27 21:54:22.904	2022.01.01 00:00:00   اکسپرت اولیه‌سازی شد. تعداد جلسات فعال: 3
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13617, Low=1.13497 (ایندکس: 10).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000018 (ایندکس: 10).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13604, Low=1.13518 (ایندکس: 9).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000042 (ایندکس: 9).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13589, Low=1.13490 (ایندکس: 8).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13512, Low=1.13483 (ایندکس: 7).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13499, Low=1.13447 (ایندکس: 6).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000063 (ایندکس: 6).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13500, Low=1.13455 (ایندکس: 1).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13483, Low=1.13483 (ایندکس: 0).
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:30.859	2022.01.03 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.03 06:00 انجام شد.
-2025.08.27 21:54:30.868	2022.01.03 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:30.868	2022.01.03 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.03 10:00 انجام شد.
-2025.08.27 21:54:30.880	2022.01.03 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:30.893	2022.01.03 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13587, Low=1.13518 (ایندکس: 3).
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 3).
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13563, Low=1.13498 (ایندکس: 2).
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13563, Low=1.13499 (ایندکس: 1).
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13539, Low=1.13539 (ایندکس: 0).
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:30.894	2022.01.03 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.03 14:30 انجام شد.
-2025.08.27 21:54:30.942	2022.01.03 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:30.945	2022.01.03 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13090, Low=1.13051 (ایندکس: 12).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 12).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13094, Low=1.13059 (ایندکس: 6).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13017, Low=1.12975 (ایندکس: 1).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.12977, Low=1.12977 (ایندکس: 0).
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:30.978	2022.01.04 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.04 06:00 انجام شد.
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13073, Low=1.13002 (ایندکس: 8).
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000027 (ایندکس: 8).
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13012, Low=1.12939 (ایندکس: 7).
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000045 (ایندکس: 7).
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:30.992	2022.01.04 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.04 10:00 انجام شد.
-2025.08.27 21:54:31.007	2022.01.04 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.027	2022.01.04 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.027	2022.01.04 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.04 14:30 انجام شد.
-2025.08.27 21:54:31.103	2022.01.04 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.106	2022.01.04 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.130	2022.01.05 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.12964, Low=1.12938 (ایندکس: 2).
-2025.08.27 21:54:31.130	2022.01.05 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.12968, Low=1.12943 (ایندکس: 1).
-2025.08.27 21:54:31.130	2022.01.05 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.12957, Low=1.12957 (ایندکس: 0).
-2025.08.27 21:54:31.130	2022.01.05 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.130	2022.01.05 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.05 06:00 انجام شد.
-2025.08.27 21:54:31.141	2022.01.05 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12959, Low=1.12930 (ایندکس: 8).
-2025.08.27 21:54:31.141	2022.01.05 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12965, Low=1.12925 (ایندکس: 7).
-2025.08.27 21:54:31.141	2022.01.05 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:31.141	2022.01.05 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.05 10:00 انجام شد.
-2025.08.27 21:54:31.156	2022.01.05 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.173	2022.01.05 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.173	2022.01.05 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.05 14:30 انجام شد.
-2025.08.27 21:54:31.216	2022.01.05 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.219	2022.01.05 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.272	2022.01.06 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.272	2022.01.06 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.06 06:00 انجام شد.
-2025.08.27 21:54:31.290	2022.01.06 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:31.290	2022.01.06 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.06 10:00 انجام شد.
-2025.08.27 21:54:31.305	2022.01.06 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.324	2022.01.06 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13129, Low=1.13129 (ایندکس: 0).
-2025.08.27 21:54:31.324	2022.01.06 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.324	2022.01.06 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.06 14:30 انجام شد.
-2025.08.27 21:54:31.395	2022.01.06 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.398	2022.01.06 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.420	2022.01.07 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.12991, Low=1.12991 (ایندکس: 0).
-2025.08.27 21:54:31.420	2022.01.07 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.420	2022.01.07 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.07 06:00 انجام شد.
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13034, Low=1.13003 (ایندکس: 8).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13031, Low=1.13011 (ایندکس: 7).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 7).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13021, Low=1.12983 (ایندکس: 6).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000015 (ایندکس: 6).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13022, Low=1.12987 (ایندکس: 5).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13040, Low=1.12980 (ایندکس: 4).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13044, Low=1.13020 (ایندکس: 3).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000037 (ایندکس: 3).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13059, Low=1.13024 (ایندکس: 2).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13055, Low=1.13000 (ایندکس: 1).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13055, Low=1.13055 (ایندکس: 0).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   محدوده معتبر (ایچیموکو): High=1.13034, Low=1.12998, اندازه=36.00 (جلسه 222202).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   محدوده روی چارت ترسیم شد: High=1.13034, Low=1.12998 (مجیک: 222202).
-2025.08.27 21:54:31.428	2022.01.07 10:00:00   فیلتر روند: نزولی (قیمت=1.13055, EMA=1.13198) در جلسه 222202.
-2025.08.27 21:54:31.429	2022.01.07 10:00:00   محاسبه لات موفق: حجم = 0.13 (ریسک: 0.50%, استاپ: 39.60).
-2025.08.27 21:54:31.429	2022.01.07 10:00:00   sell stop 0.13 EURUSD at 1.12986 sl: 1.13038 (1.13055 / 1.13056 / 1.13055)
-2025.08.27 21:54:31.432	2022.01.07 10:00:00   CTrade::OrderSend: sell stop 0.13 EURUSD at 1.12986 sl: 1.13038 [done]
-2025.08.27 21:54:31.432	2022.01.07 10:00:00   سفارش SellStop (روند نزولی) قرار گرفت: قیمت=1.12986 (مجیک: 222202).
-2025.08.27 21:54:31.432	2022.01.07 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.07 10:00 انجام شد.
-2025.08.27 21:54:31.446	2022.01.07 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.457	2022.01.07 14:15:35   order [#2 sell stop 0.13 EURUSD at 1.12986] triggered
-2025.08.27 21:54:31.457	2022.01.07 14:15:35   deal #2 sell 0.13 EURUSD at 1.12984 done (based on order #2)
-2025.08.27 21:54:31.457	2022.01.07 14:15:35   deal performed [#2 sell 0.13 EURUSD at 1.12984]
-2025.08.27 21:54:31.457	2022.01.07 14:15:35   order performed sell 0.13 at 1.12984 [#2 sell stop 0.13 EURUSD at 1.12986]
-2025.08.27 21:54:31.462	2022.01.07 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.462	2022.01.07 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.07 14:30 انجام شد.
-2025.08.27 21:54:31.467	2022.01.07 15:18:05   stop loss triggered #2 sell 0.13 EURUSD 1.12984 sl: 1.13038 [#3 buy 0.13 EURUSD at 1.13038]
-2025.08.27 21:54:31.467	2022.01.07 15:18:05   deal #3 buy 0.13 EURUSD at 1.13038 done (based on order #3)
-2025.08.27 21:54:31.467	2022.01.07 15:18:05   deal performed [#3 buy 0.13 EURUSD at 1.13038]
-2025.08.27 21:54:31.467	2022.01.07 15:18:05   order performed buy 0.13 at 1.13038 [#3 buy 0.13 EURUSD at 1.13038]
-2025.08.27 21:54:31.525	2022.01.07 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.528	2022.01.07 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13397, Low=1.13376 (ایندکس: 4).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000093 (ایندکس: 4).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13384, Low=1.13372 (ایندکس: 3).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000082 (ایندکس: 3).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13380, Low=1.13339 (ایندکس: 2).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13382, Low=1.13350 (ایندکس: 1).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13377, Low=1.13377 (ایندکس: 0).
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.613	2022.01.10 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.10 06:00 انجام شد.
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13354, Low=1.13298 (ایندکس: 8).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000080 (ایندکس: 8).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13339, Low=1.13289 (ایندکس: 5).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000040 (ایندکس: 5).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13352, Low=1.13313 (ایندکس: 4).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000030 (ایندکس: 4).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13364, Low=1.13287 (ایندکس: 3).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000002 (ایندکس: 3).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13361, Low=1.13312 (ایندکس: 2).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13292, Low=1.13292 (ایندکس: 0).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   محدوده معتبر (ایچیموکو): High=1.13339, Low=1.13266, اندازه=73.00 (جلسه 222202).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   محدوده روی چارت ترسیم شد: High=1.13339, Low=1.13266 (مجیک: 222202).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   فیلتر روند: صعودی (قیمت=1.13292, EMA=1.13211) در جلسه 222202.
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   محاسبه لات موفق: حجم = 0.06 (ریسک: 0.50%, استاپ: 80.30).
-2025.08.27 21:54:31.622	2022.01.10 10:00:00   buy stop 0.06 EURUSD at 1.13355 sl: 1.13259 (1.13292 / 1.13293 / 1.13292)
-2025.08.27 21:54:31.624	2022.01.10 10:00:00   CTrade::OrderSend: buy stop 0.06 EURUSD at 1.13355 sl: 1.13259 [done]
-2025.08.27 21:54:31.624	2022.01.10 10:00:00   سفارش BuyStop (روند صعودی) قرار گرفت: قیمت=1.13355 (مجیک: 222202).
-2025.08.27 21:54:31.624	2022.01.10 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.10 10:00 انجام شد.
-2025.08.27 21:54:31.634	2022.01.10 10:58:04   order [#4 buy stop 0.06 EURUSD at 1.13355] triggered
-2025.08.27 21:54:31.634	2022.01.10 10:58:04   deal #4 buy 0.06 EURUSD at 1.13356 done (based on order #4)
-2025.08.27 21:54:31.634	2022.01.10 10:58:04   deal performed [#4 buy 0.06 EURUSD at 1.13356]
-2025.08.27 21:54:31.634	2022.01.10 10:58:04   order performed buy 0.06 at 1.13356 [#4 buy stop 0.06 EURUSD at 1.13355]
-2025.08.27 21:54:31.641	2022.01.10 11:59:32   stop loss triggered #4 buy 0.06 EURUSD 1.13356 sl: 1.13259 [#5 sell 0.06 EURUSD at 1.13259]
-2025.08.27 21:54:31.641	2022.01.10 11:59:32   deal #5 sell 0.06 EURUSD at 1.13259 done (based on order #5)
-2025.08.27 21:54:31.642	2022.01.10 11:59:32   deal performed [#5 sell 0.06 EURUSD at 1.13259]
-2025.08.27 21:54:31.642	2022.01.10 11:59:32   order performed sell 0.06 at 1.13259 [#5 sell 0.06 EURUSD at 1.13259]
-2025.08.27 21:54:31.642	2022.01.10 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.656	2022.01.10 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.656	2022.01.10 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.10 14:30 انجام شد.
-2025.08.27 21:54:31.707	2022.01.10 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.711	2022.01.10 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.736	2022.01.11 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.736	2022.01.11 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.11 06:00 انجام شد.
-2025.08.27 21:54:31.748	2022.01.11 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:31.748	2022.01.11 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.11 10:00 انجام شد.
-2025.08.27 21:54:31.763	2022.01.11 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.777	2022.01.11 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13326, Low=1.13326 (ایندکس: 0).
-2025.08.27 21:54:31.777	2022.01.11 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.777	2022.01.11 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.11 14:30 انجام شد.
-2025.08.27 21:54:31.821	2022.01.11 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.826	2022.01.11 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.847	2022.01.12 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.847	2022.01.12 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.12 06:00 انجام شد.
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13662, Low=1.13579 (ایندکس: 3).
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000065 (ایندکس: 3).
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13601, Low=1.13566 (ایندکس: 2).
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13598, Low=1.13553 (ایندکس: 1).
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13585, Low=1.13585 (ایندکس: 0).
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:31.855	2022.01.12 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.12 10:00 انجام شد.
-2025.08.27 21:54:31.866	2022.01.12 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13632, Low=1.13565 (ایندکس: 6).
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.13653, Low=1.13610 (ایندکس: 5).
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 5).
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.877	2022.01.12 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.12 14:30 انجام شد.
-2025.08.27 21:54:31.937	2022.01.12 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.941	2022.01.12 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.963	2022.01.13 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:31.963	2022.01.13 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.13 06:00 انجام شد.
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14430, Low=1.14405 (ایندکس: 8).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000048 (ایندکس: 8).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14424, Low=1.14400 (ایندکس: 7).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000047 (ایندکس: 7).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14421, Low=1.14400 (ایندکس: 6).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14413, Low=1.14384 (ایندکس: 5).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14435, Low=1.14385 (ایندکس: 4).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   محدوده معتبر (ایچیموکو): High=1.14463, Low=1.14405, اندازه=58.00 (جلسه 222202).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   محدوده روی چارت ترسیم شد: High=1.14463, Low=1.14405 (مجیک: 222202).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   فیلتر روند: صعودی (قیمت=1.14648, EMA=1.13317) در جلسه 222202.
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   Safety check: قیمت قبلاً از محدوده عبور کرده - سفارش قرار نمی‌گیرد (جلسه 222202).
-2025.08.27 21:54:31.972	2022.01.13 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.13 10:00 انجام شد.
-2025.08.27 21:54:31.983	2022.01.13 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:31.998	2022.01.13 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:31.998	2022.01.13 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.13 14:30 انجام شد.
-2025.08.27 21:54:32.046	2022.01.13 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.051	2022.01.13 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.079	2022.01.14 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.079	2022.01.14 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.14 06:00 انجام شد.
-2025.08.27 21:54:32.092	2022.01.14 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:32.092	2022.01.14 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.14 10:00 انجام شد.
-2025.08.27 21:54:32.106	2022.01.14 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.117	2022.01.14 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.117	2022.01.14 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.14 14:30 انجام شد.
-2025.08.27 21:54:32.175	2022.01.14 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.179	2022.01.14 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.203	2022.01.17 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.14197, Low=1.14177 (ایندکس: 1).
-2025.08.27 21:54:32.203	2022.01.17 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.14183, Low=1.14183 (ایندکس: 0).
-2025.08.27 21:54:32.203	2022.01.17 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.203	2022.01.17 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.17 06:00 انجام شد.
-2025.08.27 21:54:32.212	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14207, Low=1.14166 (ایندکس: 8).
-2025.08.27 21:54:32.212	2022.01.17 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:32.212	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14168, Low=1.14136 (ایندکس: 7).
-2025.08.27 21:54:32.212	2022.01.17 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 7).
-2025.08.27 21:54:32.212	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14163, Low=1.14137 (ایندکس: 6).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14151, Low=1.14120 (ایندکس: 5).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000027 (ایندکس: 5).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14198, Low=1.14126 (ایندکس: 4).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14235, Low=1.14172 (ایندکس: 3).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14267, Low=1.14232 (ایندکس: 1).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14250, Low=1.14250 (ایندکس: 0).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   محدوده معتبر (ایچیموکو): High=1.14224, Low=1.14166, اندازه=58.00 (جلسه 222202).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   محدوده روی چارت ترسیم شد: High=1.14224, Low=1.14166 (مجیک: 222202).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   فیلتر روند: صعودی (قیمت=1.14250, EMA=1.13483) در جلسه 222202.
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   Safety check: قیمت قبلاً از محدوده عبور کرده - سفارش قرار نمی‌گیرد (جلسه 222202).
-2025.08.27 21:54:32.213	2022.01.17 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.17 10:00 انجام شد.
-2025.08.27 21:54:32.223	2022.01.17 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.233	2022.01.17 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.14114, Low=1.14114 (ایندکس: 0).
-2025.08.27 21:54:32.233	2022.01.17 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.233	2022.01.17 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.17 14:30 انجام شد.
-2025.08.27 21:54:32.265	2022.01.17 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.266	2022.01.17 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.291	2022.01.18 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.14099, Low=1.14078 (ایندکس: 17).
-2025.08.27 21:54:32.291	2022.01.18 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000025 (ایندکس: 17).
-2025.08.27 21:54:32.291	2022.01.18 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.291	2022.01.18 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.18 06:00 انجام شد.
-2025.08.27 21:54:32.314	2022.01.18 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:32.314	2022.01.18 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.18 10:00 انجام شد.
-2025.08.27 21:54:32.333	2022.01.18 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.351	2022.01.18 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.351	2022.01.18 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.18 14:30 انجام شد.
-2025.08.27 21:54:32.404	2022.01.18 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.411	2022.01.18 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.441	2022.01.19 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.441	2022.01.19 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.19 06:00 انجام شد.
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13303, Low=1.13270 (ایندکس: 8).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000067 (ایندکس: 8).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13343, Low=1.13292 (ایندکس: 7).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000050 (ایندکس: 7).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13363, Low=1.13334 (ایندکس: 6).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13363, Low=1.13331 (ایندکس: 5).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000083 (ایندکس: 5).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13362, Low=1.13300 (ایندکس: 4).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13396, Low=1.13307 (ایندکس: 3).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000080 (ایندکس: 3).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13428, Low=1.13370 (ایندکس: 2).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13391, Low=1.13289 (ایندکس: 1).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13308, Low=1.13308 (ایندکس: 0).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   محدوده معتبر (ایچیموکو): High=1.13336, Low=1.13270, اندازه=66.00 (جلسه 222202).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   محدوده روی چارت ترسیم شد: High=1.13336, Low=1.13270 (مجیک: 222202).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   فیلتر روند: نزولی (قیمت=1.13308, EMA=1.13524) در جلسه 222202.
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   محاسبه لات موفق: حجم = 0.07 (ریسک: 0.50%, استاپ: 72.60).
-2025.08.27 21:54:32.461	2022.01.19 10:00:00   sell stop 0.07 EURUSD at 1.13252 sl: 1.13343 (1.13308 / 1.13315 / 1.13308)
-2025.08.27 21:54:32.463	2022.01.19 10:00:00   CTrade::OrderSend: sell stop 0.07 EURUSD at 1.13252 sl: 1.13343 [done]
-2025.08.27 21:54:32.463	2022.01.19 10:00:00   سفارش SellStop (روند نزولی) قرار گرفت: قیمت=1.13252 (مجیک: 222202).
-2025.08.27 21:54:32.463	2022.01.19 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.19 10:00 انجام شد.
-2025.08.27 21:54:32.486	2022.01.19 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.507	2022.01.19 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.507	2022.01.19 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.19 14:30 انجام شد.
-2025.08.27 21:54:32.586	2022.01.19 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.592	2022.01.19 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13441, Low=1.13393 (ایندکس: 24).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000055 (ایندکس: 24).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13441, Low=1.13403 (ایندکس: 22).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000052 (ایندکس: 22).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13432, Low=1.13423 (ایندکس: 17).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 17).
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.623	2022.01.20 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.20 06:00 انجام شد.
-2025.08.27 21:54:32.635	2022.01.20 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:32.635	2022.01.20 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.20 10:00 انجام شد.
-2025.08.27 21:54:32.649	2022.01.20 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.666	2022.01.20 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.667	2022.01.20 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.20 14:30 انجام شد.
-2025.08.27 21:54:32.725	2022.01.20 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.726	2022.01.20 20:05:38   order [#6 sell stop 0.07 EURUSD at 1.13252] triggered
-2025.08.27 21:54:32.726	2022.01.20 20:05:38   deal #6 sell 0.07 EURUSD at 1.13251 done (based on order #6)
-2025.08.27 21:54:32.726	2022.01.20 20:05:38   deal performed [#6 sell 0.07 EURUSD at 1.13251]
-2025.08.27 21:54:32.726	2022.01.20 20:05:38   order performed sell 0.07 at 1.13251 [#6 sell stop 0.07 EURUSD at 1.13252]
-2025.08.27 21:54:32.733	2022.01.20 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.778	2022.01.21 04:59:16   stop loss triggered #6 sell 0.07 EURUSD 1.13251 sl: 1.13343 [#7 buy 0.07 EURUSD at 1.13343]
-2025.08.27 21:54:32.778	2022.01.21 04:59:16   deal #7 buy 0.07 EURUSD at 1.13343 done (based on order #7)
-2025.08.27 21:54:32.778	2022.01.21 04:59:16   deal performed [#7 buy 0.07 EURUSD at 1.13343]
-2025.08.27 21:54:32.778	2022.01.21 04:59:16   order performed buy 0.07 at 1.13343 [#7 buy 0.07 EURUSD at 1.13343]
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13343, Low=1.13255 (ایندکس: 4).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 4).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13309, Low=1.13266 (ایندکس: 3).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 3).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13295, Low=1.13266 (ایندکس: 2).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13273, Low=1.13251 (ایندکس: 1).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13258, Low=1.13258 (ایندکس: 0).
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.782	2022.01.21 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.21 06:00 انجام شد.
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13283, Low=1.13249 (ایندکس: 8).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13284, Low=1.13261 (ایندکس: 7).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 7).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13297, Low=1.13257 (ایندکس: 6).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 6).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.13286, Low=1.13286 (ایندکس: 0).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   محدوده معتبر (ایچیموکو): High=1.13283, Low=1.13226, اندازه=57.00 (جلسه 222202).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   محدوده روی چارت ترسیم شد: High=1.13283, Low=1.13226 (مجیک: 222202).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   فیلتر روند: نزولی (قیمت=1.13286, EMA=1.13503) در جلسه 222202.
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   محاسبه لات موفق: حجم = 0.08 (ریسک: 0.50%, استاپ: 62.70).
-2025.08.27 21:54:32.797	2022.01.21 10:00:00   sell stop 0.08 EURUSD at 1.13210 sl: 1.13289 (1.13286 / 1.13293 / 1.13286)
-2025.08.27 21:54:32.799	2022.01.21 10:00:00   CTrade::OrderSend: sell stop 0.08 EURUSD at 1.13210 sl: 1.13289 [done]
-2025.08.27 21:54:32.799	2022.01.21 10:00:00   سفارش SellStop (روند نزولی) قرار گرفت: قیمت=1.13210 (مجیک: 222202).
-2025.08.27 21:54:32.799	2022.01.21 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.21 10:00 انجام شد.
-2025.08.27 21:54:32.820	2022.01.21 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.836	2022.01.21 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.836	2022.01.21 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.21 14:30 انجام شد.
-2025.08.27 21:54:32.907	2022.01.21 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.910	2022.01.21 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.943	2022.01.24 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:32.943	2022.01.24 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.24 06:00 انجام شد.
-2025.08.27 21:54:32.946	2022.01.24 07:59:20   order [#8 sell stop 0.08 EURUSD at 1.13210] triggered
-2025.08.27 21:54:32.946	2022.01.24 07:59:20   deal #8 sell 0.08 EURUSD at 1.13210 done (based on order #8)
-2025.08.27 21:54:32.946	2022.01.24 07:59:20   deal performed [#8 sell 0.08 EURUSD at 1.13210]
-2025.08.27 21:54:32.946	2022.01.24 07:59:20   order performed sell 0.08 at 1.13210 [#8 sell stop 0.08 EURUSD at 1.13210]
-2025.08.27 21:54:32.954	2022.01.24 09:30:34   stop loss triggered #8 sell 0.08 EURUSD 1.13210 sl: 1.13289 [#9 buy 0.08 EURUSD at 1.13289]
-2025.08.27 21:54:32.954	2022.01.24 09:30:34   deal #9 buy 0.08 EURUSD at 1.13290 done (based on order #9)
-2025.08.27 21:54:32.954	2022.01.24 09:30:34   deal performed [#9 buy 0.08 EURUSD at 1.13290]
-2025.08.27 21:54:32.954	2022.01.24 09:30:34   order performed buy 0.08 at 1.13290 [#9 buy 0.08 EURUSD at 1.13289]
-2025.08.27 21:54:32.957	2022.01.24 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:32.957	2022.01.24 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.24 10:00 انجام شد.
-2025.08.27 21:54:32.974	2022.01.24 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:32.994	2022.01.24 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:32.994	2022.01.24 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.24 14:30 انجام شد.
-2025.08.27 21:54:33.058	2022.01.24 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.066	2022.01.24 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.100	2022.01.25 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13184, Low=1.13156 (ایندکس: 8).
-2025.08.27 21:54:33.100	2022.01.25 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13183, Low=1.13135 (ایندکس: 7).
-2025.08.27 21:54:33.100	2022.01.25 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000095 (ایندکس: 7).
-2025.08.27 21:54:33.100	2022.01.25 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:33.100	2022.01.25 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.25 06:00 انجام شد.
-2025.08.27 21:54:33.112	2022.01.25 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:33.112	2022.01.25 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.25 10:00 انجام شد.
-2025.08.27 21:54:33.131	2022.01.25 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.150	2022.01.25 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:33.150	2022.01.25 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.25 14:30 انجام شد.
-2025.08.27 21:54:33.207	2022.01.25 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.214	2022.01.25 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.246	2022.01.26 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:33.246	2022.01.26 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.26 06:00 انجام شد.
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12988, Low=1.12932 (ایندکس: 5).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000065 (ایندکس: 5).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12965, Low=1.12925 (ایندکس: 4).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000083 (ایندکس: 4).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12956, Low=1.12906 (ایندکس: 3).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000035 (ایندکس: 3).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12943, Low=1.12892 (ایندکس: 2).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12960, Low=1.12900 (ایندکس: 1).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.12912, Low=1.12912 (ایندکس: 0).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   محدوده معتبر (ایچیموکو): High=1.13052, Low=1.12932, اندازه=120.00 (جلسه 222202).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   محدوده روی چارت ترسیم شد: High=1.13052, Low=1.12932 (مجیک: 222202).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   فیلتر روند: نزولی (قیمت=1.12912, EMA=1.13428) در جلسه 222202.
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   Safety check: قیمت قبلاً از محدوده عبور کرده - سفارش قرار نمی‌گیرد (جلسه 222202).
-2025.08.27 21:54:33.259	2022.01.26 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.26 10:00 انجام شد.
-2025.08.27 21:54:33.273	2022.01.26 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.289	2022.01.26 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:33.289	2022.01.26 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.26 14:30 انجام شد.
-2025.08.27 21:54:33.337	2022.01.26 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.343	2022.01.26 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.443	2022.01.27 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:33.443	2022.01.27 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.27 06:00 انجام شد.
-2025.08.27 21:54:33.467	2022.01.27 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:33.467	2022.01.27 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.27 10:00 انجام شد.
-2025.08.27 21:54:33.487	2022.01.27 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.518	2022.01.27 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:33.518	2022.01.27 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.27 14:30 انجام شد.
-2025.08.27 21:54:33.596	2022.01.27 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.603	2022.01.27 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11498, Low=1.11470 (ایندکس: 8).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11498, Low=1.11464 (ایندکس: 7).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000062 (ایندکس: 7).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11493, Low=1.11468 (ایندکس: 6).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11523, Low=1.11485 (ایندکس: 5).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000087 (ایندکس: 5).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11552, Low=1.11520 (ایندکس: 4).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000015 (ایندکس: 4).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11558, Low=1.11528 (ایندکس: 3).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 3).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11544, Low=1.11519 (ایندکس: 2).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11545, Low=1.11523 (ایندکس: 1).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11532, Low=1.11532 (ایندکس: 0).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   محدوده معتبر (ایچیموکو): High=1.11523, Low=1.11464, اندازه=59.00 (جلسه 111101).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   محدوده روی چارت ترسیم شد: High=1.11523, Low=1.11464 (مجیک: 111101).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   فیلتر روند: نزولی (قیمت=1.11532, EMA=1.13246) در جلسه 111101.
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   محاسبه لات موفق: حجم = 0.08 (ریسک: 0.50%, استاپ: 64.90).
-2025.08.27 21:54:33.640	2022.01.28 06:00:00   sell stop 0.08 EURUSD at 1.11451 sl: 1.11529 (1.11532 / 1.11535 / 1.11532)
-2025.08.27 21:54:33.642	2022.01.28 06:00:00   CTrade::OrderSend: sell stop 0.08 EURUSD at 1.11451 sl: 1.11529 [done]
-2025.08.27 21:54:33.642	2022.01.28 06:00:00   سفارش SellStop (روند نزولی) قرار گرفت: قیمت=1.11451 (مجیک: 111101).
-2025.08.27 21:54:33.642	2022.01.28 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.28 06:00 انجام شد.
-2025.08.27 21:54:33.653	2022.01.28 09:00:38   order [#10 sell stop 0.08 EURUSD at 1.11451] triggered
-2025.08.27 21:54:33.653	2022.01.28 09:00:38   deal #10 sell 0.08 EURUSD at 1.11450 done (based on order #10)
-2025.08.27 21:54:33.653	2022.01.28 09:00:38   deal performed [#10 sell 0.08 EURUSD at 1.11450]
-2025.08.27 21:54:33.653	2022.01.28 09:00:38   order performed sell 0.08 at 1.11450 [#10 sell stop 0.08 EURUSD at 1.11451]
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.11549, Low=1.11516 (ایندکس: 8).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.11548, Low=1.11497 (ایندکس: 7).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000023 (ایندکس: 7).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.11547, Low=1.11502 (ایندکس: 6).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کیجون صاف تشخیص داده شد: شیب=0.000025 (ایندکس: 6).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.11546, Low=1.11468 (ایندکس: 5).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   محدوده معتبر (ایچیموکو): High=1.11551, Low=1.11497, اندازه=54.00 (جلسه 222202).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   محدوده روی چارت ترسیم شد: High=1.11551, Low=1.11497 (مجیک: 222202).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   فیلتر روند: نزولی (قیمت=1.11347, EMA=1.13223) در جلسه 222202.
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   Safety check: قیمت قبلاً از محدوده عبور کرده - سفارش قرار نمی‌گیرد (جلسه 222202).
-2025.08.27 21:54:33.671	2022.01.28 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.28 10:00 انجام شد.
-2025.08.27 21:54:33.699	2022.01.28 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.725	2022.01.28 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:33.725	2022.01.28 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.28 14:30 انجام شد.
-2025.08.27 21:54:33.742	2022.01.28 15:34:41   stop loss triggered #10 sell 0.08 EURUSD 1.11450 sl: 1.11529 [#11 buy 0.08 EURUSD at 1.11529]
-2025.08.27 21:54:33.742	2022.01.28 15:34:41   deal #11 buy 0.08 EURUSD at 1.11529 done (based on order #11)
-2025.08.27 21:54:33.742	2022.01.28 15:34:41   deal performed [#11 buy 0.08 EURUSD at 1.11529]
-2025.08.27 21:54:33.742	2022.01.28 15:34:41   order performed buy 0.08 at 1.11529 [#11 buy 0.08 EURUSD at 1.11529]
-2025.08.27 21:54:33.807	2022.01.28 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.812	2022.01.28 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11528, Low=1.11482 (ایندکس: 15).
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000048 (ایندکس: 15).
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11519, Low=1.11481 (ایندکس: 14).
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 14).
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.11512, Low=1.11481 (ایندکس: 10).
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:33.848	2022.01.31 06:00:00   تحلیل جلسه 111101 در زمان 2022.01.31 06:00 انجام شد.
-2025.08.27 21:54:33.863	2022.01.31 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:33.863	2022.01.31 10:00:00   تحلیل جلسه 222202 در زمان 2022.01.31 10:00 انجام شد.
-2025.08.27 21:54:33.882	2022.01.31 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.903	2022.01.31 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.11532, Low=1.11532 (ایندکس: 0).
-2025.08.27 21:54:33.903	2022.01.31 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:33.903	2022.01.31 14:30:00   تحلیل جلسه 333303 در زمان 2022.01.31 14:30 انجام شد.
-2025.08.27 21:54:33.969	2022.01.31 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:33.975	2022.01.31 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.014	2022.02.01 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:34.014	2022.02.01 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.01 06:00 انجام شد.
-2025.08.27 21:54:34.030	2022.02.01 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:34.030	2022.02.01 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.01 10:00 انجام شد.
-2025.08.27 21:54:34.047	2022.02.01 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.064	2022.02.01 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:34.064	2022.02.01 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.01 14:30 انجام شد.
-2025.08.27 21:54:34.123	2022.02.01 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.126	2022.02.01 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.154	2022.02.02 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:34.154	2022.02.02 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.02 06:00 انجام شد.
-2025.08.27 21:54:34.166	2022.02.02 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:34.166	2022.02.02 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.02 10:00 انجام شد.
-2025.08.27 21:54:34.182	2022.02.02 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.202	2022.02.02 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:34.202	2022.02.02 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.02 14:30 انجام شد.
-2025.08.27 21:54:34.261	2022.02.02 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.265	2022.02.02 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13036, Low=1.12993 (ایندکس: 24).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 24).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13033, Low=1.13008 (ایندکس: 23).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000050 (ایندکس: 23).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13023, Low=1.13009 (ایندکس: 22).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000060 (ایندکس: 22).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13050, Low=1.13013 (ایندکس: 21).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000072 (ایندکس: 21).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13051, Low=1.13013 (ایندکس: 20).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=-0.000062 (ایندکس: 20).
-2025.08.27 21:54:34.292	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13025, Low=1.13004 (ایندکس: 18).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000008 (ایندکس: 18).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13036, Low=1.12997 (ایندکس: 8).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 8).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.13048, Low=1.13048 (ایندکس: 0).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   محدوده معتبر (ایچیموکو): High=1.13080, Low=1.12993, اندازه=87.00 (جلسه 111101).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   محدوده روی چارت ترسیم شد: High=1.13080, Low=1.12993 (مجیک: 111101).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   فیلتر روند: صعودی (قیمت=1.13048, EMA=1.12996) در جلسه 111101.
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   محاسبه لات موفق: حجم = 0.05 (ریسک: 0.50%, استاپ: 95.70).
-2025.08.27 21:54:34.293	2022.02.03 06:00:00   buy stop 0.05 EURUSD at 1.13095 sl: 1.12984 (1.13048 / 1.13055 / 1.13048)
-2025.08.27 21:54:34.295	2022.02.03 06:00:00   CTrade::OrderSend: buy stop 0.05 EURUSD at 1.13095 sl: 1.12984 [done]
-2025.08.27 21:54:34.295	2022.02.03 06:00:00   سفارش BuyStop (روند صعودی) قرار گرفت: قیمت=1.13095 (مجیک: 111101).
-2025.08.27 21:54:34.295	2022.02.03 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.03 06:00 انجام شد.
-2025.08.27 21:54:34.312	2022.02.03 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:34.312	2022.02.03 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.03 10:00 انجام شد.
-2025.08.27 21:54:34.326	2022.02.03 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.353	2022.02.03 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:34.353	2022.02.03 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.03 14:30 انجام شد.
-2025.08.27 21:54:34.379	2022.02.03 15:38:41   order [#12 buy stop 0.05 EURUSD at 1.13095] triggered
-2025.08.27 21:54:34.380	2022.02.03 15:38:41   deal #12 buy 0.05 EURUSD at 1.13096 done (based on order #12)
-2025.08.27 21:54:34.380	2022.02.03 15:38:41   deal performed [#12 buy 0.05 EURUSD at 1.13096]
-2025.08.27 21:54:34.380	2022.02.03 15:38:41   order performed buy 0.05 at 1.13096 [#12 buy stop 0.05 EURUSD at 1.13095]
-2025.08.27 21:54:34.519	2022.02.03 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.528	2022.02.03 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.583	2022.02.04 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:34.583	2022.02.04 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.04 06:00 انجام شد.
-2025.08.27 21:54:34.612	2022.02.04 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:34.612	2022.02.04 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.04 10:00 انجام شد.
-2025.08.27 21:54:34.644	2022.02.04 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.682	2022.02.04 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:34.682	2022.02.04 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.04 14:30 انجام شد.
-2025.08.27 21:54:34.798	2022.02.04 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.804	2022.02.04 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.855	2022.02.07 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:34.855	2022.02.07 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.07 06:00 انجام شد.
-2025.08.27 21:54:34.879	2022.02.07 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:34.879	2022.02.07 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.07 10:00 انجام شد.
-2025.08.27 21:54:34.917	2022.02.07 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:34.943	2022.02.07 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:34.943	2022.02.07 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.07 14:30 انجام شد.
-2025.08.27 21:54:35.035	2022.02.07 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.039	2022.02.07 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.083	2022.02.08 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:35.083	2022.02.08 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.08 06:00 انجام شد.
-2025.08.27 21:54:35.116	2022.02.08 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:35.116	2022.02.08 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.08 10:00 انجام شد.
-2025.08.27 21:54:35.139	2022.02.08 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.169	2022.02.08 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:35.169	2022.02.08 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.08 14:30 انجام شد.
-2025.08.27 21:54:35.243	2022.02.08 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.249	2022.02.08 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.286	2022.02.09 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:35.286	2022.02.09 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.09 06:00 انجام شد.
-2025.08.27 21:54:35.304	2022.02.09 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:35.304	2022.02.09 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.09 10:00 انجام شد.
-2025.08.27 21:54:35.327	2022.02.09 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.353	2022.02.09 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:35.353	2022.02.09 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.09 14:30 انجام شد.
-2025.08.27 21:54:35.421	2022.02.09 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.429	2022.02.09 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.474	2022.02.10 06:00:00   کندل داخل کومو تشخیص داده شد: High=1.14291, Low=1.14252 (ایندکس: 4).
-2025.08.27 21:54:35.474	2022.02.10 06:00:00   کیجون صاف تشخیص داده شد: شیب=0.000000 (ایندکس: 4).
-2025.08.27 21:54:35.474	2022.02.10 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:35.474	2022.02.10 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.10 06:00 انجام شد.
-2025.08.27 21:54:35.503	2022.02.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14288, Low=1.14229 (ایندکس: 1).
-2025.08.27 21:54:35.503	2022.02.10 10:00:00   کندل داخل کومو تشخیص داده شد: High=1.14288, Low=1.14288 (ایندکس: 0).
-2025.08.27 21:54:35.503	2022.02.10 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:35.503	2022.02.10 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.10 10:00 انجام شد.
-2025.08.27 21:54:35.547	2022.02.10 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.586	2022.02.10 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:35.586	2022.02.10 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.10 14:30 انجام شد.
-2025.08.27 21:54:35.746	2022.02.10 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.770	2022.02.10 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.848	2022.02.11 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:35.848	2022.02.11 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.11 06:00 انجام شد.
-2025.08.27 21:54:35.879	2022.02.11 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:35.879	2022.02.11 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.11 10:00 انجام شد.
-2025.08.27 21:54:35.913	2022.02.11 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:35.943	2022.02.11 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.14147, Low=1.14045 (ایندکس: 1).
-2025.08.27 21:54:35.943	2022.02.11 14:30:00   کندل داخل کومو تشخیص داده شد: High=1.14108, Low=1.14108 (ایندکس: 0).
-2025.08.27 21:54:35.943	2022.02.11 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:35.943	2022.02.11 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.11 14:30 انجام شد.
-2025.08.27 21:54:36.044	2022.02.11 20:00:00   انقضای جلسه 222202 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:36.074	2022.02.11 21:00:00   انقضای جلسه 333303 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:36.212	2022.02.14 06:00:00   محدوده نامعتبر در جلسه 111101. تحلیل متوقف شد.
-2025.08.27 21:54:36.212	2022.02.14 06:00:00   تحلیل جلسه 111101 در زمان 2022.02.14 06:00 انجام شد.
-2025.08.27 21:54:36.234	2022.02.14 10:00:00   محدوده نامعتبر در جلسه 222202. تحلیل متوقف شد.
-2025.08.27 21:54:36.234	2022.02.14 10:00:00   تحلیل جلسه 222202 در زمان 2022.02.14 10:00 انجام شد.
-2025.08.27 21:54:36.275	2022.02.14 12:00:00   انقضای جلسه 111101 رسید و پاکسازی انجام شد.
-2025.08.27 21:54:36.299	2022.02.14 14:30:00   محدوده نامعتبر در جلسه 333303. تحلیل متوقف شد.
-2025.08.27 21:54:36.299	2022.02.14 14:30:00   تحلیل جلسه 333303 در زمان 2022.02.14 14:30 انجام شد.
-
-
-
-
-این رو ببین یه مشکلاتی دارم که اصلاً معاملم اون موارد پله‌ای خروج نمی‌شه و اصلاً مشکلات تریدینگ استاپم کار نمی‌کنه
-
-
-به نظر تو این مشکل برای چی هستش و اینکه چرا اینجوریه من فکر می‌کنم دلیلش رو دیشب به ذهنم رسید یک دفعه تو خواب این بود که ما اومدیم در تابع آنتیک مدیریت سرمایه و تردینگ حساب‌ها عمل می‌کنیم بعد اینجا چون هی داره سریع این اتفاق میفته و هی پاک میشه در واقع اجازه نمیده که تردینگ استاپ قرار بگیره باید ما ببریم تو تابع نیوز برس که با هر کندل جدید این اتفاق بی به نظر تو این
