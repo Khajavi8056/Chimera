@@ -233,24 +233,33 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
 {
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD && HistoryDealSelect(trans.deal))
    {
+      // اطمینان از اینکه معامله ورودی جدید است.
       if(HistoryDealGetInteger(trans.deal, DEAL_ENTRY) == DEAL_ENTRY_IN)
       {
          long magic = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
-         for(int i = OrdersTotal() - 1; i >= 0; i--)
+         
+         // حلقه while برای اطمینان از حذف تمامی سفارشات پندینگ
+         while(OrdersTotal() > 0)
          {
-            ulong order_ticket = OrderGetTicket(i);
+            ulong order_ticket = OrderGetTicket(0); // همیشه اولین سفارش را چک کن
             if(order_ticket > 0 && OrderSelect(order_ticket))
             {
                if(OrderGetInteger(ORDER_MAGIC) == magic)
                {
-                  trade.OrderDelete(order_ticket);
-                  if(InpEnableLogging) Print("سفارش معکوس با تیکت " + IntegerToString(order_ticket) + " حذف شد (مجیک: " + IntegerToString(magic) + ").");
+                  if(trade.OrderDelete(order_ticket))
+                  {
+                     if(InpEnableLogging) Print("سفارش معکوس با تیکت " + IntegerToString(order_ticket) + " حذف شد (مجیک: " + IntegerToString(magic) + ").");
+                     // بعد از حذف، حلقه ادامه پیدا می‌کند و سفارش بعدی در ایندکس 0 قرار می‌گیرد.
+                     continue; 
+                  }
                }
             }
+            break; // در صورتی که سفارش مرتبطی پیدا نشد، از حلقه خارج شو
          }
       }
    }
 }
+
 
 //+------------------------------------------------------------------+
 //| تابع شمارش جلسات فعال                                          |
@@ -720,7 +729,7 @@ public:
             {
                ManageActiveTrade(ticket);
                if(InpEnableLogging) Print("پوزیشن فعال در جلسه " + (string)m_magic_number + " مدیریت شد.");
-               return;
+               
             }
          }
       }
