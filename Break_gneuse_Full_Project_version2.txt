@@ -430,9 +430,6 @@ void SessionCleanUp(ulong session_magic)
 
 
 
-
-
-
 //+------------------------------------------------------------------+
 //|                                                    RangeLib.mqh  |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
@@ -446,28 +443,22 @@ void SessionCleanUp(ulong session_magic)
 
 #include "Settings.mqh"
 
-//+------------------------------------------------------------------+
-//| ساختار داده برای محدوده رنج                                   |
-//+------------------------------------------------------------------+
 struct RangeData
 {
-   double rangeHigh;      // بالاترین قیمت محدوده
-   double rangeLow;       // پایین‌ترین قیمت محدوده
-   bool isValid;          // پرچم اعتبار محدوده
-   datetime startTime;    // زمان شروع محدوده
-   datetime endTime;      // زمان پایان محدوده
-   double rangeSizePips;  // اندازه محدوده به پیپ
+   double rangeHigh;
+   double rangeLow;
+   bool isValid;
+   datetime startTime;
+   datetime endTime;
+   double rangeSizePips;
 };
 
-//+------------------------------------------------------------------+
-//| تابع ترسیم محدوده روی چارت                                    |
-//+------------------------------------------------------------------+
 void DrawRangeOnChart(RangeData &rd, ulong session_magic)
 {
    if(!rd.isValid) return;
 
-   string obj_prefix = "Range_" + (string)session_magic + "_";
-   ObjectsDeleteAll(0, obj_prefix); // حذف مستطیل‌های قبلی
+   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
+   ObjectsDeleteAll(0, obj_prefix);
    ObjectCreate(0, obj_prefix + "Rect", OBJ_RECTANGLE, 0, rd.startTime, rd.rangeHigh, rd.endTime, rd.rangeLow);
    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_COLOR, clrDarkSlateGray);
    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_STYLE, STYLE_SOLID);
@@ -477,12 +468,9 @@ void DrawRangeOnChart(RangeData &rd, ulong session_magic)
    if(InpEnableLogging)
       Print("محدوده روی چارت ترسیم شد: High=" + DoubleToString(rd.rangeHigh, _Digits) +
             ", Low=" + DoubleToString(rd.rangeLow, _Digits) + ", اندازه=" + DoubleToString(rd.rangeSizePips, 2) +
-            " (مجیک: " + (string)session_magic + ").");
+            " (مجیک: " + IntegerToString(session_magic) + ").");
 }
 
-//+------------------------------------------------------------------+
-//| تابع بررسی صاف بودن کیجون‌سن                                  |
-//+------------------------------------------------------------------+
 bool IsKijunFlat(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 {
    if(bar_idx < InpKijunFlatPeriod)
@@ -524,9 +512,6 @@ bool IsKijunFlat(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
    return is_flat;
 }
 
-//+------------------------------------------------------------------+
-//| تابع بررسی حضور کندل در کومو                                   |
-//+------------------------------------------------------------------+
 bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 {
    double senkou_a[1], senkou_b[1];
@@ -555,6 +540,7 @@ bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 }
 
 #endif // RANGELIB_MQH
+
 
 
 
