@@ -28,6 +28,7 @@ input double InpRiskPercentage = 0.5; // درصد ریسک هر معامله (0.
 input bool   InpEnableLogging = true;  // فعال‌سازی لاگینگ برای دیباگ
 input int    InpMaxRanges = 100;      // حداکثر تعداد مستطیل‌های پردازش‌شده
 input double InpMergeTolerancePercent = 5.0; // درصد تلورانس برای ادغام مستطیل‌ها (5%)
+input int    InpBaseMagic = 100000;   // مجیک نامبر پایه (سیستم به طور خودکار برای هر سشن اضافه می‌کند)
 
 // --- تنظیمات ایچیموکو ---
 input group "====== Ichimoku Filter Settings ======";
@@ -37,6 +38,7 @@ input int InpIchimoku_Kijun = 26;      // دوره کیجون‌سن
 input int InpIchimoku_Senkou = 52;     // دوره سنکو اسپن B
 input int InpMinConsecutiveCandles = 3; // حداقل تعداد کندل‌های متوالی برای رنج
 input int InpKijunFlatPeriod = 3;      // دوره بررسی صاف بودن کیجون‌سن
+input double InpKijunSlopeThreshold = 0.0001; // آستانه شیب برای تشخیص صاف بودن کیجون‌سن
 
 // --- تنظیمات جلسه اول ---
 input group "====== Session 1 Settings ======";
@@ -48,7 +50,6 @@ input int    InpS1_EndTime_Hour = 6;        // ساعت پایان سشن
 input int    InpS1_EndTime_Minute = 0;      // دقیقه پایان سشن
 input int    InpS1_ExpiryTime_Hour = 12;    // ساعت انقضا (پاکسازی)
 input int    InpS1_ExpiryTime_Minute = 0;   // دقیقه انقضا
-input int    InpS1_MagicNumber = 111101;    // مجیک نامبر جلسه ۱
 
 // --- تنظیمات جلسه دوم ---
 input group "====== Session 2 Settings ======";
@@ -60,7 +61,6 @@ input int    InpS2_EndTime_Hour = 10;
 input int    InpS2_EndTime_Minute = 0;
 input int    InpS2_ExpiryTime_Hour = 20;
 input int    InpS2_ExpiryTime_Minute = 0;
-input int    InpS2_MagicNumber = 222202;
 
 // --- تنظیمات جلسه سوم ---
 input group "====== Session 3 Settings ======";
@@ -72,7 +72,6 @@ input int    InpS3_EndTime_Hour = 14;
 input int    InpS3_EndTime_Minute = 30;
 input int    InpS3_ExpiryTime_Hour = 21;
 input int    InpS3_ExpiryTime_Minute = 0;
-input int    InpS3_MagicNumber = 333303;
 
 // --- تنظیمات جلسه چهارم ---
 input group "====== Session 4 Settings ======";
@@ -84,7 +83,6 @@ input int    InpS4_EndTime_Hour = 0;
 input int    InpS4_EndTime_Minute = 0;
 input int    InpS4_ExpiryTime_Hour = 0;
 input int    InpS4_ExpiryTime_Minute = 0;
-input int    InpS4_MagicNumber = 444404;
 
 // --- تنظیمات رنج ---
 input group "====== Range Settings ======";
@@ -104,15 +102,14 @@ input ENUM_APPLIED_PRICE InpTrendEMAAppliedPrice = PRICE_CLOSE; // قیمت اع
 // --- تنظیمات مدیریت معامله ---
 input group "====== Trade Management Settings ======";
 input double InpStopLossAdditionalPercent = 10.0; // درصد اضافی برای استاپ‌لاس
-input bool InpEnablePartialClose = true;         // فعال‌سازی خروج پله‌ای
+input bool InpEnablePartialClose = true;         // فعال‌سازی خروج پله‌ای (اگر حساب netting باشد، اتومات غیرفعال می‌شود)
 input double InpTakeProfitRatio_Stage1 = 1.5;    // نسبت TP1 به SL
 input double InpPartialClosePercentage = 50.0;   // درصد خروج پله‌ای
 input int InpTrailingStopATRPeriod = 22;         // دوره ATR برای ترایلینگ
 input double InpTrailingStopATRMultiplier = 3.0; // ضریب ATR برای ترایلینگ
+input int InpMinTrailingProfitPips = 20;         // حداقل سود به پوینت برای شروع ترایلینگ
 
 #endif // SETTINGS_MQH
-
-
 
 
 
@@ -123,11 +120,11 @@ input double InpTrailingStopATRMultiplier = 3.0; // ضریب ATR برای ترا
 //+------------------------------------------------------------------+
 //|                                                   hipobreck.mq5  |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.2 <<         |
+//|                          >> FINAL REVISED VERSION 4.3 <<         |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
 #property link      "https://..."
-#property version   "4.20"
+#property version   "4.30"
 #property strict
 
 #include "Settings.mqh"
@@ -137,7 +134,7 @@ input double InpTrailingStopATRMultiplier = 3.0; // ضریب ATR برای ترا
 // متغیرهای گلوبال
 CSessionTrader g_sessions[4]; // آرایه برای مدیریت چهار جلسه
 static datetime last_bar_time[4] = {0}; // زمان آخرین کندل هر جلسه
-
+bool g_enable_partial_close; // متغیر محلی برای مدیریت خروج پله‌ای
 
 //+------------------------------------------------------------------+
 //| تابع اولیه‌سازی اکسپرت                                          |
@@ -146,39 +143,35 @@ int OnInit()
 {
    // بررسی نوع حساب برای سازگاری با خروج پله‌ای
    long account_mode = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
-   if(account_mode != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING && InpEnableLogging)
-      Print("هشدار: حساب netting است - خروج پله‌ای ممکن است کار نکند.");
-
-   // بررسی یکتایی مجیک نامبرها
-   int magic_numbers[4] = {InpS1_MagicNumber, InpS2_MagicNumber, InpS3_MagicNumber, InpS4_MagicNumber};
-   for(int i = 0; i < 4; i++)
-      for(int j = i + 1; j < 4; j++)
-         if(magic_numbers[i] == magic_numbers[j] && magic_numbers[i] != 0 && InpEnableLogging)
-            Print("خطا: مجیک نامبر " + IntegerToString(magic_numbers[i]) + " تکراری است!");
+   g_enable_partial_close = InpEnablePartialClose; // استفاده از متغیر محلی
+   if(account_mode != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
+   {
+      g_enable_partial_close = false; // سوئیچ اتومات برای netting
+      if(InpEnableLogging) Print("هشدار: حساب netting است - خروج پله‌ای غیرفعال شد.");
+   }
 
    // بررسی اعتبار ورودی‌ها
    if(InpRiskPercentage <= 0 || InpMinConsecutiveCandles < 1 || InpKijunFlatPeriod < 1 ||
       InpMinRangePoints < 0 || InpMaxRangePoints < InpMinRangePoints || InpMaxRanges < 1 ||
-      InpMergeTolerancePercent < 0 || InpAtrMultiplier_Placement <= 0 || InRangeATR_Period < 1)
+      InpMergeTolerancePercent < 0 || InpAtrMultiplier_Placement <= 0 || InRangeATR_Period < 1 ||
+      InpKijunSlopeThreshold <= 0 || InpMinTrailingProfitPips < 0)
    {
       Print("خطا: مقادیر ورودی نامعتبر است!");
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   // مقداردهی اولیه جلسات
-   g_sessions[0].Init(InpS1_IsActive, InpS1_TimeFrame, InpS1_StartTime_Hour, InpS1_StartTime_Minute,
-                      InpS1_EndTime_Hour, InpS1_EndTime_Minute, InpS1_ExpiryTime_Hour, InpS1_ExpiryTime_Minute, InpS1_MagicNumber);
-   g_sessions[1].Init(InpS2_IsActive, InpS2_TimeFrame, InpS2_StartTime_Hour, InpS2_StartTime_Minute,
-                      InpS2_EndTime_Hour, InpS2_EndTime_Minute, InpS2_ExpiryTime_Hour, InpS2_ExpiryTime_Minute, InpS2_MagicNumber);
-   g_sessions[2].Init(InpS3_IsActive, InpS3_TimeFrame, InpS3_StartTime_Hour, InpS3_StartTime_Minute,
-                      InpS3_EndTime_Hour, InpS3_EndTime_Minute, InpS3_ExpiryTime_Hour, InpS3_ExpiryTime_Minute, InpS3_MagicNumber);
-   g_sessions[3].Init(InpS4_IsActive, InpS4_TimeFrame, InpS4_StartTime_Hour, InpS4_StartTime_Minute,
-                      InpS4_EndTime_Hour, InpS4_EndTime_Minute, InpS4_ExpiryTime_Hour, InpS4_ExpiryTime_Minute, InpS4_MagicNumber);
-
+ g_sessions[0].Init(InpS1_IsActive, InpS1_TimeFrame, InpS1_StartTime_Hour, InpS1_StartTime_Minute,
+                   InpS1_EndTime_Hour, InpS1_EndTime_Minute, InpS1_ExpiryTime_Hour, InpS1_ExpiryTime_Minute, (ulong)(InpBaseMagic + 1));
+g_sessions[1].Init(InpS2_IsActive, InpS2_TimeFrame, InpS2_StartTime_Hour, InpS2_StartTime_Minute,
+                   InpS2_EndTime_Hour, InpS2_EndTime_Minute, InpS2_ExpiryTime_Hour, InpS2_ExpiryTime_Minute, (ulong)(InpBaseMagic + 2));
+g_sessions[2].Init(InpS3_IsActive, InpS3_TimeFrame, InpS3_StartTime_Hour, InpS3_StartTime_Minute,
+                   InpS3_EndTime_Hour, InpS3_EndTime_Minute, InpS3_ExpiryTime_Hour, InpS3_ExpiryTime_Minute, (ulong)(InpBaseMagic + 3));
+g_sessions[3].Init(InpS4_IsActive, InpS4_TimeFrame, InpS4_StartTime_Hour, InpS4_StartTime_Minute,
+                   InpS4_EndTime_Hour, InpS4_EndTime_Minute, InpS4_ExpiryTime_Hour, InpS4_ExpiryTime_Minute, (ulong)(InpBaseMagic + 4));
    if(InpEnableLogging)
       Print("اکسپرت اولیه‌سازی شد. تعداد جلسات فعال: " + IntegerToString(CountActiveSessions()));
 
-   EventSetTimer(1); // تایمر برای بررسی کندل جدید
+   EventSetMillisecondTimer(1000); // تایمر برای بررسی کندل جدید (بهینه‌تر)
    return(INIT_SUCCEEDED);
 }
 
@@ -210,7 +203,7 @@ void OnTimer()
       }
    }
 
-   // نمایش اطلاعات روی چارت
+   // نمایش اطلاعات روی چارت (بدون تکرار زیاد)
    string comment = "جلسات فعال: " + IntegerToString(CountActiveSessions()) + "\n";
    for(int i = 0; i < 4; i++)
       if(g_sessions[i].IsActive())
@@ -238,10 +231,10 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
       {
          long magic = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
          
-         // حلقه while برای اطمینان از حذف تمامی سفارشات پندینگ
-         while(OrdersTotal() > 0)
+         // حلقه for برای حذف سفارشات پندینگ معکوس (بهینه‌تر از while)
+         for(int i = OrdersTotal() - 1; i >= 0; i--)
          {
-            ulong order_ticket = OrderGetTicket(0); // همیشه اولین سفارش را چک کن
+            ulong order_ticket = OrderGetTicket(i);
             if(order_ticket > 0 && OrderSelect(order_ticket))
             {
                if(OrderGetInteger(ORDER_MAGIC) == magic)
@@ -249,17 +242,13 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
                   if(trade.OrderDelete(order_ticket))
                   {
                      if(InpEnableLogging) Print("سفارش معکوس با تیکت " + IntegerToString(order_ticket) + " حذف شد (مجیک: " + IntegerToString(magic) + ").");
-                     // بعد از حذف، حلقه ادامه پیدا می‌کند و سفارش بعدی در ایندکس 0 قرار می‌گیرد.
-                     continue; 
                   }
                }
             }
-            break; // در صورتی که سفارش مرتبطی پیدا نشد، از حلقه خارج شو
          }
       }
    }
 }
-
 
 //+------------------------------------------------------------------+
 //| تابع شمارش جلسات فعال                                          |
@@ -276,19 +265,10 @@ int CountActiveSessions()
 
 
 
-
-
-
-
-
-
-
-
-
 //+------------------------------------------------------------------+
 //|                                                 TradeManager.mqh |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.2 <<         |
+//|                          >> FINAL REVISED VERSION 4.3 <<         |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
 #property link      "https://..."
@@ -299,6 +279,7 @@ int CountActiveSessions()
 #include "Settings.mqh"
 #include "RangeLib.mqh"
 #include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh> // برای مدیریت ایمن پوزیشن‌ها
 
 CTrade trade;
 
@@ -349,7 +330,7 @@ double CalculateLotSize(double risk_percent, double stop_loss_pips)
 //+------------------------------------------------------------------+
 //| تابع ثبت سفارشات پندینگ                                        |
 //+------------------------------------------------------------------+
-void PlacePendingOrders(int session_magic, bool is_trend_on, bool is_uptrend, RangeData &rd, double buy_stop_price, double sell_stop_price, datetime expiry_time)
+void PlacePendingOrders(ulong session_magic, bool is_trend_on, bool is_uptrend, RangeData &rd, double buy_stop_price, double sell_stop_price, datetime expiry_time)
 {
    double sl_additional_pips = rd.rangeSizePips * (InpStopLossAdditionalPercent / 100.0);
    double sl_distance_pips = rd.rangeSizePips + sl_additional_pips;
@@ -365,6 +346,7 @@ void PlacePendingOrders(int session_magic, bool is_trend_on, bool is_uptrend, Ra
    double sell_sl = rd.rangeHigh + sl_additional_pips * _Point;
    double buy_tp = 0.0, sell_tp = 0.0;
 
+   // اگر خروج پله‌ای غیرفعال باشد، TP را برای کل حجم تنظیم کن
    if(!InpEnablePartialClose)
    {
       buy_tp = buy_stop_price + (buy_stop_price - buy_sl) * InpTakeProfitRatio_Stage1;
@@ -373,10 +355,10 @@ void PlacePendingOrders(int session_magic, bool is_trend_on, bool is_uptrend, Ra
 
    if(!is_trend_on)
    {
-      trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (ulong)session_magic);
+      trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
       if(InpEnableLogging) Print("سفارش BuyStop ثبت شد: قیمت=" + DoubleToString(buy_stop_price, _Digits) +
                                 ", SL=" + DoubleToString(buy_sl, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ").");
-      trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (ulong)session_magic);
+      trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
       if(InpEnableLogging) Print("سفارش SellStop ثبت شد: قیمت=" + DoubleToString(sell_stop_price, _Digits) +
                                 ", SL=" + DoubleToString(sell_sl, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ").");
    }
@@ -384,13 +366,13 @@ void PlacePendingOrders(int session_magic, bool is_trend_on, bool is_uptrend, Ra
    {
       if(is_uptrend)
       {
-         trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (ulong)session_magic);
+         trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
          if(InpEnableLogging) Print("سفارش BuyStop (روند صعودی) ثبت شد: قیمت=" + DoubleToString(buy_stop_price, _Digits) +
                                    " (مجیک: " + IntegerToString(session_magic) + ").");
       }
       else
       {
-         trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (ulong)session_magic);
+         trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
          if(InpEnableLogging) Print("سفارش SellStop (روند نزولی) ثبت شد: قیمت=" + DoubleToString(sell_stop_price, _Digits) +
                                    " (مجیک: " + IntegerToString(session_magic) + ").");
       }
@@ -400,20 +382,27 @@ void PlacePendingOrders(int session_magic, bool is_trend_on, bool is_uptrend, Ra
 //+------------------------------------------------------------------+
 //| تابع پاکسازی جلسه                                              |
 //+------------------------------------------------------------------+
-void SessionCleanUp(int session_magic)
+void SessionCleanUp(ulong session_magic)
 {
+   datetime start_time, end_time;
+   MqlDateTime time_struct;
+   TimeToStruct(TimeCurrent(), time_struct); // استخراج ساختار زمان فعلی
+   ENUM_DAY_OF_WEEK day = (ENUM_DAY_OF_WEEK)time_struct.day_of_week; // دریافت روز هفته
+   if(!SymbolInfoSessionTrade(_Symbol, day, 0, start_time, end_time))
+   {
+      if(InpEnableLogging) Print("بازار بسته است - پاکسازی جلسه " + IntegerToString(session_magic) + " به تعویق افتاد.");
+      return;
+   }
+   
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong pos_ticket = PositionGetTicket(i);
-      if(pos_ticket > 0 && PositionSelectByTicket(pos_ticket))
+      CPositionInfo pos;
+      if(pos.SelectByTicket(pos_ticket) && pos.Magic() == session_magic)
       {
-         long magic = PositionGetInteger(POSITION_MAGIC);
-         if(magic == session_magic)
-         {
-            trade.PositionClose(pos_ticket);
-            if(InpEnableLogging) Print("پوزیشن با تیکت " + IntegerToString(pos_ticket) +
-                                      " بسته شد (پاکسازی، مجیک: " + IntegerToString(session_magic) + ").");
-         }
+         trade.PositionClose(pos_ticket);
+         if(InpEnableLogging) Print("پوزیشن با تیکت " + IntegerToString(pos_ticket) +
+                                   " بسته شد (پاکسازی، مجیک: " + IntegerToString(session_magic) + ").");
       }
    }
 
@@ -435,9 +424,8 @@ void SessionCleanUp(int session_magic)
    if(InpEnableLogging) Print("پاکسازی کامل برای جلسه " + IntegerToString(session_magic) + " انجام شد.");
 }
 
+
 #endif // TRADEMANAGER_MQH
-
-
 
 
 
@@ -448,7 +436,7 @@ void SessionCleanUp(int session_magic)
 //+------------------------------------------------------------------+
 //|                                                    RangeLib.mqh  |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.2 <<         |
+//|                          >> FINAL REVISED VERSION 4.3 <<         |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
 #property link      "https://..."
@@ -474,11 +462,11 @@ struct RangeData
 //+------------------------------------------------------------------+
 //| تابع ترسیم محدوده روی چارت                                    |
 //+------------------------------------------------------------------+
-void DrawRangeOnChart(RangeData &rd, int session_magic)
+void DrawRangeOnChart(RangeData &rd, ulong session_magic)
 {
    if(!rd.isValid) return;
 
-   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
+   string obj_prefix = "Range_" + (string)session_magic + "_";
    ObjectsDeleteAll(0, obj_prefix); // حذف مستطیل‌های قبلی
    ObjectCreate(0, obj_prefix + "Rect", OBJ_RECTANGLE, 0, rd.startTime, rd.rangeHigh, rd.endTime, rd.rangeLow);
    ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_COLOR, clrDarkSlateGray);
@@ -489,7 +477,7 @@ void DrawRangeOnChart(RangeData &rd, int session_magic)
    if(InpEnableLogging)
       Print("محدوده روی چارت ترسیم شد: High=" + DoubleToString(rd.rangeHigh, _Digits) +
             ", Low=" + DoubleToString(rd.rangeLow, _Digits) + ", اندازه=" + DoubleToString(rd.rangeSizePips, 2) +
-            " (مجیک: " + IntegerToString(session_magic) + ").");
+            " (مجیک: " + (string)session_magic + ").");
 }
 
 //+------------------------------------------------------------------+
@@ -531,7 +519,7 @@ bool IsKijunFlat(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
    }
 
    double slope = (n * sum_xy - sum_x * sum_y) / denominator;
-   bool is_flat = MathAbs(slope) < 0.0001;
+   bool is_flat = MathAbs(slope) < InpKijunSlopeThreshold;
    if(InpEnableLogging && is_flat) Print("کیجون صاف تشخیص داده شد: شیب=" + DoubleToString(slope, 6));
    return is_flat;
 }
@@ -573,7 +561,7 @@ bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 //+------------------------------------------------------------------+
 //|                                             SessionTrader.mqh    |
 //|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.4 <<         |
+//|                          >> FINAL REVISED VERSION 4.3 <<         |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
 #property link      "https://..."
@@ -584,6 +572,7 @@ bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
 #include "Settings.mqh"
 #include "RangeLib.mqh"
 #include "TradeManager.mqh"
+#include <Trade\PositionInfo.mqh> // برای مدیریت ایمن پوزیشن‌ها
 
 //+------------------------------------------------------------------+
 //| کلاس مدیریت جلسه معاملاتی                                      |
@@ -719,18 +708,15 @@ public:
          return;
       }
 
-      // بررسی وجود پوزیشن باز
+      // بررسی وجود پوزیشن باز و مدیریت آن
       for(int i = PositionsTotal() - 1; i >= 0; i--)
       {
          ulong ticket = PositionGetTicket(i);
-         if(ticket > 0 && PositionSelectByTicket(ticket))
+         CPositionInfo pos;
+         if(pos.SelectByTicket(ticket) && pos.Magic() == m_magic_number)
          {
-            if(PositionGetInteger(POSITION_MAGIC) == m_magic_number)
-            {
-               ManageActiveTrade(ticket);
-               if(InpEnableLogging) Print("پوزیشن فعال در جلسه " + (string)m_magic_number + " مدیریت شد.");
-               
-            }
+            ManageActiveTrade(ticket);
+            if(InpEnableLogging) Print("پوزیشن فعال در جلسه " + (string)m_magic_number + " مدیریت شد.");
          }
       }
 
@@ -763,29 +749,41 @@ private:
    //+------------------------------------------------------------------+
    bool ManageActiveTrade(ulong ticket)
    {
-      if(!PositionSelectByTicket(ticket))
+      CPositionInfo pos;
+      if(!pos.SelectByTicket(ticket))
       {
          if(InpEnableLogging) Print("خطا: انتخاب پوزیشن با تیکت " + (string)ticket + " ناموفق.");
          return false;
       }
 
-      long magic = PositionGetInteger(POSITION_MAGIC);
-      if(magic != m_magic_number)
+      if(pos.Magic() != m_magic_number)
       {
-         if(InpEnableLogging) Print("خطا: مجیک نامبر پوزیشن " + (string)magic + " با جلسه " + (string)m_magic_number + " مطابقت ندارد.");
+         if(InpEnableLogging) Print("خطا: مجیک نامبر پوزیشن " + (string)pos.Magic() + " با جلسه " + (string)m_magic_number + " مطابقت ندارد.");
          return false;
       }
 
-      double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
-      double current_sl = PositionGetDouble(POSITION_SL);
-      double current_tp = PositionGetDouble(POSITION_TP);
-      double volume = PositionGetDouble(POSITION_VOLUME);
-      ENUM_POSITION_TYPE pos_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      double entry_price = pos.PriceOpen();
+      double current_sl = pos.StopLoss();
+      double current_tp = pos.TakeProfit();
+      double volume = pos.Volume();
+      ENUM_POSITION_TYPE pos_type = pos.PositionType();
 
-      bool is_initial_stage = (pos_type == POSITION_TYPE_BUY) ? (current_sl < entry_price - 2 * _Point) : (current_sl > entry_price + 2 * _Point);
-      bool is_breakeven_stage = MathAbs(current_sl - entry_price) < 2 * _Point;
+      // حذف سفارشات پندینگ معکوس
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+      {
+         ulong ord_ticket = OrderGetTicket(i);
+         if(ord_ticket > 0 && OrderSelect(ord_ticket))
+         {
+            if(OrderGetInteger(ORDER_MAGIC) == m_magic_number)
+            {
+               trade.OrderDelete(ord_ticket);
+               if(InpEnableLogging) Print("سفارش پندینگ با تیکت " + (string)ord_ticket + " حذف شد (مجیک: " + (string)m_magic_number + ").");
+            }
+         }
+      }
 
-      if(InpEnablePartialClose && is_initial_stage)
+      // بررسی خروج پله‌ای اگر فعال باشد
+      if(InpEnablePartialClose)
       {
          double sl_distance_price = MathAbs(entry_price - current_sl);
          double target_price = (pos_type == POSITION_TYPE_BUY) ? (entry_price + sl_distance_price * InpTakeProfitRatio_Stage1) :
@@ -802,19 +800,43 @@ private:
             if(volume - close_volume < min_lot && volume > min_lot)
                close_volume = volume;
 
-            if(close_volume >= min_lot && trade.PositionClose(ticket, close_volume))
+            if(close_volume >= min_lot && trade.PositionClose(ticket, (ulong)close_volume))
             {
                if(InpEnableLogging) Print("خروج پله‌ای موفق برای تیکت " + (string)ticket + ": حجم بسته‌شده=" + DoubleToString(close_volume, 2));
-               if(PositionSelectByTicket(ticket) && trade.PositionModify(ticket, entry_price, current_tp))
+
+               // انتقال استاپ به نقطه ورود بعد از خروج پله‌ای (اگر پوزیشن هنوز وجود داشته باشد)
+               if(pos.SelectByTicket(ticket) && trade.PositionModify(ticket, entry_price, current_tp))
                   if(InpEnableLogging) Print("استاپ‌لاس به نقطه ورود منتقل شد برای تیکت " + (string)ticket);
             }
          }
       }
+      else // بدون خروج پله‌ای: وقتی به نسبت رسید، SL به entry
+      {
+         double sl_distance_price = MathAbs(entry_price - current_sl);
+         double breakeven_price = (pos_type == POSITION_TYPE_BUY) ? (entry_price + sl_distance_price * InpTakeProfitRatio_Stage1) :
+                                  (entry_price - sl_distance_price * InpTakeProfitRatio_Stage1);
 
-      bool profitable = (pos_type == POSITION_TYPE_BUY && SymbolInfoDouble(_Symbol, SYMBOL_BID) > entry_price) ||
-                       (pos_type == POSITION_TYPE_SELL && SymbolInfoDouble(_Symbol, SYMBOL_ASK) < entry_price);
+         double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         if((pos_type == POSITION_TYPE_BUY && current_price >= breakeven_price) ||
+            (pos_type == POSITION_TYPE_SELL && current_price <= breakeven_price))
+         {
+            if(MathAbs(current_sl - entry_price) > 2 * _Point && pos.SelectByTicket(ticket) && trade.PositionModify(ticket, entry_price, current_tp))
+               if(InpEnableLogging) Print("استاپ‌لاس به نقطه ورود منتقل شد (بدون پله‌ای) برای تیکت " + (string)ticket);
+         }
+      }
 
-      if(is_breakeven_stage || profitable)
+      // مدیریت ترایلینگ استاپ
+      double min_profit_price_buy = entry_price + InpMinTrailingProfitPips * _Point;
+      double min_profit_price_sell = entry_price - InpMinTrailingProfitPips * _Point;
+
+      double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+      bool is_profitable = (pos_type == POSITION_TYPE_BUY && current_bid >= min_profit_price_buy) ||
+                           (pos_type == POSITION_TYPE_SELL && current_ask <= min_profit_price_sell);
+
+      // اگر سود داشتیم یا استاپ به نقطه ورود رسیده بود، ترایلینگ رو شروع کن
+      if(is_profitable || MathAbs(current_sl - entry_price) < 2 * _Point)
       {
          double atr_buffer[1];
          if(m_trail_atr_handle != INVALID_HANDLE && CopyBuffer(m_trail_atr_handle, 0, 1, 1, atr_buffer) == 1)
@@ -826,22 +848,45 @@ private:
                return false;
             }
 
-            double trail_offset = atr_value * InpTrailingStopATRMultiplier;
-            double new_sl = (pos_type == POSITION_TYPE_BUY) ? (SymbolInfoDouble(_Symbol, SYMBOL_BID) - trail_offset) :
-                            (SymbolInfoDouble(_Symbol, SYMBOL_ASK) + trail_offset);
-            new_sl = NormalizeDouble(new_sl, _Digits); // نرمال‌سازی استاپ‌لاس
+            // محاسبه offset بر اساس پوینت
+            double trail_offset_pips = atr_value * InpTrailingStopATRMultiplier / _Point;
 
-            double min_sl_change = _Point * 2; // حداقل تغییر استاپ‌لاس (2 پوینت)
-            if((pos_type == POSITION_TYPE_BUY && new_sl > current_sl + min_sl_change) ||
-               (pos_type == POSITION_TYPE_SELL && new_sl < current_sl - min_sl_change && new_sl > 0))
+            double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+            double new_sl_buy = current_bid - trail_offset_pips * _Point;
+            double new_sl_sell = current_ask + trail_offset_pips * _Point;
+
+            // normalize SL به tick size
+            double new_sl = 0;
+            bool should_modify = false;
+
+            if(pos_type == POSITION_TYPE_BUY)
             {
-               if(trade.PositionModify(ticket, new_sl, current_tp))
+               new_sl = MathRound(new_sl_buy / tick_size) * tick_size;
+               new_sl = NormalizeDouble(new_sl, _Digits);
+               new_sl = MathMax(new_sl, current_sl); // فقط به سمت بالا
+               if(new_sl > current_sl) should_modify = true;
+            }
+            else if(pos_type == POSITION_TYPE_SELL)
+            {
+               new_sl = MathRound(new_sl_sell / tick_size) * tick_size;
+               new_sl = NormalizeDouble(new_sl, _Digits);
+               new_sl = MathMin(new_sl, current_sl); // فقط به سمت پایین
+               if(new_sl < current_sl) should_modify = true;
+            }
+
+            if(should_modify)
+            {
+               if(pos.SelectByTicket(ticket) && trade.PositionModify(ticket, new_sl, current_tp))
+               {
                   if(InpEnableLogging) Print("ترایلینگ استاپ به‌روزرسانی شد برای تیکت " + (string)ticket +
                                             ": SL جدید=" + DoubleToString(new_sl, _Digits) +
                                             ", ATR=" + DoubleToString(atr_value, _Digits));
+               }
                else
+               {
                   if(InpEnableLogging) Print("خطا در به‌روزرسانی ترایلینگ استاپ برای تیکت " + (string)ticket +
                                             ": کد خطا=" + IntegerToString(trade.ResultRetcode()));
+               }
             }
          }
          else
@@ -854,17 +899,18 @@ private:
 
    //+------------------------------------------------------------------+
    //| تابع شناسایی محدوده‌های رنج                                   |
-   //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
    bool IdentifyRanges(datetime start_time, datetime end_time, RangeData &ranges[])
    {
       ArrayFree(ranges);
       int start_bar_idx = iBarShift(_Symbol, m_timeframe, start_time, true);
       int end_bar_idx = iBarShift(_Symbol, m_timeframe, end_time, true);
+      int bars_to_check = start_bar_idx - end_bar_idx + 1;
 
-      if(start_bar_idx < 0 || end_bar_idx < 0 || start_bar_idx < end_bar_idx)
+      if(start_bar_idx < 0 || end_bar_idx < 0 || start_bar_idx < end_bar_idx || bars_to_check < InpMinConsecutiveCandles)
       {
-         if(InpEnableLogging) Print("خطا در ایندکس بارها: شروع=" + IntegerToString(start_bar_idx) +
-                                   ", پایان=" + IntegerToString(end_bar_idx));
+         if(InpEnableLogging) Print("خطا در ایندکس بارها یا کندل ناکافی: شروع=" + IntegerToString(start_bar_idx) +
+                                   ", پایان=" + IntegerToString(end_bar_idx) + ", کندل‌ها=" + IntegerToString(bars_to_check));
          return false;
       }
 
@@ -904,6 +950,7 @@ private:
             }
          }
 
+         // چک sequence آخر
          if(current_sequence >= InpMinConsecutiveCandles && range_count < InpMaxRanges)
          {
             ArrayResize(ranges, range_count + 1);
@@ -925,13 +972,6 @@ private:
       }
       else
       {
-         int bars_to_check = start_bar_idx - end_bar_idx + 1;
-         if(bars_to_check <= 0)
-         {
-            if(InpEnableLogging) Print("خطا: تعداد کندل‌های سشن کافی نیست.");
-            return false;
-         }
-
          ArrayResize(ranges, 1);
          int high_bar_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars_to_check, end_bar_idx);
          int low_bar_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars_to_check, end_bar_idx);
@@ -951,77 +991,70 @@ private:
    }
 
    //+------------------------------------------------------------------+
-   //| تابع ادغام محدوده‌ها                                          |
+   //| تابع ادغام محدوده‌ها (با چک همپوشانی)                        |
    //+------------------------------------------------------------------+
-   bool MergeRanges(RangeData &ranges[], RangeData &final_ranges[])
+  bool MergeRanges(RangeData &ranges[], RangeData &final_ranges[])
+{
+   ArrayFree(final_ranges);
+   if(ArraySize(ranges) == 0)
    {
-      ArrayFree(final_ranges);
-      if(ArraySize(ranges) == 0)
-      {
-         if(InpEnableLogging) Print("خطا: هیچ محدوده‌ای برای ادغام وجود ندارد.");
-         return false;
-      }
-
-      ArrayCopy(final_ranges, ranges);
-      bool merged = true;
-      while(merged)
-      {
-         merged = false;
-         RangeData new_ranges[];
-         ArrayFree(new_ranges);
-         int temp_size = ArraySize(final_ranges);
-
-         for(int i = 0; i < temp_size; i++)
-         {
-            if(i == temp_size - 1 || temp_size == 1)
-            {
-               ArrayResize(new_ranges, ArraySize(new_ranges) + 1);
-               new_ranges[ArraySize(new_ranges) - 1] = final_ranges[i];
-               continue;
-            }
-
-            double range_size_pips = final_ranges[i + 1].rangeSizePips;
-            double tolerance_in_pips = range_size_pips * (InpMergeTolerancePercent / 100.0);
-            double high_diff_pips = MathAbs(final_ranges[i].rangeHigh - final_ranges[i + 1].rangeHigh) / _Point;
-            double low_diff_pips = MathAbs(final_ranges[i].rangeLow - final_ranges[i + 1].rangeLow) / _Point;
-            bool can_merge = (high_diff_pips <= tolerance_in_pips) || (low_diff_pips <= tolerance_in_pips);
-
-            if(can_merge)
-            {
-               RangeData merged_range;
-               merged_range.startTime = final_ranges[i].startTime;
-               merged_range.endTime = final_ranges[i + 1].endTime;
-               int start_idx = iBarShift(_Symbol, m_timeframe, merged_range.startTime, true);
-               int end_idx = iBarShift(_Symbol, m_timeframe, merged_range.endTime, true);
-               int bars = start_idx - end_idx + 1;
-               int high_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars, end_idx);
-               int low_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars, end_idx);
-               merged_range.rangeHigh = iHigh(_Symbol, m_timeframe, high_idx);
-               merged_range.rangeLow = iLow(_Symbol, m_timeframe, low_idx);
-               merged_range.rangeSizePips = (merged_range.rangeHigh - merged_range.rangeLow) / _Point;
-               merged_range.isValid = (merged_range.rangeSizePips >= InpMinRangePoints && merged_range.rangeSizePips <= InpMaxRangePoints);
-
-               ArrayResize(new_ranges, ArraySize(new_ranges) + 1);
-               new_ranges[ArraySize(new_ranges) - 1] = merged_range;
-               i++;
-               merged = true;
-               if(InpEnableLogging)
-                  Print("ادغام انجام شد: High=" + DoubleToString(merged_range.rangeHigh, _Digits) +
-                        ", Low=" + DoubleToString(merged_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(merged_range.rangeSizePips, 2));
-            }
-            else
-            {
-               ArrayResize(new_ranges, ArraySize(new_ranges) + 1);
-               new_ranges[ArraySize(new_ranges) - 1] = final_ranges[i];
-            }
-         }
-
-         ArrayFree(final_ranges);
-         ArrayCopy(final_ranges, new_ranges);
-      }
-      return ArraySize(final_ranges) > 0;
+      if(InpEnableLogging) Print("خطا: هیچ محدوده‌ای برای ادغام وجود ندارد.");
+      return false;
    }
 
+   // مرتب‌سازی دستی بر اساس startTime
+   for(int i = 0; i < ArraySize(ranges) - 1; i++)
+   {
+      for(int j = 0; j < ArraySize(ranges) - i - 1; j++)
+      {
+         if(ranges[j].startTime > ranges[j + 1].startTime)
+         {
+            RangeData temp = ranges[j];
+            ranges[j] = ranges[j + 1];
+            ranges[j + 1] = temp;
+         }
+      }
+   }
+
+   ArrayCopy(final_ranges, ranges);
+   for(int i = 0; i < ArraySize(final_ranges) - 1; )
+   {
+      double range_size_pips = final_ranges[i + 1].rangeSizePips;
+      double tolerance_in_pips = range_size_pips * (InpMergeTolerancePercent / 100.0);
+      double high_diff_pips = MathAbs(final_ranges[i].rangeHigh - final_ranges[i + 1].rangeHigh) / _Point;
+      double low_diff_pips = MathAbs(final_ranges[i].rangeLow - final_ranges[i + 1].rangeLow) / _Point;
+
+      bool has_overlap = (final_ranges[i].rangeHigh > final_ranges[i + 1].rangeLow && final_ranges[i].rangeLow < final_ranges[i + 1].rangeHigh);
+      bool can_merge = has_overlap || (high_diff_pips <= tolerance_in_pips) || (low_diff_pips <= tolerance_in_pips);
+
+      if(can_merge)
+      {
+         RangeData merged_range;
+         merged_range.startTime = final_ranges[i].startTime;
+         merged_range.endTime = final_ranges[i + 1].endTime;
+         int start_idx = iBarShift(_Symbol, m_timeframe, merged_range.startTime, true);
+         int end_idx = iBarShift(_Symbol, m_timeframe, merged_range.endTime, true);
+         int bars = start_idx - end_idx + 1;
+         int high_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars, end_idx);
+         int low_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars, end_idx);
+         merged_range.rangeHigh = iHigh(_Symbol, m_timeframe, high_idx);
+         merged_range.rangeLow = iLow(_Symbol, m_timeframe, low_idx);
+         merged_range.rangeSizePips = (merged_range.rangeHigh - merged_range.rangeLow) / _Point;
+         merged_range.isValid = (merged_range.rangeSizePips >= InpMinRangePoints && merged_range.rangeSizePips <= InpMaxRangePoints);
+
+         final_ranges[i] = merged_range;
+         ArrayRemove(final_ranges, i + 1, 1);
+         if(InpEnableLogging)
+            Print("ادغام انجام شد: High=" + DoubleToString(merged_range.rangeHigh, _Digits) +
+                  ", Low=" + DoubleToString(merged_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(merged_range.rangeSizePips, 2));
+      }
+      else
+      {
+         i++;
+      }
+   }
+   return ArraySize(final_ranges) > 0;
+}
    //+------------------------------------------------------------------+
    //| تابع انتخاب محدوده نهایی                                      |
    //+------------------------------------------------------------------+
@@ -1037,10 +1070,8 @@ private:
       double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
 
-      int latest_idx = -1;
-      datetime latest_time = 0;
-
-      for(int i = 0; i < ArraySize(ranges); i++)
+      // لوپ از جدیدترین به قدیمی‌ترین
+      for(int i = ArraySize(ranges) - 1; i >= 0; i--)
       {
          if(!ranges[i].isValid) continue;
 
@@ -1059,26 +1090,20 @@ private:
             }
          }
 
+         // حداقل فاصله برای جلوگیری از breakout کاذب
+         order_distance = MathMax(order_distance, 10 * _Point);
+
          double buy_stop_price = ranges[i].rangeHigh + order_distance;
          double sell_stop_price = ranges[i].rangeLow - order_distance;
 
          if(current_ask < buy_stop_price && current_bid > sell_stop_price)
          {
-            if(ranges[i].endTime > latest_time)
-            {
-               latest_time = ranges[i].endTime;
-               latest_idx = i;
-            }
+            final_range = ranges[i];
+            if(InpEnableLogging)
+               Print("محدوده نهایی انتخاب شد: High=" + DoubleToString(final_range.rangeHigh, _Digits) +
+                     ", Low=" + DoubleToString(final_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(final_range.rangeSizePips, 2));
+            return true;
          }
-      }
-
-      if(latest_idx >= 0)
-      {
-         final_range = ranges[latest_idx];
-         if(InpEnableLogging)
-            Print("محدوده نهایی انتخاب شد: High=" + DoubleToString(final_range.rangeHigh, _Digits) +
-                  ", Low=" + DoubleToString(final_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(final_range.rangeSizePips, 2));
-         return true;
       }
       if(InpEnableLogging) Print("هیچ محدوده‌ای انتخاب نشد: قیمت از سطوح ورود عبور کرده است.");
       return false;
@@ -1177,11 +1202,6 @@ private:
 };
 
 #endif // SESSIONTRADER_MQH
-
-
-
-
-
 
 
 
