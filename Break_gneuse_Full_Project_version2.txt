@@ -1,1193 +1,208 @@
-//+------------------------------------------------------------------+
-//|                                                   Settings.mqh   |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                                             https://...          |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
-#property link      "https://..."
-
-// گارد برای جلوگیری از include چندباره فایل
-#ifndef SETTINGS_MQH
-#define SETTINGS_MQH
-
-//+------------------------------------------------------------------+
-//| ENUM برای حالت‌های فیلتر رنج                                   |
-//+------------------------------------------------------------------+
-enum ENUM_RANGE_FILTER_MODE
-  {
-   MODE_POINTS, // فاصله سفارشات بر اساس پوینت ثابت
-   MODE_ATR     // فاصله سفارشات بر اساس ضریب ATR
-  };
-
-//+------------------------------------------------------------------+
-//| تنظیمات ورودی                                                  |
-//+------------------------------------------------------------------+
-// --- تنظیمات کلی ---
-input group "====== General Settings ======";
-input double InpRiskPercentage = 0.5; // درصد ریسک هر معامله (0.5%)
-input bool   InpEnableLogging = true;  // فعال‌سازی لاگینگ برای دیباگ
-input int    InpMaxRanges = 100;      // حداکثر تعداد مستطیل‌های پردازش‌شده
-input double InpMergeTolerancePercent = 5.0; // درصد تلورانس برای ادغام مستطیل‌ها (5%)
-input int    InpBaseMagic = 100000;   // مجیک نامبر پایه (سیستم به طور خودکار برای هر سشن اضافه می‌کند)
-
-// --- تنظیمات ایچیموکو ---
-input group "====== Ichimoku Filter Settings ======";
-input bool InpUseIchimokuFilter = true; // فعال‌سازی فیلتر ایچیموکو
-input int InpIchimoku_Tenkan = 9;      // دوره تنکان‌سن
-input int InpIchimoku_Kijun = 26;      // دوره کیجون‌سن
-input int InpIchimoku_Senkou = 52;     // دوره سنکو اسپن B
-input int InpMinConsecutiveCandles = 3; // حداقل تعداد کندل‌های متوالی برای رنج
-input int InpKijunFlatPeriod = 3;      // دوره بررسی صاف بودن کیجون‌سن
-input double InpKijunSlopeThreshold = 0.0001; // آستانه شیب برای تشخیص صاف بودن کیجون‌سن
-
-// --- تنظیمات جلسه اول ---
-input group "====== Session 1 Settings ======";
-input bool   InpS1_IsActive = true;         // فعال بودن جلسه اول
-input ENUM_TIMEFRAMES InpS1_TimeFrame = PERIOD_M15; // تایم‌فریم جلسه
-input int    InpS1_StartTime_Hour = 21;     // ساعت شروع سشن
-input int    InpS1_StartTime_Minute = 0;    // دقیقه شروع سشن
-input int    InpS1_EndTime_Hour = 6;        // ساعت پایان سشن
-input int    InpS1_EndTime_Minute = 0;      // دقیقه پایان سشن
-input int    InpS1_ExpiryTime_Hour = 12;    // ساعت انقضا (پاکسازی)
-input int    InpS1_ExpiryTime_Minute = 0;   // دقیقه انقضا
-
-// --- تنظیمات جلسه دوم ---
-input group "====== Session 2 Settings ======";
-input bool   InpS2_IsActive = true;
-input ENUM_TIMEFRAMES InpS2_TimeFrame = PERIOD_M15;
-input int    InpS2_StartTime_Hour = 8;
-input int    InpS2_StartTime_Minute = 0;
-input int    InpS2_EndTime_Hour = 10;
-input int    InpS2_EndTime_Minute = 0;
-input int    InpS2_ExpiryTime_Hour = 20;
-input int    InpS2_ExpiryTime_Minute = 0;
-
-// --- تنظیمات جلسه سوم ---
-input group "====== Session 3 Settings ======";
-input bool   InpS3_IsActive = true;
-input ENUM_TIMEFRAMES InpS3_TimeFrame = PERIOD_M15;
-input int    InpS3_StartTime_Hour = 13;
-input int    InpS3_StartTime_Minute = 0;
-input int    InpS3_EndTime_Hour = 14;
-input int    InpS3_EndTime_Minute = 30;
-input int    InpS3_ExpiryTime_Hour = 21;
-input int    InpS3_ExpiryTime_Minute = 0;
-
-// --- تنظیمات جلسه چهارم ---
-input group "====== Session 4 Settings ======";
-input bool   InpS4_IsActive = false;
-input ENUM_TIMEFRAMES InpS4_TimeFrame = PERIOD_M15;
-input int    InpS4_StartTime_Hour = 0;
-input int    InpS4_StartTime_Minute = 0;
-input int    InpS4_EndTime_Hour = 0;
-input int    InpS4_EndTime_Minute = 0;
-input int    InpS4_ExpiryTime_Hour = 0;
-input int    InpS4_ExpiryTime_Minute = 0;
-
-// --- تنظیمات رنج ---
-input group "====== Range Settings ======";
-input ENUM_RANGE_FILTER_MODE InpRangeFilterMode = MODE_ATR; // حالت فاصله‌گذاری سفارشات
-input int InpMinRangePoints = 50;           // حداقل اندازه رنج (پوینت)
-input int InpMaxRangePoints = 500;          // حداکثر اندازه رنج (پوینت)
-input double InpAtrMultiplier_Placement = 0.4; // ضریب ATR برای فاصله سفارشات
-input int InRangeATR_Period = 14;           // دوره ATR
-
-// --- تنظیمات فیلتر روند ---
-input group "====== Trend Filter Settings ======";
-input bool InpTrendFilterIsOn = true;       // فعال‌سازی فیلتر روند
-input ENUM_TIMEFRAMES InpTrendEMATimeFrame = PERIOD_H4; // تایم‌فریم EMA
-input int InpTrendEMAPeriod = 150;          // دوره EMA
-input ENUM_APPLIED_PRICE InpTrendEMAAppliedPrice = PRICE_CLOSE; // قیمت اعمال EMA
-
-// --- تنظیمات مدیریت معامله ---
-input group "====== Trade Management Settings ======";
-input double InpStopLossAdditionalPercent = 10.0; // درصد اضافی برای استاپ‌لاس
-input bool InpEnablePartialClose = true;         // فعال‌سازی خروج پله‌ای (اگر حساب netting باشد، اتومات غیرفعال می‌شود)
-input double InpTakeProfitRatio_Stage1 = 1.5;    // نسبت TP1 به SL
-input double InpPartialClosePercentage = 50.0;   // درصد خروج پله‌ای
-input int InpTrailingStopATRPeriod = 22;         // دوره ATR برای ترایلینگ
-input double InpTrailingStopATRMultiplier = 3.0; // ضریب ATR برای ترایلینگ
-input int InpMinTrailingProfitPips = 20;         // حداقل سود به پوینت برای شروع ترایلینگ
-
-#endif // SETTINGS_MQH
-
-
-
-
-
-
-
-//+------------------------------------------------------------------+
-//|                                                   hipobreck.mq5  |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.3 <<         |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
-#property link      "https://..."
-#property version   "4.30"
-#property strict
-
-#include "Settings.mqh"
-#include "SessionTrader.mqh"
-#include <Trade\Trade.mqh>
-
-// متغیرهای گلوبال
-CSessionTrader g_sessions[4]; // آرایه برای مدیریت چهار جلسه
-static datetime last_bar_time[4] = {0}; // زمان آخرین کندل هر جلسه
-bool g_enable_partial_close; // متغیر محلی برای مدیریت خروج پله‌ای
-
-//+------------------------------------------------------------------+
-//| تابع اولیه‌سازی اکسپرت                                          |
-//+------------------------------------------------------------------+
-int OnInit()
-{
-   // بررسی نوع حساب برای سازگاری با خروج پله‌ای
-   long account_mode = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
-   g_enable_partial_close = InpEnablePartialClose; // استفاده از متغیر محلی
-   if(account_mode != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
-   {
-      g_enable_partial_close = false; // سوئیچ اتومات برای netting
-      if(InpEnableLogging) Print("هشدار: حساب netting است - خروج پله‌ای غیرفعال شد.");
-   }
-
-   // بررسی اعتبار ورودی‌ها
-   if(InpRiskPercentage <= 0 || InpMinConsecutiveCandles < 1 || InpKijunFlatPeriod < 1 ||
-      InpMinRangePoints < 0 || InpMaxRangePoints < InpMinRangePoints || InpMaxRanges < 1 ||
-      InpMergeTolerancePercent < 0 || InpAtrMultiplier_Placement <= 0 || InRangeATR_Period < 1 ||
-      InpKijunSlopeThreshold <= 0 || InpMinTrailingProfitPips < 0)
-   {
-      Print("خطا: مقادیر ورودی نامعتبر است!");
-      return(INIT_PARAMETERS_INCORRECT);
-   }
-
- g_sessions[0].Init(InpS1_IsActive, InpS1_TimeFrame, InpS1_StartTime_Hour, InpS1_StartTime_Minute,
-                   InpS1_EndTime_Hour, InpS1_EndTime_Minute, InpS1_ExpiryTime_Hour, InpS1_ExpiryTime_Minute, (ulong)(InpBaseMagic + 1));
-g_sessions[1].Init(InpS2_IsActive, InpS2_TimeFrame, InpS2_StartTime_Hour, InpS2_StartTime_Minute,
-                   InpS2_EndTime_Hour, InpS2_EndTime_Minute, InpS2_ExpiryTime_Hour, InpS2_ExpiryTime_Minute, (ulong)(InpBaseMagic + 2));
-g_sessions[2].Init(InpS3_IsActive, InpS3_TimeFrame, InpS3_StartTime_Hour, InpS3_StartTime_Minute,
-                   InpS3_EndTime_Hour, InpS3_EndTime_Minute, InpS3_ExpiryTime_Hour, InpS3_ExpiryTime_Minute, (ulong)(InpBaseMagic + 3));
-g_sessions[3].Init(InpS4_IsActive, InpS4_TimeFrame, InpS4_StartTime_Hour, InpS4_StartTime_Minute,
-                   InpS4_EndTime_Hour, InpS4_EndTime_Minute, InpS4_ExpiryTime_Hour, InpS4_ExpiryTime_Minute, (ulong)(InpBaseMagic + 4));
-   if(InpEnableLogging)
-      Print("اکسپرت اولیه‌سازی شد. تعداد جلسات فعال: " + IntegerToString(CountActiveSessions()));
-
-   EventSetMillisecondTimer(1000); // تایمر برای بررسی کندل جدید (بهینه‌تر)
-   return(INIT_SUCCEEDED);
-}
-
-//+------------------------------------------------------------------+
-//| تابع خاتمه اکسپرت                                              |
-//+------------------------------------------------------------------+
-void OnDeinit(const int reason)
-{
-   EventKillTimer();
-   for(int i = 0; i < 4; i++) g_sessions[i].Deinit();
-   if(InpEnableLogging) Print("اکسپرت خاتمه یافت. دلیل: " + IntegerToString(reason));
-}
-
-//+------------------------------------------------------------------+
-//| تابع تایمر برای بررسی کندل جدید                                |
-//+------------------------------------------------------------------+
-void OnTimer()
-{
-   for(int i = 0; i < 4; i++)
-   {
-      if(!g_sessions[i].IsActive()) continue;
-      ENUM_TIMEFRAMES tf = g_sessions[i].GetTimeFrame();
-      datetime current_bar_time = (datetime)SeriesInfoInteger(_Symbol, tf, SERIES_LASTBAR_DATE);
-      if(current_bar_time > last_bar_time[i])
-      {
-         g_sessions[i].UpdateOnNewBar();
-         last_bar_time[i] = current_bar_time;
-         if(InpEnableLogging) Print("کندل جدید برای جلسه " + IntegerToString(g_sessions[i].GetMagicNumber()) + " در " + TimeToString(current_bar_time));
-      }
-   }
-
-   // نمایش اطلاعات روی چارت (بدون تکرار زیاد)
-   string comment = "جلسات فعال: " + IntegerToString(CountActiveSessions()) + "\n";
-   for(int i = 0; i < 4; i++)
-      if(g_sessions[i].IsActive())
-         comment += "جلسه " + IntegerToString(g_sessions[i].GetMagicNumber()) + ": فعال\n";
-   Comment(comment);
-}
-
-//+------------------------------------------------------------------+
-//| تابع تیک (خالی برای بهینه‌سازی)                                |
-//+------------------------------------------------------------------+
-void OnTick()
-{
-   // خالی برای کاهش بار پردازشی
-}
-
-//+------------------------------------------------------------------+
-//| تابع مدیریت تراکنش‌های معاملاتی                               |
-//+------------------------------------------------------------------+
-void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &request, const MqlTradeResult &result)
-{
-   if(trans.type == TRADE_TRANSACTION_DEAL_ADD && HistoryDealSelect(trans.deal))
-   {
-      // اطمینان از اینکه معامله ورودی جدید است.
-      if(HistoryDealGetInteger(trans.deal, DEAL_ENTRY) == DEAL_ENTRY_IN)
-      {
-         long magic = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
-         
-         // حلقه for برای حذف سفارشات پندینگ معکوس (بهینه‌تر از while)
-         for(int i = OrdersTotal() - 1; i >= 0; i--)
-         {
-            ulong order_ticket = OrderGetTicket(i);
-            if(order_ticket > 0 && OrderSelect(order_ticket))
-            {
-               if(OrderGetInteger(ORDER_MAGIC) == magic)
-               {
-                  if(trade.OrderDelete(order_ticket))
-                  {
-                     if(InpEnableLogging) Print("سفارش معکوس با تیکت " + IntegerToString(order_ticket) + " حذف شد (مجیک: " + IntegerToString(magic) + ").");
-                  }
-               }
-            }
-         }
-      }
-   }
-}
-
-//+------------------------------------------------------------------+
-//| تابع شمارش جلسات فعال                                          |
-//+------------------------------------------------------------------+
-int CountActiveSessions()
-{
-   int count = 0;
-   if(InpS1_IsActive) count++;
-   if(InpS2_IsActive) count++;
-   if(InpS3_IsActive) count++;
-   if(InpS4_IsActive) count++;
-   return count;
-}
-
-
-
-//+------------------------------------------------------------------+
-//|                                                 TradeManager.mqh |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.3 <<         |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
-#property link      "https://..."
-
-#ifndef TRADEMANAGER_MQH
-#define TRADEMANAGER_MQH
-
-#include "Settings.mqh"
-#include "RangeLib.mqh"
-#include <Trade\Trade.mqh>
-#include <Trade\PositionInfo.mqh> // برای مدیریت ایمن پوزیشن‌ها
-
-CTrade trade;
-
-//+------------------------------------------------------------------+
-//| تابع محاسبه حجم معامله                                         |
-//+------------------------------------------------------------------+
-double CalculateLotSize(double risk_percent, double stop_loss_pips)
-{
-   if(stop_loss_pips <= 0)
-   {
-      if(InpEnableLogging) Print("خطا در محاسبه لات: فاصله استاپ نامعتبر (" + DoubleToString(stop_loss_pips, 2) + ").");
-      return 0.0;
-   }
-
-   double account_equity = AccountInfoDouble(ACCOUNT_EQUITY);
-   double risk_amount = account_equity * (risk_percent / 100.0);
-
-   double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-
-   if(tick_value <= 0 || tick_size <= 0)
-   {
-      if(InpEnableLogging) Print("خطا در محاسبه لات: tick_value یا tick_size نامعتبر.");
-      return 0.0;
-   }
-
-   double value_per_pip = tick_value / tick_size * _Point;
-   if(value_per_pip <= 0)
-   {
-      if(InpEnableLogging) Print("خطا در محاسبه لات: value_per_pip نامعتبر.");
-      return 0.0;
-   }
-
-   double lot_size = risk_amount / (stop_loss_pips * value_per_pip);
-   double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-   double max_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-   double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-
-   lot_size = MathRound(lot_size / lot_step) * lot_step;
-   lot_size = MathMax(min_lot, MathMin(max_lot, lot_size));
-
-   if(InpEnableLogging && lot_size > 0)
-      Print("محاسبه لات موفق: حجم=" + DoubleToString(lot_size, 2) +
-            ", ریسک=" + DoubleToString(risk_percent, 2) + "%, استاپ=" + DoubleToString(stop_loss_pips, 2));
-   return lot_size;
-}
-
-//+------------------------------------------------------------------+
-//| تابع ثبت سفارشات پندینگ                                        |
-//+------------------------------------------------------------------+
-void PlacePendingOrders(ulong session_magic, bool is_trend_on, bool is_uptrend, RangeData &rd, double buy_stop_price, double sell_stop_price, datetime expiry_time)
-{
-   double sl_additional_pips = rd.rangeSizePips * (InpStopLossAdditionalPercent / 100.0);
-   double sl_distance_pips = rd.rangeSizePips + sl_additional_pips;
-
-   double lot_size = CalculateLotSize(InpRiskPercentage, sl_distance_pips);
-   if(lot_size <= 0)
-   {
-      if(InpEnableLogging) Print("خطا در ثبت سفارش: حجم لات نامعتبر (مجیک: " + IntegerToString(session_magic) + ").");
-      return;
-   }
-
-   double buy_sl = rd.rangeLow - sl_additional_pips * _Point;
-   double sell_sl = rd.rangeHigh + sl_additional_pips * _Point;
-   double buy_tp = 0.0, sell_tp = 0.0;
-
-   // اگر خروج پله‌ای غیرفعال باشد، TP را برای کل حجم تنظیم کن
-   if(!InpEnablePartialClose)
-   {
-      buy_tp = buy_stop_price + (buy_stop_price - buy_sl) * InpTakeProfitRatio_Stage1;
-      sell_tp = sell_stop_price - (sell_sl - sell_stop_price) * InpTakeProfitRatio_Stage1;
-   }
-
-   if(!is_trend_on)
-   {
-      trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
-      if(InpEnableLogging) Print("سفارش BuyStop ثبت شد: قیمت=" + DoubleToString(buy_stop_price, _Digits) +
-                                ", SL=" + DoubleToString(buy_sl, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ").");
-      trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
-      if(InpEnableLogging) Print("سفارش SellStop ثبت شد: قیمت=" + DoubleToString(sell_stop_price, _Digits) +
-                                ", SL=" + DoubleToString(sell_sl, _Digits) + " (مجیک: " + IntegerToString(session_magic) + ").");
-   }
-   else
-   {
-      if(is_uptrend)
-      {
-         trade.BuyStop(lot_size, buy_stop_price, _Symbol, buy_sl, buy_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
-         if(InpEnableLogging) Print("سفارش BuyStop (روند صعودی) ثبت شد: قیمت=" + DoubleToString(buy_stop_price, _Digits) +
-                                   " (مجیک: " + IntegerToString(session_magic) + ").");
-      }
-      else
-      {
-         trade.SellStop(lot_size, sell_stop_price, _Symbol, sell_sl, sell_tp, ORDER_TIME_SPECIFIED, expiry_time, (string)session_magic);
-         if(InpEnableLogging) Print("سفارش SellStop (روند نزولی) ثبت شد: قیمت=" + DoubleToString(sell_stop_price, _Digits) +
-                                   " (مجیک: " + IntegerToString(session_magic) + ").");
-      }
-   }
-}
-
-//+------------------------------------------------------------------+
-//| تابع پاکسازی جلسه                                              |
-//+------------------------------------------------------------------+
-void SessionCleanUp(ulong session_magic)
-{
-   datetime start_time, end_time;
-   MqlDateTime time_struct;
-   TimeToStruct(TimeCurrent(), time_struct); // استخراج ساختار زمان فعلی
-   ENUM_DAY_OF_WEEK day = (ENUM_DAY_OF_WEEK)time_struct.day_of_week; // دریافت روز هفته
-   if(!SymbolInfoSessionTrade(_Symbol, day, 0, start_time, end_time))
-   {
-      if(InpEnableLogging) Print("بازار بسته است - پاکسازی جلسه " + IntegerToString(session_magic) + " به تعویق افتاد.");
-      return;
-   }
-   
-   for(int i = PositionsTotal() - 1; i >= 0; i--)
-   {
-      ulong pos_ticket = PositionGetTicket(i);
-      CPositionInfo pos;
-      if(pos.SelectByTicket(pos_ticket) && pos.Magic() == session_magic)
-      {
-         trade.PositionClose(pos_ticket);
-         if(InpEnableLogging) Print("پوزیشن با تیکت " + IntegerToString(pos_ticket) +
-                                   " بسته شد (پاکسازی، مجیک: " + IntegerToString(session_magic) + ").");
-      }
-   }
-
-   for(int i = OrdersTotal() - 1; i >= 0; i--)
-   {
-      ulong ord_ticket = OrderGetTicket(i);
-      if(ord_ticket > 0 && OrderSelect(ord_ticket))
-      {
-         if(OrderGetInteger(ORDER_MAGIC) == session_magic)
-         {
-            trade.OrderDelete(ord_ticket);
-            if(InpEnableLogging) Print("سفارش پندینگ با تیکت " + IntegerToString(ord_ticket) +
-                                      " حذف شد (پاکسازی، مجیک: " + IntegerToString(session_magic) + ").");
-         }
-      }
-   }
-
-   ObjectsDeleteAll(0, "Range_" + IntegerToString(session_magic) + "_");
-   if(InpEnableLogging) Print("پاکسازی کامل برای جلسه " + IntegerToString(session_magic) + " انجام شد.");
-}
-
-
-#endif // TRADEMANAGER_MQH
-
-
-
-
-//+------------------------------------------------------------------+
-//|                                                    RangeLib.mqh  |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.3 <<         |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
-#property link      "https://..."
-
-#ifndef RANGELIB_MQH
-#define RANGELIB_MQH
-
-#include "Settings.mqh"
-
-struct RangeData
-{
-   double rangeHigh;
-   double rangeLow;
-   bool isValid;
-   datetime startTime;
-   datetime endTime;
-   double rangeSizePips;
-};
-
-void DrawRangeOnChart(RangeData &rd, ulong session_magic)
-{
-   if(!rd.isValid) return;
-
-   string obj_prefix = "Range_" + IntegerToString(session_magic) + "_";
-   ObjectsDeleteAll(0, obj_prefix);
-   ObjectCreate(0, obj_prefix + "Rect", OBJ_RECTANGLE, 0, rd.startTime, rd.rangeHigh, rd.endTime, rd.rangeLow);
-   ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_COLOR, clrDarkSlateGray);
-   ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_STYLE, STYLE_SOLID);
-   ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_FILL, true);
-   ObjectSetInteger(0, obj_prefix + "Rect", OBJPROP_BACK, true);
-
-   if(InpEnableLogging)
-      Print("محدوده روی چارت ترسیم شد: High=" + DoubleToString(rd.rangeHigh, _Digits) +
-            ", Low=" + DoubleToString(rd.rangeLow, _Digits) + ", اندازه=" + DoubleToString(rd.rangeSizePips, 2) +
-            " (مجیک: " + IntegerToString(session_magic) + ").");
-}
-
-bool IsKijunFlat(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
-{
-   if(bar_idx < InpKijunFlatPeriod)
-   {
-      if(InpEnableLogging) Print("خطا: تعداد کندل‌ها برای کیجون کافی نیست: " + IntegerToString(bar_idx));
-      return false;
-   }
-
-   double kijun_buffer[];
-   ArrayResize(kijun_buffer, InpKijunFlatPeriod);
-   if(CopyBuffer(ichimoku_handle, 1, bar_idx - InpKijunFlatPeriod + 1, InpKijunFlatPeriod, kijun_buffer) != InpKijunFlatPeriod)
-   {
-      if(InpEnableLogging) Print("خطا در کپی بافر کیجون: ایندکس=" + IntegerToString(bar_idx));
-      return false;
-   }
-
-   double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0;
-   double n = InpKijunFlatPeriod;
-   for(int k = 0; k < InpKijunFlatPeriod; k++)
-   {
-      double x = k + 1.0;
-      double y = kijun_buffer[InpKijunFlatPeriod - 1 - k];
-      sum_x += x;
-      sum_y += y;
-      sum_xy += x * y;
-      sum_x2 += x * x;
-   }
-
-   double denominator = (n * sum_x2 - sum_x * sum_x);
-   if(denominator == 0)
-   {
-      if(InpEnableLogging) Print("خطا در محاسبه شیب کیجون: دنومیناتور صفر.");
-      return false;
-   }
-
-   double slope = (n * sum_xy - sum_x * sum_y) / denominator;
-   bool is_flat = MathAbs(slope) < InpKijunSlopeThreshold;
-   if(InpEnableLogging && is_flat) Print("کیجون صاف تشخیص داده شد: شیب=" + DoubleToString(slope, 6));
-   return is_flat;
-}
-
-bool IsCandleInKumo(int ichimoku_handle, int bar_idx, ENUM_TIMEFRAMES timeframe)
-{
-   double senkou_a[1], senkou_b[1];
-   if(CopyBuffer(ichimoku_handle, 2, bar_idx, 1, senkou_a) != 1)
-   {
-      if(InpEnableLogging) Print("خطا در کپی بافر سنکو A: ایندکس=" + IntegerToString(bar_idx));
-      return false;
-   }
-   if(CopyBuffer(ichimoku_handle, 3, bar_idx, 1, senkou_b) != 1)
-   {
-      if(InpEnableLogging) Print("خطا در کپی بافر سنکو B: ایندکس=" + IntegerToString(bar_idx));
-      return false;
-   }
-
-   double high = iHigh(_Symbol, timeframe, bar_idx);
-   double low = iLow(_Symbol, timeframe, bar_idx);
-   double kumo_top = MathMax(senkou_a[0], senkou_b[0]);
-   double kumo_bottom = MathMin(senkou_a[0], senkou_b[0]);
-
-   bool in_kumo = (high <= kumo_top && low >= kumo_bottom);
-   if(InpEnableLogging && in_kumo)
-      Print("کندل داخل کومو: High=" + DoubleToString(high, _Digits) +
-            ", Low=" + DoubleToString(low, _Digits) + ", Kumo Top=" + DoubleToString(kumo_top, _Digits) +
-            ", Kumo Bottom=" + DoubleToString(kumo_bottom, _Digits));
-   return in_kumo;
-}
-
-#endif // RANGELIB_MQH
-
-
-
-
-//+------------------------------------------------------------------+
-//|                                             SessionTrader.mqh    |
-//|                   Copyright 2025, Mohammad Khajavi & Jimmy       |
-//|                          >> FINAL REVISED VERSION 4.3 <<         |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2025, Mohammad Khajavi & Jimmy"
-#property link      "https://..."
-
-#ifndef SESSIONTRADER_MQH
-#define SESSIONTRADER_MQH
-
-#include "Settings.mqh"
-#include "RangeLib.mqh"
-#include "TradeManager.mqh"
-#include <Trade\PositionInfo.mqh> // برای مدیریت ایمن پوزیشن‌ها
-
-//+------------------------------------------------------------------+
-//| کلاس مدیریت جلسه معاملاتی                                      |
-//+------------------------------------------------------------------+
-class CSessionTrader
-{
-private:
-   bool              m_is_active;
-   ulong             m_magic_number; // نوع به ulong
-   ENUM_TIMEFRAMES   m_timeframe;
-   int               m_start_hour, m_start_min;
-   int               m_end_hour, m_end_min;
-   int               m_expiry_hour, m_expiry_min;
-   int               m_ichimoku_handle;
-   int               m_placement_atr_handle;
-   int               m_ema_handle;
-   int               m_trail_atr_handle;
-   bool              m_has_analyzed; // پرچم برای جلوگیری از تحلیل مکرر
-
-public:
-   CSessionTrader(void) : m_is_active(false), m_magic_number(0), m_timeframe(PERIOD_M15),
-                         m_start_hour(0), m_start_min(0), m_end_hour(0), m_end_min(0),
-                         m_expiry_hour(0), m_expiry_min(0), m_ichimoku_handle(INVALID_HANDLE),
-                         m_placement_atr_handle(INVALID_HANDLE), m_ema_handle(INVALID_HANDLE),
-                         m_trail_atr_handle(INVALID_HANDLE), m_has_analyzed(false) {}
-
-   //+------------------------------------------------------------------+
-   //| تابع اولیه‌سازی جلسه                                           |
-   //+------------------------------------------------------------------+
-   void Init(bool is_active, ENUM_TIMEFRAMES timeframe, int start_h, int start_m, int end_h, int end_m, int expiry_h, int expiry_m, ulong magic)
-   {
-      m_is_active = is_active;
-      m_timeframe = timeframe;
-      m_start_hour = start_h;
-      m_start_min = start_m;
-      m_end_hour = end_h;
-      m_end_min = end_m;
-      m_expiry_hour = expiry_h;
-      m_expiry_min = expiry_m;
-      m_magic_number = magic;
-      m_has_analyzed = false;
-
-      if(!m_is_active) return;
-
-      if(InpUseIchimokuFilter)
-      {
-         m_ichimoku_handle = iIchimoku(_Symbol, m_timeframe, InpIchimoku_Tenkan, InpIchimoku_Kijun, InpIchimoku_Senkou);
-         if(m_ichimoku_handle == INVALID_HANDLE && InpEnableLogging)
-            Print("خطا در ایجاد هندل ایچیموکو برای جلسه " + (string)magic);
-      }
-
-      m_placement_atr_handle = iATR(_Symbol, m_timeframe, InRangeATR_Period);
-      if(m_placement_atr_handle == INVALID_HANDLE && InpEnableLogging)
-         Print("خطا در ایجاد هندل ATR برای جلسه " + (string)magic);
-
-      if(InpTrendFilterIsOn)
-      {
-         m_ema_handle = iMA(_Symbol, InpTrendEMATimeFrame, InpTrendEMAPeriod, 0, MODE_EMA, InpTrendEMAAppliedPrice);
-         if(m_ema_handle == INVALID_HANDLE && InpEnableLogging)
-            Print("خطا در ایجاد هندل EMA برای جلسه " + (string)magic);
-      }
-
-      m_trail_atr_handle = iATR(_Symbol, m_timeframe, InpTrailingStopATRPeriod);
-      if(m_trail_atr_handle == INVALID_HANDLE && InpEnableLogging)
-         Print("خطا در ایجاد هندل ATR ترایلینگ برای جلسه " + (string)magic);
-
-      if(InpEnableLogging) Print("جلسه " + (string)magic + " اولیه‌سازی شد.");
-   }
-
-   //+------------------------------------------------------------------+
-   //| تابع خاتمه جلسه                                               |
-   //+------------------------------------------------------------------+
-   void Deinit(void)
-   {
-      if(m_ichimoku_handle != INVALID_HANDLE) IndicatorRelease(m_ichimoku_handle);
-      if(m_placement_atr_handle != INVALID_HANDLE) IndicatorRelease(m_placement_atr_handle);
-      if(m_ema_handle != INVALID_HANDLE) IndicatorRelease(m_ema_handle);
-      if(m_trail_atr_handle != INVALID_HANDLE) IndicatorRelease(m_trail_atr_handle);
-      ObjectsDeleteAll(0, "Range_" + (string)m_magic_number + "_");
-      if(InpEnableLogging) Print("جلسه " + (string)m_magic_number + " خاتمه یافت.");
-   }
-
-   bool IsActive(void) { return m_is_active; }
-   ENUM_TIMEFRAMES GetTimeFrame(void) { return m_timeframe; }
-   ulong GetMagicNumber(void) { return m_magic_number; }
-
-   //+------------------------------------------------------------------+
-   //| تابع بررسی کندل جدید و اجرای منطق                              |
-   //+------------------------------------------------------------------+
-   void UpdateOnNewBar(void)
-   {
-      if(!m_is_active) return;
-
-      datetime now = TimeCurrent();
-      MqlDateTime now_struct;
-      TimeToStruct(now, now_struct);
-
-      // تنظیم زمان‌های شروع، پایان و انقضا با توجه به احتمال روز بعد
-      MqlDateTime start_struct = now_struct;
-      start_struct.hour = m_start_hour;
-      start_struct.min = m_start_min;
-      start_struct.sec = 0;
-      datetime start_time = StructToTime(start_struct);
-
-      MqlDateTime end_struct = now_struct;
-      end_struct.hour = m_end_hour;
-      end_struct.min = m_end_min;
-      end_struct.sec = 0;
-      datetime end_time = StructToTime(end_struct);
-
-      MqlDateTime expiry_struct = now_struct;
-      expiry_struct.hour = m_expiry_hour;
-      expiry_struct.min = m_expiry_min;
-      expiry_struct.sec = 0;
-      datetime expiry_time = StructToTime(expiry_struct);
-
-      if(m_start_hour > m_end_hour)
-      {
-         if(now_struct.hour < m_end_hour) start_time -= 86400;
-         else end_time += 86400;
-      }
-      if(m_end_hour > m_expiry_hour || (m_end_hour == m_expiry_hour && m_end_min > m_expiry_min))
-      {
-         expiry_time += 86400;
-      }
-
-      // بررسی انقضا (پاکسازی)
-      if(now >= expiry_time)
-      {
-         SessionCleanUp(m_magic_number);
-         m_has_analyzed = false; // ریست پرچم تحلیل برای سشن بعدی
-         if(InpEnableLogging) Print("جلسه " + (string)m_magic_number + " منقضی شد و پاکسازی انجام شد.");
-         return;
-      }
-
-      // بررسی وجود پوزیشن باز و مدیریت آن
-      for(int i = PositionsTotal() - 1; i >= 0; i--)
-      {
-         ulong ticket = PositionGetTicket(i);
-         CPositionInfo pos;
-         if(pos.SelectByTicket(ticket) && pos.Magic() == m_magic_number)
-         {
-            ManageActiveTrade(ticket);
-            if(InpEnableLogging) Print("پوزیشن فعال در جلسه " + (string)m_magic_number + " مدیریت شد.");
-         }
-      }
-
-      // بررسی وجود سفارش پندینگ
-      for(int i = OrdersTotal() - 1; i >= 0; i--)
-      {
-         ulong ticket = OrderGetTicket(i);
-         if(ticket > 0 && OrderSelect(ticket))
-         {
-            if(OrderGetInteger(ORDER_MAGIC) == m_magic_number)
-            {
-               if(InpEnableLogging) Print("سفارش پندینگ در جلسه " + (string)m_magic_number + " وجود دارد.");
-               return;
-            }
-         }
-      }
-
-      // بررسی زمان تحلیل (فقط در اولین کندل بعد از پایان سشن)
-      if(now >= end_time && now < end_time + PeriodSeconds(m_timeframe) && !m_has_analyzed)
-      {
-         AnalyzeAndPlaceOrders(start_time, end_time, expiry_time);
-         m_has_analyzed = true; // جلوگیری از تحلیل مکرر
-         if(InpEnableLogging) Print("تحلیل برای جلسه " + (string)m_magic_number + " انجام شد.");
-      }
-   }
-
-private:
-   //+------------------------------------------------------------------+
-   //| تابع مدیریت پوزیشن‌های باز                                    |
-   //+------------------------------------------------------------------+
-   bool ManageActiveTrade(ulong ticket)
-   {
-      CPositionInfo pos;
-      if(!pos.SelectByTicket(ticket))
-      {
-         if(InpEnableLogging) Print("خطا: انتخاب پوزیشن با تیکت " + (string)ticket + " ناموفق.");
-         return false;
-      }
-
-      if(pos.Magic() != m_magic_number)
-      {
-         if(InpEnableLogging) Print("خطا: مجیک نامبر پوزیشن " + (string)pos.Magic() + " با جلسه " + (string)m_magic_number + " مطابقت ندارد.");
-         return false;
-      }
-
-      double entry_price = pos.PriceOpen();
-      double current_sl = pos.StopLoss();
-      double current_tp = pos.TakeProfit();
-      double volume = pos.Volume();
-      ENUM_POSITION_TYPE pos_type = pos.PositionType();
-
-      // حذف سفارشات پندینگ معکوس
-      for(int i = OrdersTotal() - 1; i >= 0; i--)
-      {
-         ulong ord_ticket = OrderGetTicket(i);
-         if(ord_ticket > 0 && OrderSelect(ord_ticket))
-         {
-            if(OrderGetInteger(ORDER_MAGIC) == m_magic_number)
-            {
-               trade.OrderDelete(ord_ticket);
-               if(InpEnableLogging) Print("سفارش پندینگ با تیکت " + (string)ord_ticket + " حذف شد (مجیک: " + (string)m_magic_number + ").");
-            }
-         }
-      }
-
-      // بررسی خروج پله‌ای اگر فعال باشد
-      if(InpEnablePartialClose)
-      {
-         double sl_distance_price = MathAbs(entry_price - current_sl);
-         double target_price = (pos_type == POSITION_TYPE_BUY) ? (entry_price + sl_distance_price * InpTakeProfitRatio_Stage1) :
-                               (entry_price - sl_distance_price * InpTakeProfitRatio_Stage1);
-
-         double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-         if((pos_type == POSITION_TYPE_BUY && current_price >= target_price) ||
-            (pos_type == POSITION_TYPE_SELL && current_price <= target_price))
-         {
-            double lot_step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-            double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-            double close_volume = MathRound((volume * InpPartialClosePercentage / 100.0) / lot_step) * lot_step;
-
-            if(volume - close_volume < min_lot && volume > min_lot)
-               close_volume = volume;
-
-            if(close_volume >= min_lot && trade.PositionClose(ticket, (ulong)close_volume))
-            {
-               if(InpEnableLogging) Print("خروج پله‌ای موفق برای تیکت " + (string)ticket + ": حجم بسته‌شده=" + DoubleToString(close_volume, 2));
-
-               // انتقال استاپ به نقطه ورود بعد از خروج پله‌ای (اگر پوزیشن هنوز وجود داشته باشد)
-               if(pos.SelectByTicket(ticket) && trade.PositionModify(ticket, entry_price, current_tp))
-                  if(InpEnableLogging) Print("استاپ‌لاس به نقطه ورود منتقل شد برای تیکت " + (string)ticket);
-            }
-         }
-      }
-      else // بدون خروج پله‌ای: وقتی به نسبت رسید، SL به entry
-      {
-         double sl_distance_price = MathAbs(entry_price - current_sl);
-         double breakeven_price = (pos_type == POSITION_TYPE_BUY) ? (entry_price + sl_distance_price * InpTakeProfitRatio_Stage1) :
-                                  (entry_price - sl_distance_price * InpTakeProfitRatio_Stage1);
-
-         double current_price = (pos_type == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-         if((pos_type == POSITION_TYPE_BUY && current_price >= breakeven_price) ||
-            (pos_type == POSITION_TYPE_SELL && current_price <= breakeven_price))
-         {
-            if(MathAbs(current_sl - entry_price) > 2 * _Point && pos.SelectByTicket(ticket) && trade.PositionModify(ticket, entry_price, current_tp))
-               if(InpEnableLogging) Print("استاپ‌لاس به نقطه ورود منتقل شد (بدون پله‌ای) برای تیکت " + (string)ticket);
-         }
-      }
-
-      // مدیریت ترایلینگ استاپ
-      double min_profit_price_buy = entry_price + InpMinTrailingProfitPips * _Point;
-      double min_profit_price_sell = entry_price - InpMinTrailingProfitPips * _Point;
-
-      double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-
-      bool is_profitable = (pos_type == POSITION_TYPE_BUY && current_bid >= min_profit_price_buy) ||
-                           (pos_type == POSITION_TYPE_SELL && current_ask <= min_profit_price_sell);
-
-      // اگر سود داشتیم یا استاپ به نقطه ورود رسیده بود، ترایلینگ رو شروع کن
-      if(is_profitable || MathAbs(current_sl - entry_price) < 2 * _Point)
-      {
-         double atr_buffer[1];
-         if(m_trail_atr_handle != INVALID_HANDLE && CopyBuffer(m_trail_atr_handle, 0, 1, 1, atr_buffer) == 1)
-         {
-            double atr_value = atr_buffer[0];
-            if(atr_value <= 0)
-            {
-               if(InpEnableLogging) Print("خطا: مقدار ATR نامعتبر برای ترایلینگ استاپ: " + DoubleToString(atr_value, _Digits));
-               return false;
-            }
-
-            // محاسبه offset بر اساس پوینت
-            double trail_offset_pips = atr_value * InpTrailingStopATRMultiplier / _Point;
-
-            double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-            double new_sl_buy = current_bid - trail_offset_pips * _Point;
-            double new_sl_sell = current_ask + trail_offset_pips * _Point;
-
-            // normalize SL به tick size
-            double new_sl = 0;
-            bool should_modify = false;
-
-            if(pos_type == POSITION_TYPE_BUY)
-            {
-               new_sl = MathRound(new_sl_buy / tick_size) * tick_size;
-               new_sl = NormalizeDouble(new_sl, _Digits);
-               new_sl = MathMax(new_sl, current_sl); // فقط به سمت بالا
-               if(new_sl > current_sl) should_modify = true;
-            }
-            else if(pos_type == POSITION_TYPE_SELL)
-            {
-               new_sl = MathRound(new_sl_sell / tick_size) * tick_size;
-               new_sl = NormalizeDouble(new_sl, _Digits);
-               new_sl = MathMin(new_sl, current_sl); // فقط به سمت پایین
-               if(new_sl < current_sl) should_modify = true;
-            }
-
-            if(should_modify)
-            {
-               if(pos.SelectByTicket(ticket) && trade.PositionModify(ticket, new_sl, current_tp))
-               {
-                  if(InpEnableLogging) Print("ترایلینگ استاپ به‌روزرسانی شد برای تیکت " + (string)ticket +
-                                            ": SL جدید=" + DoubleToString(new_sl, _Digits) +
-                                            ", ATR=" + DoubleToString(atr_value, _Digits));
-               }
-               else
-               {
-                  if(InpEnableLogging) Print("خطا در به‌روزرسانی ترایلینگ استاپ برای تیکت " + (string)ticket +
-                                            ": کد خطا=" + IntegerToString(trade.ResultRetcode()));
-               }
-            }
-         }
-         else
-         {
-            if(InpEnableLogging) Print("خطا در کپی بافر ATR یا هندل نامعتبر برای ترایلینگ استاپ.");
-         }
-      }
-      return true;
-   }
-
-   //+------------------------------------------------------------------+
-   //| تابع شناسایی محدوده‌های رنج                                   |
-//+------------------------------------------------------------------+
-   bool IdentifyRanges(datetime start_time, datetime end_time, RangeData &ranges[])
-   {
-      ArrayFree(ranges);
-      int start_bar_idx = iBarShift(_Symbol, m_timeframe, start_time, true);
-      int end_bar_idx = iBarShift(_Symbol, m_timeframe, end_time, true);
-      int bars_to_check = start_bar_idx - end_bar_idx + 1;
-
-      if(start_bar_idx < 0 || end_bar_idx < 0 || start_bar_idx < end_bar_idx || bars_to_check < InpMinConsecutiveCandles)
-      {
-         if(InpEnableLogging) Print("خطا در ایندکس بارها یا کندل ناکافی: شروع=" + IntegerToString(start_bar_idx) +
-                                   ", پایان=" + IntegerToString(end_bar_idx) + ", کندل‌ها=" + IntegerToString(bars_to_check));
-         return false;
-      }
-
-      if(InpUseIchimokuFilter)
-      {
-         int current_sequence = 0;
-         int sequence_start_idx = -1;
-         int range_count = 0;
-
-         for(int i = start_bar_idx; i >= end_bar_idx && range_count < InpMaxRanges; i--)
-         {
-            if(IsCandleInKumo(m_ichimoku_handle, i, m_timeframe) && IsKijunFlat(m_ichimoku_handle, i, m_timeframe))
-            {
-               if(current_sequence == 0) sequence_start_idx = i;
-               current_sequence++;
-            }
-            else
-            {
-               if(current_sequence >= InpMinConsecutiveCandles)
-               {
-                  ArrayResize(ranges, range_count + 1);
-                  int high_bar_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, current_sequence, sequence_start_idx);
-                  int low_bar_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, current_sequence, sequence_start_idx);
-                  ranges[range_count].rangeHigh = iHigh(_Symbol, m_timeframe, high_bar_idx);
-                  ranges[range_count].rangeLow = iLow(_Symbol, m_timeframe, low_bar_idx);
-                  ranges[range_count].rangeSizePips = (ranges[range_count].rangeHigh - ranges[range_count].rangeLow) / _Point;
-                  ranges[range_count].startTime = iTime(_Symbol, m_timeframe, sequence_start_idx);
-                  ranges[range_count].endTime = iTime(_Symbol, m_timeframe, sequence_start_idx - current_sequence + 1);
-                  ranges[range_count].isValid = (ranges[range_count].rangeSizePips >= InpMinRangePoints && ranges[range_count].rangeSizePips <= InpMaxRangePoints);
-                  range_count++;
-                  if(InpEnableLogging)
-                     Print("محدوده رنج " + IntegerToString(range_count) + ": High=" + DoubleToString(ranges[range_count-1].rangeHigh, _Digits) +
-                           ", Low=" + DoubleToString(ranges[range_count-1].rangeLow, _Digits) + ", اندازه=" + DoubleToString(ranges[range_count-1].rangeSizePips, 2) +
-                           ", معتبر=" + (ranges[range_count-1].isValid ? "بله" : "خیر"));
-               }
-               current_sequence = 0;
-            }
-         }
-
-         // چک sequence آخر
-         if(current_sequence >= InpMinConsecutiveCandles && range_count < InpMaxRanges)
-         {
-            ArrayResize(ranges, range_count + 1);
-            int high_bar_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, current_sequence, sequence_start_idx);
-            int low_bar_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, current_sequence, sequence_start_idx);
-            ranges[range_count].rangeHigh = iHigh(_Symbol, m_timeframe, high_bar_idx);
-            ranges[range_count].rangeLow = iLow(_Symbol, m_timeframe, low_bar_idx);
-            ranges[range_count].rangeSizePips = (ranges[range_count].rangeHigh - ranges[range_count].rangeLow) / _Point;
-            ranges[range_count].startTime = iTime(_Symbol, m_timeframe, sequence_start_idx);
-            ranges[range_count].endTime = iTime(_Symbol, m_timeframe, sequence_start_idx - current_sequence + 1);
-            ranges[range_count].isValid = (ranges[range_count].rangeSizePips >= InpMinRangePoints && ranges[range_count].rangeSizePips <= InpMaxRangePoints);
-            range_count++;
-            if(InpEnableLogging)
-               Print("محدوده رنج " + IntegerToString(range_count) + ": High=" + DoubleToString(ranges[range_count-1].rangeHigh, _Digits) +
-                     ", Low=" + DoubleToString(ranges[range_count-1].rangeLow, _Digits) + ", اندازه=" + DoubleToString(ranges[range_count-1].rangeSizePips, 2) +
-                     ", معتبر=" + (ranges[range_count-1].isValid ? "بله" : "خیر"));
-         }
-         return range_count > 0;
-      }
-      else
-      {
-         ArrayResize(ranges, 1);
-         int high_bar_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars_to_check, end_bar_idx);
-         int low_bar_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars_to_check, end_bar_idx);
-         ranges[0].rangeHigh = iHigh(_Symbol, m_timeframe, high_bar_idx);
-         ranges[0].rangeLow = iLow(_Symbol, m_timeframe, low_bar_idx);
-         ranges[0].rangeSizePips = (ranges[0].rangeHigh - ranges[0].rangeLow) / _Point;
-         ranges[0].startTime = start_time;
-         ranges[0].endTime = end_time;
-         ranges[0].isValid = (ranges[0].rangeSizePips >= InpMinRangePoints && ranges[0].rangeSizePips <= InpMaxRangePoints);
-
-         if(InpEnableLogging)
-            Print("محدوده رنج (غیرایچیموکو): High=" + DoubleToString(ranges[0].rangeHigh, _Digits) +
-                  ", Low=" + DoubleToString(ranges[0].rangeLow, _Digits) + ", اندازه=" + DoubleToString(ranges[0].rangeSizePips, 2) +
-                  ", معتبر=" + (ranges[0].isValid ? "بله" : "خیر"));
-         return ranges[0].isValid;
-      }
-   }
-
-   //+------------------------------------------------------------------+
-   //| تابع ادغام محدوده‌ها (با چک همپوشانی)                        |
-   //+------------------------------------------------------------------+
-  bool MergeRanges(RangeData &ranges[], RangeData &final_ranges[])
-{
-   ArrayFree(final_ranges);
-   if(ArraySize(ranges) == 0)
-   {
-      if(InpEnableLogging) Print("خطا: هیچ محدوده‌ای برای ادغام وجود ندارد.");
-      return false;
-   }
-
-   // مرتب‌سازی دستی بر اساس startTime
-   for(int i = 0; i < ArraySize(ranges) - 1; i++)
-   {
-      for(int j = 0; j < ArraySize(ranges) - i - 1; j++)
-      {
-         if(ranges[j].startTime > ranges[j + 1].startTime)
-         {
-            RangeData temp = ranges[j];
-            ranges[j] = ranges[j + 1];
-            ranges[j + 1] = temp;
-         }
-      }
-   }
-
-   ArrayCopy(final_ranges, ranges);
-   for(int i = 0; i < ArraySize(final_ranges) - 1; )
-   {
-      double range_size_pips = final_ranges[i + 1].rangeSizePips;
-      double tolerance_in_pips = range_size_pips * (InpMergeTolerancePercent / 100.0);
-      double high_diff_pips = MathAbs(final_ranges[i].rangeHigh - final_ranges[i + 1].rangeHigh) / _Point;
-      double low_diff_pips = MathAbs(final_ranges[i].rangeLow - final_ranges[i + 1].rangeLow) / _Point;
-
-      bool has_overlap = (final_ranges[i].rangeHigh > final_ranges[i + 1].rangeLow && final_ranges[i].rangeLow < final_ranges[i + 1].rangeHigh);
-      bool can_merge = has_overlap || (high_diff_pips <= tolerance_in_pips) || (low_diff_pips <= tolerance_in_pips);
-
-      if(can_merge)
-      {
-         RangeData merged_range;
-         merged_range.startTime = final_ranges[i].startTime;
-         merged_range.endTime = final_ranges[i + 1].endTime;
-         int start_idx = iBarShift(_Symbol, m_timeframe, merged_range.startTime, true);
-         int end_idx = iBarShift(_Symbol, m_timeframe, merged_range.endTime, true);
-         int bars = start_idx - end_idx + 1;
-         int high_idx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars, end_idx);
-         int low_idx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars, end_idx);
-         merged_range.rangeHigh = iHigh(_Symbol, m_timeframe, high_idx);
-         merged_range.rangeLow = iLow(_Symbol, m_timeframe, low_idx);
-         merged_range.rangeSizePips = (merged_range.rangeHigh - merged_range.rangeLow) / _Point;
-         merged_range.isValid = (merged_range.rangeSizePips >= InpMinRangePoints && merged_range.rangeSizePips <= InpMaxRangePoints);
-
-         final_ranges[i] = merged_range;
-         ArrayRemove(final_ranges, i + 1, 1);
-         if(InpEnableLogging)
-            Print("ادغام انجام شد: High=" + DoubleToString(merged_range.rangeHigh, _Digits) +
-                  ", Low=" + DoubleToString(merged_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(merged_range.rangeSizePips, 2));
-      }
-      else
-      {
-         i++;
-      }
-   }
-   return ArraySize(final_ranges) > 0;
-}
-   //+------------------------------------------------------------------+
-   //| تابع انتخاب محدوده نهایی                                      |
-   //+------------------------------------------------------------------+
-   bool SelectFinalRange(RangeData &ranges[], RangeData &final_range)
-   {
-      final_range.isValid = false;
-      if(ArraySize(ranges) == 0)
-      {
-         if(InpEnableLogging) Print("خطا: هیچ محدوده‌ای برای انتخاب نهایی وجود ندارد.");
-         return false;
-      }
-
-      double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-
-      // لوپ از جدیدترین به قدیمی‌ترین
-      for(int i = ArraySize(ranges) - 1; i >= 0; i--)
-      {
-         if(!ranges[i].isValid) continue;
-
-         double order_distance = 0.0;
-         if(InpRangeFilterMode == MODE_POINTS)
-            order_distance = InpMinRangePoints * _Point;
-         else
-         {
-            double atr_buffer[1];
-            if(CopyBuffer(m_placement_atr_handle, 0, 1, 1, atr_buffer) == 1)
-               order_distance = atr_buffer[0] * InpAtrMultiplier_Placement;
-            else
-            {
-               if(InpEnableLogging) Print("خطا در کپی بافر ATR برای محاسبه order_distance.");
-               continue;
-            }
-         }
-
-         // حداقل فاصله برای جلوگیری از breakout کاذب
-         order_distance = MathMax(order_distance, 10 * _Point);
-
-         double buy_stop_price = ranges[i].rangeHigh + order_distance;
-         double sell_stop_price = ranges[i].rangeLow - order_distance;
-
-         if(current_ask < buy_stop_price && current_bid > sell_stop_price)
-         {
-            final_range = ranges[i];
-            if(InpEnableLogging)
-               Print("محدوده نهایی انتخاب شد: High=" + DoubleToString(final_range.rangeHigh, _Digits) +
-                     ", Low=" + DoubleToString(final_range.rangeLow, _Digits) + ", اندازه=" + DoubleToString(final_range.rangeSizePips, 2));
-            return true;
-         }
-      }
-      if(InpEnableLogging) Print("هیچ محدوده‌ای انتخاب نشد: قیمت از سطوح ورود عبور کرده است.");
-      return false;
-   }
-
-   //+------------------------------------------------------------------+
-   //| تابع تحلیل و ثبت سفارشات                                      |
-   //+------------------------------------------------------------------+
-   void AnalyzeAndPlaceOrders(datetime start_time, datetime end_time, datetime expiry_time)
-   {
-      RangeData ranges[];
-      if(!IdentifyRanges(start_time, end_time, ranges))
-      {
-         if(InpEnableLogging) Print("هیچ محدوده معتبری شناسایی نشد برای جلسه " + (string)m_magic_number);
-         return;
-      }
-
-      RangeData final_ranges[];
-      RangeData final_range;
-      if(InpUseIchimokuFilter)
-      {
-         if(!MergeRanges(ranges, final_ranges))
-         {
-            if(InpEnableLogging) Print("ادغام محدوده‌ها ناموفق بود برای جلسه " + (string)m_magic_number);
-            return;
-         }
-         if(!SelectFinalRange(final_ranges, final_range))
-         {
-            if(InpEnableLogging) Print("هیچ محدوده نهایی انتخاب نشد برای جلسه " + (string)m_magic_number);
-            return;
-         }
-      }
-      else
-      {
-         final_range = ranges[0];
-      }
-
-      if(!final_range.isValid)
-      {
-         if(InpEnableLogging) Print("محدوده نهایی نامعتبر است برای جلسه " + (string)m_magic_number);
-         return;
-      }
-
-      DrawRangeOnChart(final_range, m_magic_number);
-
-      bool is_trend_on = InpTrendFilterIsOn;
-      bool is_uptrend = false;
-      if(is_trend_on)
-      {
-         double ema_buffer[1];
-         if(CopyBuffer(m_ema_handle, 0, 1, 1, ema_buffer) == 1)
-         {
-            double current_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-            is_uptrend = current_price > ema_buffer[0];
-            if(InpEnableLogging)
-               Print("روند: " + (is_uptrend ? "صعودی" : "نزولی") + ", قیمت=" + DoubleToString(current_price, _Digits) +
-                     ", EMA=" + DoubleToString(ema_buffer[0], _Digits));
-         }
-         else
-         {
-            if(InpEnableLogging) Print("خطا در کپی بافر EMA برای جلسه " + (string)m_magic_number);
-            return;
-         }
-      }
-
-      double order_distance = 0.0;
-      if(InpRangeFilterMode == MODE_POINTS)
-         order_distance = InpMinRangePoints * _Point;
-      else
-      {
-         double atr_buffer[1];
-         if(CopyBuffer(m_placement_atr_handle, 0, 1, 1, atr_buffer) == 1)
-            order_distance = atr_buffer[0] * InpAtrMultiplier_Placement;
-         else
-         {
-            if(InpEnableLogging) Print("خطا در کپی بافر ATR برای جلسه " + (string)m_magic_number);
-            return;
-         }
-      }
-
-      double buy_stop_price = final_range.rangeHigh + order_distance;
-      double sell_stop_price = final_range.rangeLow - order_distance;
-
-      double current_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double current_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      if((is_trend_on && is_uptrend && current_ask >= buy_stop_price) ||
-         (is_trend_on && !is_uptrend && current_bid <= sell_stop_price) ||
-         (!is_trend_on && (current_ask >= buy_stop_price || current_bid <= sell_stop_price)))
-      {
-         if(InpEnableLogging) Print("قیمت از سطوح سفارش عبور کرده است. سفارشی ثبت نمی‌شود.");
-         return;
-      }
-
-      PlacePendingOrders(m_magic_number, is_trend_on, is_uptrend, final_range, buy_stop_price, sell_stop_price, expiry_time);
-   }
-};
-
-#endif // SESSIONTRADER_MQH
-
-
-
+ 
+
+### سند رسمی پیاده‌سازی اکسپرت معاملاتی Elemento
+
+#### بخش اول: توضیح روان و خودمانی
+اکسپرت **Elemento** یه ربات معاملاتی خودکار برای متاتریدر ۵ هست که بر اساس استراتژی شکست رنج‌های زمانی (Time-Range Breakout) طراحی شده. این اکسپرت می‌تونه تا ۴ بازه زمانی (رنج) مستقل رو به‌صورت همزمان مدیریت کنه، انگار که ۴ معامله‌گر جداگونه دارن روی چارت کار می‌کنن! هر رنج یه بازه زمانی مشخص داره (مثل ۲۳:۰۰ تا ۴:۰۰ صبح) که توش فقط قیمت‌ها رو نگاه می‌کنه و هیچ کاری نمی‌کنه تا بازه تموم بشه. بعد از تموم شدن بازه، اکسپرت سقف و کف قیمت تو اون بازه رو پیدا می‌کنه و چک می‌کنه که آیا این رنج "کیفیت" خوبی داره یا نه (یعنی فاصله بین سقف و کفش بین حداقل و حداکثر مجاز باشه، مثلاً ۵۰ تا ۵۰۰ پوینت).
+
+اگه رنج کیفیتش خوب باشه، اکسپرت دوتا سفارش شرطی می‌ذاره:
+- یه **Buy Stop** یه کم بالاتر از سقف رنج.
+- یه **Sell Stop** یه کم پایین‌تر از کف رنج.
+
+فاصله این سفارش‌ها از سقف و کف می‌تونه بر اساس اندیکاتور ATR یا یه درصد از ارتفاع رنج تنظیم بشه. به محض اینکه یکی از این سفارش‌ها فعال بشه (مثلاً قیمت به Buy Stop برسه و معامله خرید باز بشه)، سفارش مخالف (Sell Stop) فوراً لغو می‌شه تا فقط یه معامله باز بمونه.
+
+مدیریت معامله هم خیلی حرفه‌ایه:
+- **حجم معامله**: اکسپرت حجم رو طوری محاسبه می‌کنه که ضرر احتمالی همیشه یه درصد ثابت از حساب (مثل ۱٪) باشه.
+- **خروج پله‌ای**: اگه معامله سود بده و به یه نسبت مشخص (مثل ۱.۵ برابر فاصله استاپ لاس) برسه، نصف معامله (یا هر درصدی که کاربر گفته) بسته می‌شه و استاپ لاس بقیه معامله به نقطه ورود می‌ره (ریسک‌فری).
+- **تریلینگ استاپ**: بعد از ریسک‌فری، اکسپرت استاپ لاس رو پشت قیمت حرکت می‌ده تا سود بیشتری جمع کنه.
+- **پاکسازی**: هر رنج یه زمان انقضا داره (مثل ۵ ساعت بعد از پایان رنج). وقتی به این زمان برسه، همه پوزیشن‌ها و سفارش‌های باز مربوط به اون رنج بسته می‌شن. اگه هم به تعطیلات آخر هفته یا تعطیلی بازار نزدیک بشیم، همه چیز قبلش پاکسازی می‌شه.
+
+هر رنج یه مستطیل رنگی روی چارت رسم می‌کنه تا کاربر بتونه راحت ببینتش، و این مستطیل تو زمان پاکسازی حذف می‌شه. تمام تنظیمات (مثل ساعت شروع و پایان، تایم‌فریم، رنگ، و غیره) برای هر رنج جداگونه قابل تنظیمه. کد هم طوری نوشته می‌شه که بهینه باشه، با متاتریدر ۵ کاملاً هماهنگ باشه، و بتونه تو آینده روی چند جفت ارز کار کنه بدون نیاز به تغییرات زیاد.
+
+---
+
+#### بخش دوم: معماری فنی و الگوریتمی
+
+##### ۱. ساختار فایل‌ها
+برای تمیز و ماژولار بودن کد، پروژه به چند فایل تقسیم می‌شه:
+- **Elemento.mq5**: فایل اصلی که نقش "رهبر ارکستر" رو داره. مدیریت کلی، مقداردهی اولیه، و فراخوانی توابع رنج‌ها رو انجام می‌ده.
+- **Settings.mqh**: کتابخانه تنظیمات با گروه‌بندی منظم برای کاربرپسندی:
+  - **General Settings**:
+    - `BaseMagicNumber` (برای تخصیص مجیک نامبرها: Base, Base+1, Base+2, Base+3)
+    - `RiskPercent` (مثل ۱٪ برای محاسبه حجم معامله)
+  - **Range X Settings** (برای هر رنج، X=1,2,3,4):
+    - `Range_Start_Hour` (enum: 0-23), `Range_Start_Minute` (enum: 0-59)
+    - `Range_End_Hour` (enum: 0-23), `Range_End_Minute` (enum: 0-59)
+    - `Range_Execution_Timeframe` (enum: M1, M5, M15, H1, etc.)
+    - `MinRangePoints`, `MaxRangePoints` (برای فیلتر کیفیت رنج)
+    - `Placement_Mode` (enum: ATR, Percent), `ATR_Period`, `ATR_Multiplier` (برای سفارش‌های پندینگ)
+    - `SL_Mode` (enum: ATR, Percent), `SL_ATR_Period`, `SL_ATR_Multiplier` (برای استاپ لاس)
+    - `Trailing_Mode` (enum: ATR, Simple), `Trailing_ATR_Period`, `Trailing_ATR_Multiplier` (برای تریلینگ استاپ)
+    - `RR_Ratio` (مثل ۱.۵ برای خروج پله‌ای), `PartialClosePercent` (مثل ۵۰٪)
+    - `Cleanup_Hours` (enum: 0-24, برای زمان انقضا)
+    - `Range_Color` (برای رنگ مستطیل گرافیکی)
+- **CRange.mqh**: کلاس اصلی برای مدیریت هر رنج به‌صورت مستقل.
+- **Libraries/**:
+  - **TradeManager.mqh**: شامل توابع مدیریت معاملات:
+    - `TrailingStop()`: مدیریت تریلینگ استاپ با تیکت پوزیشن.
+    - `PartialClose()`: بستن بخشی از پوزیشن با نرمالایز حجم.
+  - **RiskManager.mqh**:
+    - `CalculateLotSize()`: محاسبه حجم معامله.
+  - **TimeHelper.mqh**: توابع کمکی برای مدیریت زمان (مثل تبدیل ساعت به datetime، بررسی تعطیلات).
+
+##### ۲. کلاس CRange
+این کلاس قلب تپنده اکسپرته و هر رنج رو به‌صورت یه واحد مستقل مدیریت می‌کنه.
+
+###### Properties (متغیرها):
+- **ورودی‌ها**: تمام تنظیمات از Settings.mqh (مثل ساعت‌ها، تایم‌فریم، رنگ، مجیک نامبر، تنظیمات ATR).
+- **داخلی**:
+  - `m_rangeHigh`, `m_rangeLow`: سقف و کف رنج.
+  - `m_cleanupTime`: زمان انقضا (EndTime + CleanupHours * 3600).
+  - `m_currentState`: enum با حالت‌های WAITING, IDENTIFIED, ORDERS_PLACED, TRADE_ACTIVE, EXPIRED.
+  - `m_magicNumber`: مجیک نامبر اختصاصی رنج.
+  - `m_rangeObjectName`: نام مستطیل گرافیکی.
+
+###### Methods (توابع):
+1. **UpdateOnNewBar()**:
+   - روی هر کندل جدید (در تایم‌فریم رنج) فراخوانی می‌شه.
+   - بر اساس `m_currentState` یکی از توابع زیر رو اجرا می‌کنه:
+     - WAITING → IdentifyAndValidateRange()
+     - IDENTIFIED → PlacePendingOrders()
+     - ORDERS_PLACED یا TRADE_ACTIVE → ManageActiveTrade()
+     - EXPIRED یا هر حالت → Cleanup() (اگر زمان انقضا رسیده باشه)
+
+2. **IdentifyAndValidateRange()**:
+   - **ورودی**: هیچی (از متغیرهای داخلی استفاده می‌کنه).
+   - **منطق**:
+     - بررسی `TimeCurrent() > Range_End_Time` و `m_currentState == WAITING`.
+     - با `iHighest` و `iLowest` در `Range_Execution_Timeframe`، سقف (`m_rangeHigh`) و کف (`m_rangeLow`) رو محاسبه می‌کنه.
+     - ارتفاع رنج (`m_rangeHigh - m_rangeLow`) رو با `MinRangePoints` و `MaxRangePoints` مقایسه می‌کنه.
+     - اگه رنج بی‌کیفیت باشه، `m_currentState = EXPIRED` و خارج می‌شه.
+     - اگه معتبر باشه:
+       - مستطیل گرافیکی با `Range_Color` و نام منحصربه‌فرد رسم می‌کنه.
+       - `m_currentState = IDENTIFIED`.
+   - **لاگ**: ثبت نتیجه اعتبارسنجی در لاگ.
+
+3. **PlacePendingOrders()**:
+   - **شرط اجرا**: `m_currentState == IDENTIFIED`.
+   - **منطق**:
+     - محاسبه فاصله سفارش‌ها:
+       - اگر `Placement_Mode == ATR`: فاصله = `ATR_Period` * `ATR_Multiplier`.
+       - اگر `Placement_Mode == Percent`: فاصله = درصد از ارتفاع رنج.
+     - محاسبه قیمت‌ها:
+       - `buyStopPrice = m_rangeHigh + فاصله`
+       - `sellStopPrice = m_rangeLow - فاصله`
+       - استاپ لاس با `SL_Mode` (ATR یا Percent) محاسبه می‌شه.
+     - محاسبه `m_cleanupTime = Range_End_Time + CleanupHours * 3600`.
+     - ثبت دو سفارش پندینگ با `m_magicNumber` و انقضا در `m_cleanupTime`.
+     - نرمال‌سازی قیمت‌ها با `NormalizeDouble` و حجم با `CalculateLotSize()`.
+     - تغییر `m_currentState = ORDERS_PLACED`.
+   - **لاگ**: ثبت نتیجه ثبت سفارش‌ها.
+
+4. **ManageActiveTrade()**:
+   - **شرط اجرا**: `m_currentState == ORDERS_PLACED` یا `TRADE_ACTIVE`.
+   - **منطق**:
+     - پیدا کردن پوزیشن باز با `m_magicNumber`.
+     - **خروج پله‌ای**:
+       - بررسی سود فعلی با `RR_Ratio` (مثل ۱.۵ برابر فاصله استاپ لاس).
+       - محاسبه حجم بسته شدن (`PartialClosePercent`) و نرمالایز با `SYMBOL_VOLUME_STEP`.
+       - اگر حجم باقی‌مانده کمتر از `SYMBOL_VOLUME_MIN` بشه، کل پوزیشن بسته می‌شه.
+       - انتقال استاپ لاس به نقطه ورود (ریسک‌فری).
+       - فعال‌سازی فلگ تریلینگ استاپ.
+     - **تریلینگ استاپ**:
+       - اگر فلگ فعال باشه، `TrailingStop()` از TradeManager.mqh با تیکت پوزیشن، `Trailing_Mode`، و `Trailing_ATR_Multiplier` فراخوانی می‌شه.
+       - ATR از `Range_Execution_Timeframe` محاسبه می‌شه.
+     - تغییر `m_currentState = TRADE_ACTIVE` (اگر پوزیشن باز باشه).
+   - **لاگ**: ثبت تمام اقدامات (بستن، ریسک‌فری، تریلینگ).
+
+5. **Cleanup()**:
+   - **شرط اجرا**: `TimeCurrent() > m_cleanupTime` یا نزدیک شدن به تعطیلات.
+   - **منطق**:
+     - بستن تمام پوزیشن‌های باز با `m_magicNumber`.
+     - حذف تمام سفارش‌های پندینگ با `m_magicNumber`.
+     - حذف مستطیل گرافیکی (`m_rangeObjectName`).
+     - ریست `m_currentState = WAITING` برای روز بعد.
+   - **لاگ**: ثبت نتیجه پاکسازی.
+
+##### ۳. منطق اجرایی اصلی (Elemento.mq5)
+- **OnInit()**:
+  - ایجاد آرایه `CRange g_ranges[4]`.
+  - مقداردهی هر رنج با تنظیمات از `Settings.mqh` و تخصیص `m_magicNumber` (BaseMagicNumber + i).
+  - ایجاد آرایه برای ذخیره زمان آخرین کندل هر تایم‌فریم.
+  - ایجاد هندل‌های ATR برای هر رنج (یک‌بار برای هر ترکیب تایم‌فریم/سیمبل).
+  - بررسی صحت تنظیمات (مثل اطمینان از غیرتکراری بودن مجیک نامبرها).
+  - **لاگ**: ثبت موفقیت یا خطای مقداردهی.
+
+- **OnTick()**:
+  - حلقه روی `g_ranges` برای هر رنج.
+  - بررسی کندل جدید با مقایسه `TimeCurrent()` و زمان آخرین کندل ذخیره‌شده برای `Range_Execution_Timeframe`.
+  - اگر کندل جدید باشه:
+    - فراخوانی `g_ranges[i].UpdateOnNewBar()`.
+    - آپدیت زمان آخرین کندل.
+  - **لاگ**: ثبت تشخیص کندل جدید.
+
+- **OnTradeTransaction()**:
+  - تشخیص رویداد `DEAL_ENTRY_IN` و خواندن مجیک نامبر معامله جدید.
+  - پیدا کردن رنج مربوطه (`g_ranges[i]`) با `m_magicNumber`.
+  - حذف سفارش پندینگ مخالف (OCO).
+  - **لاگ**: ثبت حذف سفارش مخالف.
+
+- **OnDeinit()**:
+  - آزادسازی هندل‌های اندیکاتورها (`IndicatorRelease`).
+  - پاکسازی تمام اشیاء گرافیکی.
+  - **لاگ**: ثبت موفقیت دفع مقداردهی.
+
+##### ۴. نکات کلیدی و هشدارهای پیاده‌سازی
+- **مدیریت مجیک نامبر**:
+  - هر رنج یه `m_magicNumber` منحصربه‌فرد داره (BaseMagicNumber + i).
+  - برای مدیریت معاملات (مثل تریلینگ یا بستن)، از تیکت استفاده می‌شه.
+- **نرمال‌سازی**:
+  - قیمت‌ها با `NormalizeDouble` (با توجه به `SYMBOL_TRADE_TICK_SIZE`).
+  - حجم‌ها با `SYMBOL_VOLUME_STEP` و `SYMBOL_VOLUME_MIN`.
+- **مدیریت زمان**:
+  - برای رنج‌های شبانه (مثل ۲۳:۰۰ تا ۶:۰۰)، از `datetime` و `TimeTradeServer()` برای تشخیص روز بعد استفاده می‌شه.
+  - بررسی تعطیلات با `SYMBOL_TRADE_MODE` یا سرور تایم.
+- **بررسی خطا**:
+  - تمام درخواست‌های معاملاتی (`OrderSend`, `PositionClose`, etc.) با بررسی `trade.ResultRetcode()` و ثبت خطاها در لاگ.
+- **پاکسازی تعطیلات**:
+  - قبل از تعطیلات (جمعه عصر یا تعطیلات بازار)، تمام پوزیشن‌ها و سفارش‌ها بسته می‌شن.
+- **گرافیک**:
+  - مستطیل هر رنج با `Range_Color` رسم و در `Cleanup()` حذف می‌شه.
+  - نام اشیاء گرافیکی منحصربه‌فرد (مثل "Range_X_" + TimeToString(TimeCurrent())).
+- **ورودی‌های enum**:
+  - ساعت‌ها، دقیقه‌ها، و `Cleanup_Hours` به‌صورت enum (0-23 یا 0-59) برای کاربرپسندی.
+- **پشتیبانی چند جفت ارز**:
+  - طراحی با آرایه‌های پویا (`CArrayObj`) برای اضافه کردن جفت ارزها در آینده.
+- **لاگ‌گذاری**:
+  - استفاده از `Print()` و `Comment()` برای ثبت تمام رویدادهای حساس (اعتبارسنجی، ثبت سفارش، خطاها).
+
+##### ۵. پیشنهادات بهینه‌سازی
+- **کش کردن داده‌ها**: ذخیره مقادیر `SymbolInfoDouble` (مثل `SYMBOL_TRADE_TICK_VALUE`) در `OnInit()` برای کاهش فراخوانی‌ها.
+- **مدیریت منابع**: ایجاد یک‌بار هندل اندیکاتورها در `OnInit()` و آزادسازی در `OnDeinit()`.
+- **دیباگ آسان**: افزودن لاگ فایل جداگانه برای ثبت تمام رویدادها.
+- **انعطاف‌پذیری**: استفاده از `CArrayObj` برای مدیریت پویای رنج‌ها و جفت ارزها.
+- **بررسی تایم‌فریم‌ها**: اطمینان از عدم تداخل تایم‌فریم‌ها با استفاده از آرایه زمان آخرین کندل.
+
+##### ۶. الگوریتم‌های کلیدی
+- **محاسبه حجم معامله (CalculateLotSize)**:
+  ```
+  LotSize = (RiskPercent * AccountBalance) / (SL_Distance * TickValue)
+  ```
+  - `RiskPercent`: از ورودی‌ها (مثل ۱٪).
+  - `AccountBalance`: از `AccountBalance()`.
+  - `SL_Distance`: فاصله استاپ لاس به پوینت (نرمالایز شده).
+  - `TickValue`: از `SymbolInfoDouble(SYMBOL_TRADE_TICK_VALUE)`.
+  - نرمال‌سازی با `SYMBOL_VOLUME_STEP` و `SYMBOL_VOLUME_MIN`.
+
+- **تریلینگ استاپ**:
+  - اگر `Trailing_Mode == ATR`:
+    - محاسبه فاصله = `Trailing_ATR_Multiplier` * ATR(`Trailing_ATR_Period`, `Range_Execution_Timeframe`).
+    - آپدیت استاپ لاس با تیکت پوزیشن.
+  - اگر `Trailing_Mode == Simple`:
+    - فاصله ثابت (از ورودی‌ها) پشت قیمت حرکت می‌کنه.
+
+- **زمان‌بندی رنج‌های شبانه**:
+  - تبدیل `Range_Start_Hour/Minute` و `Range_End_Hour/Minute` به `datetime` با `TimeHelper.mqh`.
+  - اگر `Range_End_Hour` کمتر از `Range_Start_Hour` باشه، روز بعد در نظر گرفته می‌شه.
+
+---
