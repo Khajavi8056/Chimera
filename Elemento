@@ -18,11 +18,12 @@
 // - OnDeinit: آزادسازی هندل‌ها و پاکسازی گرافیک‌ها.
 // بهینه‌سازی‌ها: لاگ conditional با InpDebugMode، کش ATR در CRange، normalize دقیق حجم/قیمت.
 // اصلاحات: اضافه enabled برای رنج‌ها، چک tester برای IsMarketClosed، لاگ بدون تکرار.
+// تغییرات نسخه 1.50: ولیدیشن و پاس دادن تنظیمات ایچیموکو به CRange.Init.
 // این کامنت بخشی از سند کلی است: با کامنت‌های دیگر فایل‌ها، معماری کامل (ساختار فایل‌ها، کلاس‌ها، توابع مدیریت معاملات، ریسک، زمان) را توصیف می‌کند. پروژه ماژولار است برای نگهداری آسان.
 
 #property copyright "Copyright 2025, Hipoalgorithm Team"
 #property link      "https://hipoalgorithm.com"
-#property version   "1.01"
+#property version   "1.50"
 #property strict
 
 // شامل کردن کتابخانه‌ها
@@ -77,6 +78,21 @@ int OnInit()
    {
       Print("خطا: RiskPercent باید بین 0.1 تا 5.0 باشد.");
       return(INIT_PARAMETERS_INCORRECT);
+   }
+
+   // ولیدیشن تنظیمات ایچیموکو
+   if(InpIchimoku_Enabled)
+   {
+      if(InpIchimoku_Tenkan_Period <= 0 || InpIchimoku_Kijun_Period <= 0 || InpIchimoku_Senkou_Period <= 0 || InpIchimoku_Shift <= 0)
+      {
+         Print("خطا: دوره‌های ایچیموکو باید بزرگتر از صفر باشند.");
+         return(INIT_PARAMETERS_INCORRECT);
+      }
+      if(InpIchimoku_Tenkan_Period >= InpIchimoku_Kijun_Period || InpIchimoku_Kijun_Period >= InpIchimoku_Senkou_Period)
+      {
+         Print("خطا: ترتیب دوره‌های ایچیموکو باید Tenkan < Kijun < Senkou باشد.");
+         return(INIT_PARAMETERS_INCORRECT);
+      }
    }
 
    // مقداردهی ۴ رنج با تنظیمات مربوطه (فقط اگر فعال باشند)
@@ -140,7 +156,12 @@ int OnInit()
          i == 0 ? InpRange1_PartialClosePercent : i == 1 ? InpRange2_PartialClosePercent : i == 2 ? InpRange3_PartialClosePercent : InpRange4_PartialClosePercent,
          i == 0 ? InpRange1_Cleanup_Hours : i == 1 ? InpRange2_Cleanup_Hours : i == 2 ? InpRange3_Cleanup_Hours : InpRange4_Cleanup_Hours,
          i == 0 ? InpRange1_Color : i == 1 ? InpRange2_Color : i == 2 ? InpRange3_Color : InpRange4_Color,
-         g_atrHandles[i] // هندل ATR shared
+         g_atrHandles[i], // هندل ATR shared
+         InpIchimoku_Enabled, // فعال بودن فیلتر ایچیموکو
+         InpIchimoku_Tenkan_Period,
+         InpIchimoku_Kijun_Period,
+         InpIchimoku_Senkou_Period,
+         InpIchimoku_Shift
       ))
       {
          Print("خطا در مقداردهی رنج ", i + 1, ": ", GetLastError());
@@ -159,7 +180,7 @@ int OnInit()
 }
 
 //+------------------------------------------------------------------+
-//| Expert deinitialization function                                   |
+//| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
@@ -216,7 +237,7 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTradeTransaction(const MqlTradeTransaction& trans, const MqlTradeRequest& request, const MqlTradeResult& result)
 {
-   if(trans.type == TRADE_TRANSACTION_DEAL_ADD && trans.deal== DEAL_ENTRY_IN)
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD && trans.deal == DEAL_ENTRY_IN)
    {
       if(HistoryDealSelect(trans.deal))
       {
@@ -226,7 +247,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans, const MqlTradeRequest&
             bool enabled = i == 0 ? InpRange1_Enabled : i == 1 ? InpRange2_Enabled : i == 2 ? InpRange3_Enabled : InpRange4_Enabled;
             if(enabled && magic == g_ranges[i].GetMagicNumber())
             {
-               Print("معامله جدید برای رنج ", i + 1, " باز شد. لغو سفارش مخالف...");
+               if(InpDebugMode) Print("معامله جدید برای رنج ", i + 1, " باز شد. لغو سفارش مخالف...");
                g_ranges[i].CancelOppositeOrder();
                break;
             }
@@ -234,8 +255,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans, const MqlTradeRequest&
       }
    }
 }
-
-
 
 
 
@@ -250,8 +269,11 @@ void OnTradeTransaction(const MqlTradeTransaction& trans, const MqlTradeRequest&
 // توضیح روان و کامل:
 // این فایل شامل تمام تنظیمات ورودی اکسپرت Elemento است. تنظیمات به‌صورت گروه‌بندی شده برای کاربرپسندی تعریف شده‌اند:
 // - General Settings: تنظیمات عمومی مثل مجیک نامبر پایه، درصد ریسک، و حالت دیباگ.
-// - Range X Settings: تنظیمات اختصاصی برای هر رنج (1 تا 4)، شامل فعال/غیرفعال، زمان شروع و پایان، تایم‌فریم، فیلترهای رنج، تنظیمات ATR، و غیره.
+// - Range X Settings: تنظیمات اختصاصی برای هر رنج (۱ تا ۴)، شامل فعال/غیرفعال، زمان شروع و پایان، تایم‌فریم، فیلترهای رنج، تنظیمات ATR، رنگ مستطیل، و غیره.
+// - Ichimoku Filter Settings: تنظیمات عمومی فیلتر ایچیموکو (فعال/غیرفعال، دوره‌های تنکان/کیجون/سنکو، شیفت آینده).
 // تمام ورودی‌ها به‌صورت enum یا مقادیر محدود برای جلوگیری از خطای کاربر تعریف شده‌اند.
+// نسخه ۱.۵۰ تغییرات جدید:
+// ۱. اضافه شدن گروه تنظیمات ایچیموکو با ورودی‌های Enabled, Tenkan_Period, Kijun_Period, Senkou_Period, Shift.
 // این فایل فقط برای تعریف متغیرهای ورودی است و هیچ منطق اجرایی ندارد.
 // کامنت‌های ورودی‌ها فارسی هستند برای وضوح.
 // این کامنت بخشی از سند کلی است: توصیف تمام ورودی‌ها و enumها برای پیکربندی اکسپرت.
@@ -281,106 +303,116 @@ enum ENUM_TRAILING_MODE
 // تنظیمات عمومی
 input group "تنظیمات عمومی"
 input long InpBaseMagicNumber = 123456; // مجیک نامبر پایه (برای تخصیص منحصربه‌فرد به رنج‌ها)
-input double InpRiskPercent = 1.0; // درصد ریسک (0.1 تا 5.0 برای محاسبه حجم معامله)
+input double InpRiskPercent = 1.0; // درصد ریسک (۰.۱ تا ۵.۰ برای محاسبه حجم معامله)
 input bool InpDebugMode = true; // حالت دیباگ (فعال برای لاگ‌گذاری بیشتر)
 
+// تنظیمات فیلتر ایچیموکو
+input group "تنظیمات فیلتر ایچیموکو"
+input bool InpIchimoku_Enabled = false; // فعال کردن فیلتر ایچیموکو
+input int InpIchimoku_Tenkan_Period = 9; // دوره تنکان‌سن (پیش‌فرض ۹)
+input int InpIchimoku_Kijun_Period = 26; // دوره کیجون‌سن (پیش‌فرض ۲۶)
+input int InpIchimoku_Senkou_Period = 52; // دوره سنکو اسپن B (پیش‌فرض ۵۲)
+input int InpIchimoku_Shift = 26; // شیفت آینده برای ابر (پیش‌فرض ۲۶)
+
 // تنظیمات رنج ۱
-input group "تنظیمات رنج 1"
-input bool InpRange1_Enabled = true; // فعال کردن رنج 1
-input ENUM_TIMEFRAMES InpRange1_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج 1
-input int InpRange1_Start_Hour = 23; // ساعت شروع رنج 1 (0-23)
-input int InpRange1_Start_Minute = 0; // دقیقه شروع رنج 1 (0-59)
-input int InpRange1_End_Hour = 4; // ساعت پایان رنج 1 (0-23)
-input int InpRange1_End_Minute = 0; // دقیقه پایان رنج 1 (0-59)
-input int InpRange1_MinRangePoints = 50; // حداقل ارتفاع رنج 1 به پوینت
-input int InpRange1_MaxRangePoints = 500; // حداکثر ارتفاع رنج 1 به پوینت
-input ENUM_PLACEMENT_MODE InpRange1_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج 1
-input int InpRange1_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج 1
-input double InpRange1_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج 1
-input ENUM_SL_MODE InpRange1_SL_Mode = SL_ATR; // حالت استاپ لاس رنج 1
-input int InpRange1_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج 1
-input double InpRange1_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج 1
-input ENUM_TRAILING_MODE InpRange1_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج 1
-input int InpRange1_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج 1
-input double InpRange1_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج 1
-input double InpRange1_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج 1
-input double InpRange1_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج 1
-input int InpRange1_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج 1 (0-24)
-input color InpRange1_Color = clrBlue; // رنگ مستطیل رنج 1
+input group "تنظیمات رنج ۱"
+input bool InpRange1_Enabled = true; // فعال کردن رنج ۱
+input ENUM_TIMEFRAMES InpRange1_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج ۱
+input int InpRange1_Start_Hour = 23; // ساعت شروع رنج ۱ (۰-۲۳)
+input int InpRange1_Start_Minute = 0; // دقیقه شروع رنج ۱ (۰-۵۹)
+input int InpRange1_End_Hour = 4; // ساعت پایان رنج ۱ (۰-۲۳)
+input int InpRange1_End_Minute = 0; // دقیقه پایان رنج ۱ (۰-۵۹)
+input int InpRange1_MinRangePoints = 50; // حداقل ارتفاع رنج ۱ به پوینت
+input int InpRange1_MaxRangePoints = 500; // حداکثر ارتفاع رنج ۱ به پوینت
+input ENUM_PLACEMENT_MODE InpRange1_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج ۱
+input int InpRange1_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج ۱
+input double InpRange1_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج ۱
+input ENUM_SL_MODE InpRange1_SL_Mode = SL_ATR; // حالت استاپ لاس رنج ۱
+input int InpRange1_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج ۱
+input double InpRange1_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج ۱
+input ENUM_TRAILING_MODE InpRange1_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج ۱
+input int InpRange1_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج ۱
+input double InpRange1_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج ۱
+input double InpRange1_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج ۱
+input double InpRange1_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج ۱
+input int InpRange1_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج ۱ (۰-۲۴)
+input color InpRange1_Color = clrBlue; // رنگ مستطیل رنج ۱
 
 // تنظیمات رنج ۲
-input group "تنظیمات رنج 2"
-input bool InpRange2_Enabled = true; // فعال کردن رنج 2
-input ENUM_TIMEFRAMES InpRange2_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج 2
-input int InpRange2_Start_Hour = 23; // ساعت شروع رنج 2 (0-23)
-input int InpRange2_Start_Minute = 0; // دقیقه شروع رنج 2 (0-59)
-input int InpRange2_End_Hour = 4; // ساعت پایان رنج 2 (0-23)
-input int InpRange2_End_Minute = 0; // دقیقه پایان رنج 2 (0-59)
-input int InpRange2_MinRangePoints = 50; // حداقل ارتفاع رنج 2 به پوینت
-input int InpRange2_MaxRangePoints = 500; // حداکثر ارتفاع رنج 2 به پوینت
-input ENUM_PLACEMENT_MODE InpRange2_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج 2
-input int InpRange2_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج 2
-input double InpRange2_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج 2
-input ENUM_SL_MODE InpRange2_SL_Mode = SL_ATR; // حالت استاپ لاس رنج 2
-input int InpRange2_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج 2
-input double InpRange2_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج 2
-input ENUM_TRAILING_MODE InpRange2_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج 2
-input int InpRange2_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج 2
-input double InpRange2_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج 2
-input double InpRange2_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج 2
-input double InpRange2_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج 2
-input int InpRange2_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج 2 (0-24)
-input color InpRange2_Color = clrRed; // رنگ مستطیل رنج 2
+input group "تنظیمات رنج ۲"
+input bool InpRange2_Enabled = false; // فعال کردن رنج ۲
+input ENUM_TIMEFRAMES InpRange2_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج ۲
+input int InpRange2_Start_Hour = 23; // ساعت شروع رنج ۲ (۰-۲۳)
+input int InpRange2_Start_Minute = 0; // دقیقه شروع رنج ۲ (۰-۵۹)
+input int InpRange2_End_Hour = 4; // ساعت پایان رنج ۲ (۰-۲۳)
+input int InpRange2_End_Minute = 0; // دقیقه پایان رنج ۲ (۰-۵۹)
+input int InpRange2_MinRangePoints = 50; // حداقل ارتفاع رنج ۲ به پوینت
+input int InpRange2_MaxRangePoints = 500; // حداکثر ارتفاع رنج ۲ به پوینت
+input ENUM_PLACEMENT_MODE InpRange2_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج ۲
+input int InpRange2_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج ۲
+input double InpRange2_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج ۲
+input ENUM_SL_MODE InpRange2_SL_Mode = SL_ATR; // حالت استاپ لاس رنج ۲
+input int InpRange2_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج ۲
+input double InpRange2_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج ۲
+input ENUM_TRAILING_MODE InpRange2_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج ۲
+input int InpRange2_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج ۲
+input double InpRange2_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج ۲
+input double InpRange2_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج ۲
+input double InpRange2_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج ۲
+input int InpRange2_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج ۲ (۰-۲۴)
+input color InpRange2_Color = clrRed; // رنگ مستطیل رنج ۲
 
 // تنظیمات رنج ۳
-input group "تنظیمات رنج 3"
-input bool InpRange3_Enabled = true; // فعال کردن رنج 3
-input ENUM_TIMEFRAMES InpRange3_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج 3
-input int InpRange3_Start_Hour = 23; // ساعت شروع رنج 3 (0-23)
-input int InpRange3_Start_Minute = 0; // دقیقه شروع رنج 3 (0-59)
-input int InpRange3_End_Hour = 4; // ساعت پایان رنج 3 (0-23)
-input int InpRange3_End_Minute = 0; // دقیقه پایان رنج 3 (0-59)
-input int InpRange3_MinRangePoints = 50; // حداقل ارتفاع رنج 3 به پوینت
-input int InpRange3_MaxRangePoints = 500; // حداکثر ارتفاع رنج 3 به پوینت
-input ENUM_PLACEMENT_MODE InpRange3_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج 3
-input int InpRange3_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج 3
-input double InpRange3_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج 3
-input ENUM_SL_MODE InpRange3_SL_Mode = SL_ATR; // حالت استاپ لاس رنج 3
-input int InpRange3_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج 3
-input double InpRange3_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج 3
-input ENUM_TRAILING_MODE InpRange3_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج 3
-input int InpRange3_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج 3
-input double InpRange3_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج 3
-input double InpRange3_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج 3
-input double InpRange3_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج 3
-input int InpRange3_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج 3 (0-24)
-input color InpRange3_Color = clrGreen; // رنگ مستطیل رنج 3
+input group "تنظیمات رنج ۳"
+input bool InpRange3_Enabled = false; // فعال کردن رنج ۳
+input ENUM_TIMEFRAMES InpRange3_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج ۳
+input int InpRange3_Start_Hour = 23; // ساعت شروع رنج ۳ (۰-۲۳)
+input int InpRange3_Start_Minute = 0; // دقیقه شروع رنج ۳ (۰-۵۹)
+input int InpRange3_End_Hour = 4; // ساعت پایان رنج ۳ (۰-۲۳)
+input int InpRange3_End_Minute = 0; // دقیقه پایان رنج ۳ (۰-۵۹)
+input int InpRange3_MinRangePoints = 50; // حداقل ارتفاع رنج ۳ به پوینت
+input int InpRange3_MaxRangePoints = 500; // حداکثر ارتفاع رنج ۳ به پوینت
+input ENUM_PLACEMENT_MODE InpRange3_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج ۳
+input int InpRange3_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج ۳
+input double InpRange3_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج ۳
+input ENUM_SL_MODE InpRange3_SL_Mode = SL_ATR; // حالت استاپ لاس رنج ۳
+input int InpRange3_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج ۳
+input double InpRange3_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج ۳
+input ENUM_TRAILING_MODE InpRange3_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج ۳
+input int InpRange3_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج ۳
+input double InpRange3_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج ۳
+input double InpRange3_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج ۳
+input double InpRange3_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج ۳
+input int InpRange3_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج ۳ (۰-۲۴)
+input color InpRange3_Color = clrGreen; // رنگ مستطیل رنج ۳
 
 // تنظیمات رنج ۴
-input group "تنظیمات رنج 4"
-input bool InpRange4_Enabled = true; // فعال کردن رنج 4
-input ENUM_TIMEFRAMES InpRange4_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج 4
-input int InpRange4_Start_Hour = 23; // ساعت شروع رنج 4 (0-23)
-input int InpRange4_Start_Minute = 0; // دقیقه شروع رنج 4 (0-59)
-input int InpRange4_End_Hour = 4; // ساعت پایان رنج 4 (0-23)
-input int InpRange4_End_Minute = 0; // دقیقه پایان رنج 4 (0-59)
-input int InpRange4_MinRangePoints = 50; // حداقل ارتفاع رنج 4 به پوینت
-input int InpRange4_MaxRangePoints = 500; // حداکثر ارتفاع رنج 4 به پوینت
-input ENUM_PLACEMENT_MODE InpRange4_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج 4
-input int InpRange4_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج 4
-input double InpRange4_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج 4
-input ENUM_SL_MODE InpRange4_SL_Mode = SL_ATR; // حالت استاپ لاس رنج 4
-input int InpRange4_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج 4
-input double InpRange4_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج 4
-input ENUM_TRAILING_MODE InpRange4_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج 4
-input int InpRange4_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج 4
-input double InpRange4_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج 4
-input double InpRange4_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج 4
-input double InpRange4_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج 4
-input int InpRange4_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج 4 (0-24)
-input color InpRange4_Color = clrYellow; // رنگ مستطیل رنج 4
+input group "تنظیمات رنج ۴"
+input bool InpRange4_Enabled = false; // فعال کردن رنج ۴
+input ENUM_TIMEFRAMES InpRange4_Execution_Timeframe = PERIOD_H1; // تایم‌فریم اجرا رنج ۴
+input int InpRange4_Start_Hour = 23; // ساعت شروع رنج ۴ (۰-۲۳)
+input int InpRange4_Start_Minute = 0; // دقیقه شروع رنج ۴ (۰-۵۹)
+input int InpRange4_End_Hour = 4; // ساعت پایان رنج ۴ (۰-۲۳)
+input int InpRange4_End_Minute = 0; // دقیقه پایان رنج ۴ (۰-۵۹)
+input int InpRange4_MinRangePoints = 50; // حداقل ارتفاع رنج ۴ به پوینت
+input int InpRange4_MaxRangePoints = 500; // حداکثر ارتفاع رنج ۴ به پوینت
+input ENUM_PLACEMENT_MODE InpRange4_Placement_Mode = PLACEMENT_ATR; // حالت ثبت سفارش رنج ۴
+input int InpRange4_ATR_Period = 14; // دوره ATR برای ثبت سفارش رنج ۴
+input double InpRange4_ATR_Multiplier = 1.2; // ضریب ATR برای ثبت سفارش رنج ۴
+input ENUM_SL_MODE InpRange4_SL_Mode = SL_ATR; // حالت استاپ لاس رنج ۴
+input int InpRange4_SL_ATR_Period = 14; // دوره ATR برای استاپ لاس رنج ۴
+input double InpRange4_SL_ATR_Multiplier = 1.5; // ضریب ATR برای استاپ لاس رنج ۴
+input ENUM_TRAILING_MODE InpRange4_Trailing_Mode = TRAILING_ATR; // حالت تریلینگ استاپ رنج ۴
+input int InpRange4_Trailing_ATR_Period = 14; // دوره ATR برای تریلینگ رنج ۴
+input double InpRange4_Trailing_ATR_Multiplier = 1.0; // ضریب ATR برای تریلینگ رنج ۴
+input double InpRange4_RR_Ratio = 1.5; // نسبت R:R برای خروج پله‌ای رنج ۴
+input double InpRange4_PartialClosePercent = 50.0; // درصد بستن پله‌ای رنج ۴
+input int InpRange4_Cleanup_Hours = 5; // ساعت‌های پاکسازی رنج ۴ (۰-۲۴)
+input color InpRange4_Color = clrYellow; // رنگ مستطیل رنج ۴
 
 #endif
+
+
 
 
 
@@ -393,89 +425,100 @@ input color InpRange4_Color = clrYellow; // رنگ مستطیل رنج 4
 //|                                                                  |
 //+------------------------------------------------------------------+
 // توضیح روان و کامل:
-// این فایل کلاس CRange را تعریف می‌کند که قلب تپنده اکسپرت Elemento است. هر نمونه از این کلاس یک رنج زمانی مستقل را مدیریت می‌کند.
+// این فایل قلب اکسپرت Elemento است و کلاس CRange را تعریف می‌کند که هر نمونه از آن یک رنج زمانی مستقل را مدیریت می‌کند. این کلاس تمام منطق استراتژی شکست رنج (Breakout) را پیاده‌سازی می‌کند: شناسایی رنج، ثبت سفارش‌های پندینگ، مدیریت معاملات باز، و پاکسازی.
+// نسخه ۱.۵۰ تغییرات جدید:
+// ۱. فیلتر ایچیموکو: تابع CheckIchimokuFilter() جهت ابر (Senkou A/B) را در تایم‌فریم رنج محاسبه می‌کند (BUY/SELL/BOTH). در PlacePendingOrders، فقط سفارش‌های مجاز ثبت می‌شوند. حالت فلت (A==B) مثل فیلتر خاموش عمل می‌کند (هر دو سفارش).
+// ۲. استاپ لاس اولیه: برای Buy Stop، از sellStopPrice - slDistance، و برای Sell Stop، از buyStopPrice + slDistance محاسبه می‌شود.
 // وظایف اصلی:
-// 1. شناسایی و اعتبارسنجی رنج (سقف و کف، کیفیت با Min/Max Points).
-// 2. ثبت سفارش‌های پندینگ (Buy Stop و Sell Stop با offset بر اساس ATR یا درصد).
-// 3. مدیریت معاملات باز (خروج پله‌ای با RR_Ratio، ریسک‌فری، تریلینگ استاپ).
-// 4. پاکسازی در پایان زمان (Cleanup_Hours) یا تعطیلات.
+// ۱. شناسایی و اعتبارسنجی رنج (سقف/کف با iHighest/iLowest، چک کیفیت با Min/MaxRangePoints، رسم مستطیل).
+// ۲. ثبت سفارش‌های پندینگ (Buy Stop و Sell Stop با offset بر اساس ATR/درصد، محاسبه SL جدید، expiration).
+// ۳. مدیریت معاملات باز (خروج پله‌ای با RR_Ratio و PartialClosePercent، ریسک‌فری با MoveSLToBreakEven، تریلینگ با TrailingStop).
+// ۴. پاکسازی (بستن پوزیشن‌ها/سفارش‌ها، حذف گرافیک، ریست به WAITING).
 // الگوریتم کلی:
-// - حالت‌ها: WAITING (منتظر پایان رنج)، IDENTIFIED (رنج معتبر، مستطیل رسم شود)، ORDERS_PLACED (سفارش‌ها ثبت شوند)، TRADE_ACTIVE (مدیریت معامله)، EXPIRED (پاکسازی).
-// - UpdateOnNewBar: بر اساس حالت، Identify/Place/Manage/Cleanup فراخوانی می‌شود.
-// - CancelOppositeOrder: لغو سفارش مخالف با چک slippage.
-// - کش ATR برای بهینه‌سازی CopyBuffer.
-// - چک تعطیلات با IsMarketClosed (skip در tester).
-// این کلاس از کتابخانه‌های TradeManager (برای معاملات)، RiskManager (برای حجم)، TimeHelper (برای زمان) استفاده می‌کند.
-// بهینه‌سازی‌ها: هندل ATR shared، normalize دقیق، لاگ conditional.
-// اصلاحات: کش ATR، چک sl == 0 در تریلینگ، checker tester.
-// این کامنت بخشی از سند کلی است: توصیف کلاس اصلی، حالت‌ها، متدها، و ادغام با دیگر کتابخانه‌ها برای مدیریت کامل رنج.
+// - Init: مقداردهی متغیرها (شامل تنظیمات ایچیموکو)، ولیدیشن، تنظیم نام مستطیل.
+// - UpdateOnNewBar: بر اساس حالت (enum RANGE_STATE)، اجرای توابع IdentifyAndValidateRange, PlacePendingOrders, ManageActiveTrade, یا Cleanup.
+// - CancelOppositeOrder: حذف سفارش مخالف در OCO.
+// - GetCachedATR: گرفتن ATR کش‌شده برای بهینه‌سازی.
+// بهینه‌سازی‌ها: کش ATR و ایچیموکو، نرمال‌سازی دقیق، لاگ conditional، چک IsMarketClosed.
+// اصلاحات: اضافه کردن فیلتر ایچیموکو، تغییر SL اولیه، تابع مجازی GetFilterDirection برای انعطاف آینده.
+// این کامنت بخشی از سند کلی است: توصیف منطق استراتژی و ادغام با فایل‌های دیگر.
 
 #ifndef CRANGE_MQH
 #define CRANGE_MQH
 
+#include <Trade\Trade.mqh>
 #include "TradeManager.mqh"
 #include "RiskManager.mqh"
 #include "TimeHelper.mqh"
-#include <Trade\Trade.mqh>
+
+extern double g_volumeStep;
+extern double g_volumeMin;
+extern double g_volumeMax;
+extern bool g_isTester;
 
 // تعریف حالت‌های رنج
 enum ENUM_RANGE_STATE
 {
-   RANGE_WAITING,      // منتظر تشکیل رنج
-   RANGE_IDENTIFIED,   // رنج شناسایی و معتبر است
-   ORDERS_PLACED,      // سفارش‌های پندینگ ثبت شده‌اند
-   TRADE_ACTIVE,       // معامله باز است
-   RANGE_EXPIRED       // رنج منقضی شده
+   RANGE_WAITING,     // انتظار برای پایان زمان رنج
+   RANGE_IDENTIFIED,  // رنج معتبر شناسایی شد
+   ORDERS_PLACED,     // سفارش‌های پندینگ قرار گرفتند
+   TRADE_ACTIVE,      // معامله باز است و مدیریت می‌شود
+   RANGE_EXPIRED      // رنج منقضی شده و باید پاکسازی شود
+};
+
+// تعریف جهت فیلتر
+enum ENUM_FILTER_DIRECTION
+{
+   FILTER_BUY,   // فقط خرید مجاز
+   FILTER_SELL,  // فقط فروش مجاز
+   FILTER_BOTH   // هر دو مجاز
 };
 
 class CRange
 {
 private:
-   // متغیرهای تنظیمات
-   int m_rangeIndex;                    // شماره رنج (1 تا 4)
-   long m_magicNumber;                  // مجیک نامبر اختصاصی
-   ENUM_TIMEFRAMES m_timeframe;         // تایم‌فریم اجرا
-   int m_startHour, m_startMinute;      // ساعت و دقیقه شروع رنج
-   int m_endHour, m_endMinute;          // ساعت و دقیقه پایان رنج
-   int m_minRangePoints, m_maxRangePoints; // حداقل و حداکثر ارتفاع رنج
-   ENUM_PLACEMENT_MODE m_placementMode; // حالت ثبت سفارش
-   int m_atrPeriod;                     // دوره ATR برای سفارش
-   double m_atrMultiplier;              // ضریب ATR برای سفارش
-   ENUM_SL_MODE m_slMode;               // حالت استاپ لاس
-   int m_slAtrPeriod;                   // دوره ATR برای استاپ لاس
-   double m_slAtrMultiplier;            // ضریب ATR برای استاپ لاس
-   ENUM_TRAILING_MODE m_trailingMode;   // حالت تریلینگ استاپ
-   int m_trailingAtrPeriod;             // دوره ATR برای تریلینگ
-   double m_trailingAtrMultiplier;      // ضریب ATR برای تریلینگ
-   double m_rrRatio;                    // نسبت سود به ضرر برای خروج پله‌ای
-   double m_partialClosePercent;        // درصد بستن معامله
-   int m_cleanupHours;                  // ساعت‌های پاکسازی
-   color m_color;                       // رنگ مستطیل گرافیکی
-
-   // متغیرهای داخلی
-   double m_rangeHigh, m_rangeLow;      // سقف و کف رنج
-   datetime m_cleanupTime;              // زمان انقضای رنج
-   string m_rangeObjectName;            // نام مستطیل گرافیکی
-   ENUM_RANGE_STATE m_currentState;     // حالت فعلی رنج
-   int m_atrHandle;                     // هندل اندیکاتور ATR (shared از اصلی)
-   bool m_trailingActivated;            // فلگ فعال‌سازی تریلینگ
-   ulong m_activeTicket;                // تیکت معامله فعال
-   double m_cachedATR;                  // کش ATR برای بهینه‌سازی
+   int m_rangeIndex; // شماره رنج (۱ تا ۴)
+   long m_magicNumber;
+   ENUM_TIMEFRAMES m_timeframe;
+   int m_startHour;
+   int m_startMinute;
+   int m_endHour;
+   int m_endMinute;
+   int m_minRangePoints;
+   int m_maxRangePoints;
+   ENUM_PLACEMENT_MODE m_placementMode;
+   int m_atrPeriod;
+   double m_atrMultiplier;
+   ENUM_SL_MODE m_slMode;
+   int m_slAtrPeriod;
+   double m_slAtrMultiplier;
+   ENUM_TRAILING_MODE m_trailingMode;
+   int m_trailingAtrPeriod;
+   double m_trailingAtrMultiplier;
+   double m_rrRatio;
+   double m_partialClosePercent;
+   int m_cleanupHours;
+   color m_color;
+   int m_atrHandle; // هندل ATR shared
+   bool m_ichimokuEnabled; // فعال بودن فیلتر ایچیموکو
+   int m_tenkanPeriod; // دوره تنکان‌سن
+   int m_kijunPeriod; // دوره کیجون‌سن
+   int m_senkouPeriod; // دوره سنکو اسپن B
+   int m_shift; // شیفت آینده برای ابر
+   ENUM_RANGE_STATE m_currentState;
+   double m_rangeHigh;
+   double m_rangeLow;
+   datetime m_startTime;
+   datetime m_endTime;
+   datetime m_cleanupTime;
+   bool m_trailingActivated;
+   ulong m_activeTicket;
+   double m_cachedATR; // کش ATR
+   ENUM_FILTER_DIRECTION m_cachedIchimokuDirection; // کش جهت ایچیموکو
+   string m_rangeObjectName; // نام مستطیل گرافیکی
 
 public:
-   // سازنده پیش‌فرض
-   CRange() : m_rangeIndex(0), m_magicNumber(0), m_timeframe(PERIOD_H1),
-              m_startHour(0), m_startMinute(0), m_endHour(0), m_endMinute(0),
-              m_minRangePoints(0), m_maxRangePoints(0), m_placementMode(PLACEMENT_ATR),
-              m_atrPeriod(14), m_atrMultiplier(1.2), m_slMode(SL_ATR),
-              m_slAtrPeriod(14), m_slAtrMultiplier(1.5), m_trailingMode(TRAILING_ATR),
-              m_trailingAtrPeriod(14), m_trailingAtrMultiplier(1.0),
-              m_rrRatio(1.5), m_partialClosePercent(50.0), m_cleanupHours(5),
-              m_color(clrBlue), m_rangeHigh(0), m_rangeLow(0), m_cleanupTime(0),
-              m_currentState(RANGE_WAITING), m_atrHandle(INVALID_HANDLE),
-              m_trailingActivated(false), m_activeTicket(0), m_cachedATR(0) {}
-
-   // مقداردهی اولیه (با پارامتر اضافی برای هندل ATR shared)
+   // مقداردهی اولیه
    bool Init(
       int rangeIndex,
       long magicNumber,
@@ -499,11 +542,16 @@ public:
       double partialClosePercent,
       int cleanupHours,
       color rangeColor,
-      int atrHandle)
+      int atrHandle,
+      bool ichimokuEnabled,
+      int tenkanPeriod,
+      int kijunPeriod,
+      int senkouPeriod,
+      int shift
+   )
    {
-      if(InpDebugMode) Print("مقداردهی رنج ", rangeIndex, "...");
-      
-      // ذخیره تنظیمات
+      if(InpDebugMode) Print("مقداردهی اولیه رنج ", rangeIndex, "...");
+
       m_rangeIndex = rangeIndex;
       m_magicNumber = magicNumber;
       m_timeframe = timeframe;
@@ -527,40 +575,72 @@ public:
       m_cleanupHours = cleanupHours;
       m_color = rangeColor;
       m_atrHandle = atrHandle;
+      m_ichimokuEnabled = ichimokuEnabled;
+      m_tenkanPeriod = tenkanPeriod;
+      m_kijunPeriod = kijunPeriod;
+      m_senkouPeriod = senkouPeriod;
+      m_shift = shift;
+      m_currentState = RANGE_WAITING;
+      m_rangeHigh = 0;
+      m_rangeLow = 0;
+      m_startTime = 0;
+      m_endTime = 0;
+      m_cleanupTime = 0;
+      m_trailingActivated = false;
+      m_activeTicket = 0;
+      m_cachedATR = 0;
+      m_cachedIchimokuDirection = FILTER_BOTH;
+      m_rangeObjectName = "Range_" + IntegerToString(rangeIndex);
 
-      if(m_atrHandle == INVALID_HANDLE)
+      // ولیدیشن
+      if(m_minRangePoints <= 0 || m_maxRangePoints <= m_minRangePoints || m_atrPeriod <= 0 ||
+         m_atrMultiplier <= 0 || m_slAtrPeriod <= 0 || m_slAtrMultiplier <= 0 ||
+         m_trailingAtrPeriod <= 0 || m_trailingAtrMultiplier <= 0 ||
+         m_rrRatio <= 0 || m_partialClosePercent <= 0 || m_partialClosePercent > 100 ||
+         m_cleanupHours < 0)
       {
-         Print("خطا در هندل ATR برای رنج ", rangeIndex);
+         Print("خطا در ولیدیشن پارامترهای رنج ", rangeIndex);
          return false;
       }
 
-      // تنظیم نام مستطیل گرافیکی
-      m_rangeObjectName = "Range_" + IntegerToString(rangeIndex) + "_" + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES);
       if(InpDebugMode) Print("رنج ", rangeIndex, " با موفقیت مقداردهی شد.");
       return true;
    }
 
-   // دفع مقداردهی (آزادسازی در اصلی انجام می‌شود)
+   // دفع مقداردهی
    void Deinit()
    {
-      // حذف مستطیل گرافیکی
-      ObjectDelete(0, m_rangeObjectName);
-      if(InpDebugMode) Print("مستطیل رنج ", m_rangeIndex, " حذف شد.");
+      if(InpDebugMode) Print("دفع مقداردهی رنج ", m_rangeIndex, "...");
+      Cleanup();
    }
 
-   // متد اصلی برای به‌روزرسانی در هر کندل جدید
+   // گرفتن تایم‌فریم
+   ENUM_TIMEFRAMES GetTimeframe()
+   {
+      return m_timeframe;
+   }
+
+   // گرفتن مجیک نامبر
+   long GetMagicNumber()
+   {
+      return m_magicNumber;
+   }
+
+   // آپدیت در کندل جدید
    void UpdateOnNewBar()
    {
-      if(InpDebugMode) Print("به‌روزرسانی رنج ", m_rangeIndex, " در حالت ", EnumToString(m_currentState));
+      if(InpDebugMode) Print("آپدیت رنج ", m_rangeIndex, " در کندل جدید...");
 
-      // بررسی تعطیلات بازار دقیق‌تر (skip در tester)
+      // اگر بازار تعطیل است و در حالت تستر نیستیم
       if(!g_isTester && IsMarketClosed())
       {
-         Cleanup();
+         if(m_currentState != RANGE_WAITING)
+         {
+            Cleanup();
+         }
          return;
       }
 
-      // بررسی بر اساس حالت فعلی
       switch(m_currentState)
       {
          case RANGE_WAITING:
@@ -570,63 +650,55 @@ public:
             PlacePendingOrders();
             break;
          case ORDERS_PLACED:
+            if(TimeTradeServer() >= m_cleanupTime)
+            {
+               Cleanup();
+            }
+            break;
          case TRADE_ACTIVE:
             ManageActiveTrade();
+            if(TimeTradeServer() >= m_cleanupTime)
+            {
+               Cleanup();
+            }
             break;
          case RANGE_EXPIRED:
             Cleanup();
             break;
       }
-
-      // بررسی زمان پاکسازی
-      if(TimeCurrent() >= m_cleanupTime && m_cleanupTime != 0)
-      {
-         Cleanup();
-      }
    }
 
-   // لغو سفارش پندینگ مخالف (OCO) با چک slippage
+   // لغو سفارش مخالف (OCO)
    void CancelOppositeOrder()
    {
+      if(InpDebugMode) Print("لغو سفارش مخالف برای رنج ", m_rangeIndex, "...");
+
+      if(!PositionSelectByTicket(m_activeTicket))
+      {
+         if(InpDebugMode) Print("پوزیشن با تیکت ", m_activeTicket, " یافت نشد.");
+         return;
+      }
+
+      ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
       CTrade trade;
+
       for(int i = OrdersTotal() - 1; i >= 0; i--)
       {
          ulong ticket = OrderGetTicket(i);
          if(OrderSelect(ticket) && OrderGetInteger(ORDER_MAGIC) == m_magicNumber)
          {
-            if(trade.OrderDelete(ticket))
+            ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+            if((posType == POSITION_TYPE_BUY && orderType == ORDER_TYPE_SELL_STOP) ||
+               (posType == POSITION_TYPE_SELL && orderType == ORDER_TYPE_BUY_STOP))
             {
-               if(InpDebugMode) Print("سفارش پندینگ با تیکت ", ticket, " برای رنج ", m_rangeIndex, " لغو شد.");
-            }
-            else
-            {
-               Print("خطا در لغو سفارش پندینگ با تیکت ", ticket, ": ", GetLastError());
-            }
-         }
-      }
-
-      // چک اضافی برای جلوگیری از دو پوزیشن (در صورت slippage)
-      int openPositions = 0;
-      for(int j = PositionsTotal() - 1; j >= 0; j--)
-      {
-         ulong posTicket = PositionGetTicket(j);
-         if(PositionGetInteger(POSITION_MAGIC) == m_magicNumber)
-         {
-            openPositions++;
-            if(openPositions > 1)
-            {
-               Print("هشدار: بیش از یک پوزیشن باز برای رنج ", m_rangeIndex, ". بستن اضافی.");
-               CTradeManager::ClosePosition(posTicket);
+               if(trade.OrderDelete(ticket))
+               {
+                  if(InpDebugMode) Print("سفارش مخالف با تیکت ", ticket, " حذف شد.");
+               }
             }
          }
       }
    }
-
-   // گرفتن مجیک نامبر
-   long GetMagicNumber() { return m_magicNumber; }
-
-   // گرفتن تایم‌فریم
-   ENUM_TIMEFRAMES GetTimeframe() { return m_timeframe; }
 
 private:
    // شناسایی و اعتبارسنجی رنج
@@ -634,66 +706,73 @@ private:
    {
       if(InpDebugMode) Print("شناسایی رنج ", m_rangeIndex, "...");
 
-      // محاسبه زمان شروع و پایان رنج
-      datetime startTime, endTime;
-      if(!CTimeHelper::CalculateRangeTimes(m_startHour, m_startMinute, m_endHour, m_endMinute, startTime, endTime))
+      // محاسبه زمان شروع و پایان
+      if(!CTimeHelper::CalculateRangeTimes(m_startHour, m_startMinute, m_endHour, m_endMinute, m_startTime, m_endTime))
       {
-         Print("خطا در محاسبه زمان رنج ", m_rangeIndex);
-         m_currentState = RANGE_EXPIRED;
+         Print("خطا در محاسبه زمان‌های رنج ", m_rangeIndex);
          return;
       }
 
-      // بررسی پایان بازه رنج
-      if(TimeCurrent() < endTime)
+      // چک پایان یافتن زمان رنج
+      if(TimeTradeServer() < m_endTime)
       {
-         if(InpDebugMode) Print("رنج ", m_rangeIndex, " هنوز تمام نشده است.");
+         if(InpDebugMode) Print("رنج ", m_rangeIndex, " هنوز به پایان نرسیده است.");
          return;
       }
 
-      // گرفتن سقف و کف رنج با چک بارها
-      int startShift = iBarShift(_Symbol, m_timeframe, startTime);
-      int endShift = iBarShift(_Symbol, m_timeframe, endTime);
-      int bars = startShift - endShift + 1;
-      if(bars <= 0)
+      // محاسبه تعداد کندل‌های رنج
+      int barCount = (int)((m_endTime - m_startTime) / (PeriodSeconds(m_timeframe)));
+      if(barCount <= 0)
       {
-         Print("خطا: تعداد بارها نامعتبر برای رنج ", m_rangeIndex);
-         m_currentState = RANGE_EXPIRED;
+         Print("خطا: تعداد کندل‌های رنج ", m_rangeIndex, " صفر یا منفی است.");
          return;
       }
 
-      int highestIdx = iHighest(_Symbol, m_timeframe, MODE_HIGH, bars, endShift);
-      int lowestIdx = iLowest(_Symbol, m_timeframe, MODE_LOW, bars, endShift);
-      
-      m_rangeHigh = iHigh(_Symbol, m_timeframe, highestIdx);
-      m_rangeLow = iLow(_Symbol, m_timeframe, lowestIdx);
-
-      // محاسبه ارتفاع رنج به پوینت
-      double rangeHeight = (m_rangeHigh - m_rangeLow) / _Point;
-      if(InpDebugMode) Print("رنج ", m_rangeIndex, ": سقف=", m_rangeHigh, ", کف=", m_rangeLow, ", ارتفاع=", rangeHeight, " پوینت");
-
-      // اعتبارسنجی کیفیت رنج
-      if(rangeHeight < m_minRangePoints || rangeHeight > m_maxRangePoints)
+      // شناسایی سقف و کف
+      int highest = iHighest(_Symbol, m_timeframe, MODE_HIGH, barCount, 0);
+      int lowest = iLowest(_Symbol, m_timeframe, MODE_LOW, barCount, 0);
+      if(highest == -1 || lowest == -1)
       {
-         Print("رنج ", m_rangeIndex, " بی‌کیفیت است. ارتفاع خارج از محدوده مجاز.");
+         Print("خطا در شناسایی سقف/کف برای رنج ", m_rangeIndex);
+         return;
+      }
+
+      m_rangeHigh = iHigh(_Symbol, m_timeframe, highest);
+      m_rangeLow = iLow(_Symbol, m_timeframe, lowest);
+      double rangePoints = (m_rangeHigh - m_rangeLow) / _Point;
+
+      // اعتبارسنجی رنج
+      if(rangePoints < m_minRangePoints || rangePoints > m_maxRangePoints)
+      {
+         if(InpDebugMode) Print("رنج ", m_rangeIndex, " نامعتبر است. ارتفاع=", rangePoints, " پوینت");
          m_currentState = RANGE_EXPIRED;
          return;
       }
 
       // رسم مستطیل گرافیکی
-      if(!ObjectCreate(0, m_rangeObjectName, OBJ_RECTANGLE, 0, startTime, m_rangeHigh, endTime, m_rangeLow))
-      {
-         Print("خطا در رسم مستطیل رنج ", m_rangeIndex, ": ", GetLastError());
-      }
-      else
+      ObjectDelete(0, m_rangeObjectName);
+      if(ObjectCreate(0, m_rangeObjectName, OBJ_RECTANGLE, 0, m_startTime, m_rangeHigh, m_endTime, m_rangeLow))
       {
          ObjectSetInteger(0, m_rangeObjectName, OBJPROP_COLOR, m_color);
          ObjectSetInteger(0, m_rangeObjectName, OBJPROP_STYLE, STYLE_SOLID);
          ObjectSetInteger(0, m_rangeObjectName, OBJPROP_WIDTH, 1);
+         ObjectSetInteger(0, m_rangeObjectName, OBJPROP_FILL, true);
          if(InpDebugMode) Print("مستطیل رنج ", m_rangeIndex, " رسم شد.");
       }
 
+      // آپدیت کش ایچیموکو
+      if(m_ichimokuEnabled)
+      {
+         m_cachedIchimokuDirection = CheckIchimokuFilter();
+         if(InpDebugMode) Print("فیلتر ایچیموکو رنج ", m_rangeIndex, ": ", EnumToString(m_cachedIchimokuDirection));
+      }
+      else
+      {
+         m_cachedIchimokuDirection = FILTER_BOTH;
+      }
+
       m_currentState = RANGE_IDENTIFIED;
-      if(InpDebugMode) Print("رنج ", m_rangeIndex, " معتبر است. تغییر حالت به IDENTIFIED.");
+      if(InpDebugMode) Print("رنج ", m_rangeIndex, " شناسایی شد. ارتفاع=", rangePoints, " پوینت");
    }
 
    // ثبت سفارش‌های پندینگ
@@ -701,7 +780,10 @@ private:
    {
       if(InpDebugMode) Print("ثبت سفارش‌های پندینگ برای رنج ", m_rangeIndex, "...");
 
-      // محاسبه فاصله سفارش
+      // محاسبه زمان پاکسازی
+      m_cleanupTime = CTimeHelper::CalculateCleanupTime(m_endHour, m_endMinute, m_cleanupHours);
+      
+      // محاسبه فاصله سفارش‌ها
       double offset;
       if(m_placementMode == PLACEMENT_ATR)
       {
@@ -726,11 +808,12 @@ private:
       // محاسبه قیمت‌های سفارش
       double buyStopPrice = NormalizeDouble(m_rangeHigh + offset, _Digits);
       double sellStopPrice = NormalizeDouble(m_rangeLow - offset, _Digits);
-      double buySL = NormalizeDouble(buyStopPrice - slDistance, _Digits);
-      double sellSL = NormalizeDouble(sellStopPrice + slDistance, _Digits);
+      double buySL = NormalizeDouble(sellStopPrice - slDistance, _Digits); // SL جدید بر اساس sellStopPrice
+      double sellSL = NormalizeDouble(buyStopPrice + slDistance, _Digits); // SL جدید بر اساس buyStopPrice
 
-      // محاسبه حجم معامله با کش
-      double lotSize = CRiskManager::CalculateLotSize(InpRiskPercent, slDistance / _Point); // به پوینت
+      // محاسبه حجم
+      double slPoints = MathMax((buyStopPrice - buySL) / _Point, (sellSL - sellStopPrice) / _Point);
+      double lotSize = CRiskManager::CalculateLotSize(InpRiskPercent, slPoints);
       if(lotSize == 0)
       {
          Print("خطا در محاسبه حجم برای رنج ", m_rangeIndex);
@@ -738,127 +821,108 @@ private:
          return;
       }
 
-      // محاسبه زمان انقضا
-      m_cleanupTime = CTimeHelper::CalculateCleanupTime(m_endHour, m_endMinute, m_cleanupHours);
+      // گرفتن جهت فیلتر
+      ENUM_FILTER_DIRECTION direction = GetFilterDirection();
 
-      // ثبت سفارش Buy Stop
-      MqlTradeRequest request;
-      MqlTradeResult result;
-      ZeroMemory(request);
-      request.action = TRADE_ACTION_PENDING;
-      request.symbol = _Symbol;
-      request.volume = lotSize;
-      request.type = ORDER_TYPE_BUY_STOP;
-      request.price = buyStopPrice;
-      request.sl = buySL;
-      request.tp = 0;
-      request.magic = m_magicNumber;
-      request.expiration = m_cleanupTime;
-      request.type_time = ORDER_TIME_SPECIFIED;
-      request.comment = "Buy Stop Range " + IntegerToString(m_rangeIndex);
       CTrade trade;
-      if(!trade.OrderSend(request, result))
-      {
-         Print("خطا در ثبت Buy Stop برای رنج ", m_rangeIndex, ": ", result.retcode);
-         m_currentState = RANGE_EXPIRED;
-         return;
-      }
-      if(InpDebugMode) Print("Buy Stop برای رنج ", m_rangeIndex, " ثبت شد. قیمت=", buyStopPrice, ", SL=", buySL);
+      trade.SetExpertMagicNumber(m_magicNumber);
 
-      // ریست درخواست
-      ZeroMemory(request);
-      request.action = TRADE_ACTION_PENDING;
-      request.symbol = _Symbol;
-      request.volume = lotSize;
-      request.type = ORDER_TYPE_SELL_STOP;
-      request.price = sellStopPrice;
-      request.sl = sellSL;
-      request.tp = 0;
-      request.magic = m_magicNumber;
-      request.expiration = m_cleanupTime;
-      request.type_time = ORDER_TIME_SPECIFIED;
-      request.comment = "Sell Stop Range " + IntegerToString(m_rangeIndex);
-      if(!trade.OrderSend(request, result))
+      // ثبت Buy Stop اگر مجاز باشد
+      if(direction == FILTER_BUY || direction == FILTER_BOTH)
       {
-         Print("خطا در ثبت Sell Stop برای رنج ", m_rangeIndex, ": ", result.retcode);
-         m_currentState = RANGE_EXPIRED;
-         return;
+         if(trade.BuyStop(lotSize, buyStopPrice, _Symbol, buySL, 0, ORDER_TIME_SPECIFIED, m_cleanupTime))
+         {
+            if(InpDebugMode) Print("سفارش Buy Stop برای رنج ", m_rangeIndex, " ثبت شد. قیمت=", buyStopPrice, ", SL=", buySL);
+         }
+         else
+         {
+            Print("خطا در ثبت Buy Stop برای رنج ", m_rangeIndex, ": ", trade.ResultRetcode());
+            m_currentState = RANGE_EXPIRED;
+            return;
+         }
       }
-      if(InpDebugMode) Print("Sell Stop برای رنج ", m_rangeIndex, " ثبت شد. قیمت=", sellStopPrice, ", SL=", sellSL);
+      else
+      {
+         if(InpDebugMode) Print("رنج ", m_rangeIndex, ": Buy Stop ثبت نشد به دلیل فیلتر ایچیموکو.");
+      }
+
+      // ثبت Sell Stop اگر مجاز باشد
+      if(direction == FILTER_SELL || direction == FILTER_BOTH)
+      {
+         if(trade.SellStop(lotSize, sellStopPrice, _Symbol, sellSL, 0, ORDER_TIME_SPECIFIED, m_cleanupTime))
+         {
+            if(InpDebugMode) Print("سفارش Sell Stop برای رنج ", m_rangeIndex, " ثبت شد. قیمت=", sellStopPrice, ", SL=", sellSL);
+         }
+         else
+         {
+            Print("خطا در ثبت Sell Stop برای رنج ", m_rangeIndex, ": ", trade.ResultRetcode());
+            m_currentState = RANGE_EXPIRED;
+            return;
+         }
+      }
+      else
+      {
+         if(InpDebugMode) Print("رنج ", m_rangeIndex, ": Sell Stop ثبت نشد به دلیل فیلتر ایچیموکو.");
+      }
 
       m_currentState = ORDERS_PLACED;
-      if(InpDebugMode) Print("سفارش‌های پندینگ برای رنج ", m_rangeIndex, " ثبت شدند. تغییر حالت به ORDERS_PLACED.");
+      if(InpDebugMode) Print("رنج ", m_rangeIndex, ": سفارش‌های پندینگ ثبت شدند. تغییر حالت به ORDERS_PLACED.");
    }
 
-   // مدیریت معامله فعال
+   // مدیریت معامله باز
    void ManageActiveTrade()
    {
-      if(InpDebugMode) Print("مدیریت معامله برای رنج ", m_rangeIndex, "...");
+      if(InpDebugMode) Print("مدیریت معامله باز برای رنج ", m_rangeIndex, "...");
 
-      // پیدا کردن پوزیشن فعال
-      if(m_activeTicket == 0 || !PositionSelectByTicket(m_activeTicket) || PositionGetInteger(POSITION_MAGIC) != m_magicNumber)
+      if(!PositionSelectByTicket(m_activeTicket))
       {
-         m_activeTicket = 0;
-         for(int i = PositionsTotal() - 1; i >= 0; i--)
+         if(InpDebugMode) Print("پوزیشن با تیکت ", m_activeTicket, " یافت نشد. احتمال بسته شدن.");
+         m_currentState = RANGE_EXPIRED;
+         return;
+      }
+
+      ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+      double currentPrice = posType == POSITION_TYPE_BUY ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double sl = PositionGetDouble(POSITION_SL);
+
+      // محاسبه فاصله استاپ لاس
+      double slDistance;
+      if(m_slMode == SL_ATR)
+      {
+         slDistance = GetCachedATR() * m_slAtrMultiplier;
+      }
+      else
+      {
+         slDistance = (m_rangeHigh - m_rangeLow) * m_slAtrMultiplier / 100.0;
+      }
+
+      // چک خروج پله‌ای
+      double targetProfit = slDistance * m_rrRatio;
+      if((posType == POSITION_TYPE_BUY && currentPrice >= openPrice + targetProfit) ||
+         (posType == POSITION_TYPE_SELL && currentPrice <= openPrice - targetProfit))
+      {
+         double volume = PositionGetDouble(POSITION_VOLUME);
+         double partialVolume = NormalizeDouble(volume * m_partialClosePercent / 100.0, 2);
+         if(partialVolume >= g_volumeMin)
          {
-            ulong ticket = PositionGetTicket(i);
-            if(PositionSelectByTicket(ticket) && PositionGetInteger(POSITION_MAGIC) == m_magicNumber)
+            if(CTradeManager::PartialClose(m_activeTicket, partialVolume))
             {
-               m_activeTicket = ticket;
-               break;
+               if(InpDebugMode) Print("بخشی از پوزیشن رنج ", m_rangeIndex, " بسته شد. حجم=", partialVolume);
             }
          }
       }
 
-      if(m_activeTicket == 0)
-      {
-         if(InpDebugMode) Print("هیچ معامله فعالی برای رنج ", m_rangeIndex, " یافت نشد.");
-         return;
-      }
-
-      // گرفتن اطلاعات پوزیشن
-      ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
-      double currentPrice = posType == POSITION_TYPE_BUY ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-      double sl = PositionGetDouble(POSITION_SL);
-      double volume = PositionGetDouble(POSITION_VOLUME);
-      double slDistance = MathAbs(openPrice - sl); // در قیمت
-
-      // محاسبه سود فعلی در فاصله
-      double currentProfit = MathAbs(currentPrice - openPrice);
-
-      // بررسی خروج پله‌ای
+      // انتقال به نقطه ورود (ریسک‌فری)
       if(!m_trailingActivated)
       {
-         double targetDistance = slDistance * m_rrRatio;
-         if(currentProfit >= targetDistance)
+         if((posType == POSITION_TYPE_BUY && currentPrice >= openPrice + slDistance) ||
+            (posType == POSITION_TYPE_SELL && currentPrice <= openPrice - slDistance))
          {
-            double partialVolume = volume * m_partialClosePercent / 100.0;
-            double closeVolume = MathRound(partialVolume / g_volumeStep) * g_volumeStep;
-            double remainingVolume = volume - closeVolume;
-
-            // بررسی حداقل حجم
-            if(remainingVolume < g_volumeMin && remainingVolume > 0)
+            if(CTradeManager::MoveSLToBreakEven(m_activeTicket, openPrice))
             {
-               closeVolume = volume; // بستن کل اگر باقی‌مانده کمتر از min
-            }
-
-            if(closeVolume >= g_volumeMin && closeVolume <= g_volumeMax)
-            {
-               if(CTradeManager::PartialClose(m_activeTicket, closeVolume))
-               {
-                  if(InpDebugMode) Print("بخشی از معامله رنج ", m_rangeIndex, " بسته شد. حجم بسته شده=", closeVolume);
-                  // انتقال استاپ لاس به نقطه ورود
-                  if(CTradeManager::MoveSLToBreakEven(m_activeTicket, openPrice))
-                  {
-                     if(InpDebugMode) Print("استاپ لاس رنج ", m_rangeIndex, " به نقطه ورود منتقل شد.");
-                     m_trailingActivated = true;
-                  }
-               }
-            }
-            else
-            {
-               Print("حجم بستن نامعتبر برای رنج ", m_rangeIndex, " (کمتر از min یا بیشتر از max).");
+               m_trailingActivated = true;
+               if(InpDebugMode) Print("پوزیشن رنج ", m_rangeIndex, " به نقطه ورود منتقل شد.");
             }
          }
       }
@@ -866,31 +930,21 @@ private:
       // اعمال تریلینگ استاپ
       if(m_trailingActivated)
       {
-         if(!CTradeManager::TrailingStop(m_activeTicket, m_trailingMode, m_trailingAtrPeriod, m_trailingAtrMultiplier, m_timeframe, m_atrHandle))
-         {
-            Print("خطا در اعمال تریلینگ استاپ برای رنج ", m_rangeIndex);
-         }
+         CTradeManager::TrailingStop(m_activeTicket, m_trailingMode, m_trailingAtrPeriod, m_trailingAtrMultiplier, m_timeframe, m_atrHandle);
       }
-
-      m_currentState = TRADE_ACTIVE;
-      if(InpDebugMode) Print("معامله رنج ", m_rangeIndex, " در حالت TRADE_ACTIVE.");
    }
 
-   // پاکسازی رنج
+   // پاکسازی
    void Cleanup()
    {
       if(InpDebugMode) Print("پاکسازی رنج ", m_rangeIndex, "...");
 
-      // بستن پوزیشن‌های باز
-      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      // بستن پوزیشن باز
+      if(m_activeTicket != 0 && PositionSelectByTicket(m_activeTicket))
       {
-         ulong ticket = PositionGetTicket(i);
-         if(PositionSelectByTicket(ticket) && PositionGetInteger(POSITION_MAGIC) == m_magicNumber)
+         if(CTradeManager::ClosePosition(m_activeTicket))
          {
-            if(CTradeManager::ClosePosition(ticket))
-            {
-               if(InpDebugMode) Print("پوزیشن با تیکت ", ticket, " برای رنج ", m_rangeIndex, " بسته شد.");
-            }
+            if(InpDebugMode) Print("پوزیشن با تیکت ", m_activeTicket, " برای رنج ", m_rangeIndex, " بسته شد.");
          }
       }
 
@@ -916,10 +970,13 @@ private:
       m_currentState = RANGE_WAITING;
       m_rangeHigh = 0;
       m_rangeLow = 0;
+      m_startTime = 0;
+      m_endTime = 0;
       m_cleanupTime = 0;
       m_trailingActivated = false;
       m_activeTicket = 0;
-      m_cachedATR = 0; // ریست کش ATR
+      m_cachedATR = 0;
+      m_cachedIchimokuDirection = FILTER_BOTH;
       if(InpDebugMode) Print("رنج ", m_rangeIndex, " برای روز بعد ریست شد. تغییر حالت به WAITING.");
    }
 
@@ -944,7 +1001,7 @@ private:
       // چک weekend ساده
       MqlDateTime serverTime;
       TimeToStruct(TimeTradeServer(), serverTime);
-      if(serverTime.day_of_week == 6 || serverTime.day_of_week == 0) // شنبه یا یکشنبه
+      if(serverTime.day_of_week == 6 || serverTime.day_of_week == 0)
       {
          if(InpDebugMode) Print("بازار تعطیل است برای رنج ", m_rangeIndex);
          return true;
@@ -968,9 +1025,76 @@ private:
       }
       return m_cachedATR;
    }
+
+   // محاسبه فیلتر ایچیموکو
+   ENUM_FILTER_DIRECTION CheckIchimokuFilter()
+   {
+      if(InpDebugMode) Print("محاسبه فیلتر ایچیموکو برای رنج ", m_rangeIndex, "...");
+
+      // محاسبه تنکان‌سن
+      int tenkanHigh = iHighest(_Symbol, m_timeframe, MODE_HIGH, m_tenkanPeriod, 0);
+      int tenkanLow = iLowest(_Symbol, m_timeframe, MODE_LOW, m_tenkanPeriod, 0);
+      if(tenkanHigh == -1 || tenkanLow == -1)
+      {
+         Print("خطا در محاسبه تنکان‌سن برای رنج ", m_rangeIndex);
+         return FILTER_BOTH;
+      }
+      double tenkan = (iHigh(_Symbol, m_timeframe, tenkanHigh) + iLow(_Symbol, m_timeframe, tenkanLow)) / 2.0;
+
+      // محاسبه کیجون‌سن
+      int kijunHigh = iHighest(_Symbol, m_timeframe, MODE_HIGH, m_kijunPeriod, 0);
+      int kijunLow = iLowest(_Symbol, m_timeframe, MODE_LOW, m_kijunPeriod, 0);
+      if(kijunHigh == -1 || kijunLow == -1)
+      {
+         Print("خطا در محاسبه کیجون‌سن برای رنج ", m_rangeIndex);
+         return FILTER_BOTH;
+      }
+      double kijun = (iHigh(_Symbol, m_timeframe, kijunHigh) + iLow(_Symbol, m_timeframe, kijunLow)) / 2.0;
+
+      // محاسبه سنکو اسپن A (شیفت‌شده به آینده)
+      double senkouA = (tenkan + kijun) / 2.0;
+
+      // محاسبه سنکو اسپن B
+      int senkouHigh = iHighest(_Symbol, m_timeframe, MODE_HIGH, m_senkouPeriod, m_shift);
+      int senkouLow = iLowest(_Symbol, m_timeframe, MODE_LOW, m_senkouPeriod, m_shift);
+      if(senkouHigh == -1 || senkouLow == -1)
+      {
+         Print("خطا در محاسبه سنکو اسپن B برای رنج ", m_rangeIndex, ". داده کافی نیست.");
+         return FILTER_BOTH;
+      }
+      double senkouB = (iHigh(_Symbol, m_timeframe, senkouHigh) + iLow(_Symbol, m_timeframe, senkouLow)) / 2.0;
+
+      // مقایسه سنکو A و B
+      if(senkouA > senkouB)
+      {
+         return FILTER_BUY;
+      }
+      else if(senkouA < senkouB)
+      {
+         return FILTER_SELL;
+      }
+      else
+      {
+         return FILTER_BOTH; // حالت فلت مثل فیلتر خاموش
+      }
+   }
+
+   // تابع مجازی برای گرفتن جهت فیلتر (برای انعطاف در آینده)
+   virtual ENUM_FILTER_DIRECTION GetFilterDirection()
+   {
+      if(m_ichimokuEnabled)
+      {
+         return m_cachedIchimokuDirection;
+      }
+      return FILTER_BOTH;
+   }
 };
 
 #endif
+
+
+
+
 
 
 
@@ -995,6 +1119,7 @@ private:
 // تمام عملیات با نرمال‌سازی و بررسی خطا انجام می‌شوند.
 // بهینه‌سازی: استفاده از CTrade، لاگ conditional با InpDebugMode.
 // اصلاحات: چک حجم در PartialClose، چک sl در TrailingStop.
+// تغییرات نسخه 1.50: به‌روزرسانی MoveSLToBreakEven برای اضافه کردن اسپرد و کمیسیون به SL جدید (با DEAL_COMMISSION به جای POSITION_COMMISSION).
 // این کامنت بخشی از سند کلی است: توصیف توابع مدیریت معاملات برای ادغام با CRange.
 
 #ifndef TRADE_MANAGER_MQH
@@ -1031,7 +1156,7 @@ public:
       }
    }
 
-   // انتقال استاپ لاس به نقطه ورود
+   // انتقال استاپ لاس به نقطه ورود با اسپرد/کمیسیون (نسخه 1.50)
    static bool MoveSLToBreakEven(ulong ticket, double breakEvenPrice)
    {
       if(InpDebugMode) Print("تلاش برای انتقال استاپ لاس پوزیشن ", ticket, " به نقطه ورود=", breakEvenPrice);
@@ -1042,11 +1167,62 @@ public:
          return false;
       }
 
-      CTrade trade;
-      breakEvenPrice = NormalizeDouble(breakEvenPrice, _Digits);
-      if(trade.PositionModify(ticket, breakEvenPrice, PositionGetDouble(POSITION_TP)))
+      // محاسبه اسپرد و کمیسیون (نسخه 1.50)
+      double spread = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double commission = 0.0;
+
+      // گرفتن کمیسیون از تاریخچه معاملات
+      if(HistorySelectByPosition(PositionGetInteger(POSITION_IDENTIFIER)))
       {
-         if(InpDebugMode) Print("استاپ لاس پوزیشن ", ticket, " به نقطه ورود منتقل شد.");
+         for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+         {
+            ulong dealTicket = HistoryDealGetTicket(i);
+            if(HistoryDealSelect(dealTicket))
+            {
+               if(HistoryDealGetInteger(dealTicket, DEAL_ENTRY) == DEAL_ENTRY_IN &&
+                  HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID) == PositionGetInteger(POSITION_IDENTIFIER))
+               {
+                  commission = HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
+                  commission = MathAbs(commission) / PositionGetDouble(POSITION_VOLUME); // کمیسیون به ازای هر واحد حجم
+                  break;
+               }
+            }
+         }
+      }
+      else
+      {
+         if(InpDebugMode) Print("هشدار: نتوانست تاریخچه معاملات را برای پوزیشن ", ticket, " لود کند. کمیسیون=0 فرض شد.");
+      }
+
+      double adjustment = spread + commission;
+
+      double newSL = breakEvenPrice;
+      if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+      {
+         newSL += adjustment; // برای Buy، SL بالاتر برای پوشش
+      }
+      else
+      {
+         newSL -= adjustment; // برای Sell، SL پایین‌تر
+      }
+
+      newSL = NormalizeDouble(newSL, _Digits);
+
+      // چک اگر SL جدید بهتر باشد
+      double currentSL = PositionGetDouble(POSITION_SL);
+      bool shouldModify = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY && newSL > currentSL) ||
+                          (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL && newSL < currentSL);
+
+      if(!shouldModify)
+      {
+         if(InpDebugMode) Print("SL جدید بهتر نیست، skip شد برای پوزیشن ", ticket);
+         return true; // بدون تغییر
+      }
+
+      CTrade trade;
+      if(trade.PositionModify(ticket, newSL, PositionGetDouble(POSITION_TP)))
+      {
+         if(InpDebugMode) Print("استاپ لاس پوزیشن ", ticket, " به ", newSL, " منتقل شد با spread=", spread, " و commission=", commission);
          return true;
       }
       else
@@ -1167,12 +1343,6 @@ public:
 
 
 
-
-
-
-
-
-
 //+------------------------------------------------------------------+
 //|                        RiskManager.mqh                           |
 //|                        Copyright 2025, Hipoalgorithm Team        |
@@ -1237,10 +1407,6 @@ public:
 };
 
 #endif
-
-
-
-
 
 
 
@@ -1369,11 +1535,4 @@ private:
 };
 
 #endif
-
-
-
-
-
-
-
 
