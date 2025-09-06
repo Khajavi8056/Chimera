@@ -1,209 +1,449 @@
 //+------------------------------------------------------------------+
-//|                                                       tester.mqh |
-//|                                Copyright 2025, HipoAlgoritm v1.5 |
-//|                                                t.me/hipoalgoritm |
+//| tester_v2.mqh |
+//| Copyright 2025, HipoAlgoritm - Quantum Division |
+//| t.me/hipoalgoritm |
 //+------------------------------------------------------------------+
-#property copyright "Copyright 2025, HipoAlgoritm v1.5"
+//| نسخه 2.0: بازمهندسی کامل با تمرکز بر پایداری، کیفیت و مقاومت |
+//| در برابر اورفیتینگ (Anti-Overfitting) |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2025, HipoAlgoritm - Quantum Division"
 #property link      "t.me/hipoalgoritm"
 //+------------------------------------------------------------------+
 
-
-
 //--- گروه: تنظیمات بهینه‌سازی سفارشی ---
-input group "  تنظیمات بهینه‌سازی سفارشی"; // گروه بهینه‌سازی
-input int InpMinTradesPerYear = 30; // حداقل تعداد معاملات قابل قبول در یک سال
-input int InpMaxAcceptableDrawdown = 15; // حداکثر دراوداون قابل قبول
+input group "تنظیمات اصلی بهینه‌سازی";
+input int    InpMinTradesPerYear      = 30;  // حداقل تعداد معاملات قابل قبول در یک سال
+input double InpMaxAcceptableDrawdown = 20.0; // حداکثر دراوداون قابل قبول به درصد
 
+input group "فیلتر کیفیت معامله (مقابله با اورفیتینگ)";
+input double InpMinimumProfitToCostRatio = 3.0; // حداقل نسبت سود خالص هر معامله به هزینه آن
+input double InpEstimatedCostPerTrade    = 1.5; // هزینه تخمینی هر معامله (اسپرد+کمیسیون) به پیپ
 
-//+------------------------------------------------------------------+
-//| تابع اصلی رویداد تستر که امتیاز نهایی را محاسبه می‌کند.          |
-//+------------------------------------------------------------------+
-double OnTester()
+//--- ساختارهای کمکی ---
+// ساختار برای نگهداری نقاط منحنی اکوییتی
+struct EquityPoint
 {
-   // --- 1. گرفتن تمام آمارهای استاندارد مورد نیاز ---
-   double total_trades         = TesterStatistics(STAT_TRADES); // تعداد معاملات
-   double net_profit           = TesterStatistics(STAT_PROFIT); // سود خالص
-   double profit_factor        = TesterStatistics(STAT_PROFIT_FACTOR); // فاکتور سود
-   double sharpe_ratio         = TesterStatistics(STAT_SHARPE_RATIO); // شارپ ریتو
-   double max_balance_drawdown_percent = TesterStatistics(STAT_BALANCE_DDREL_PERCENT); // حداکثر دراوداون
+   datetime time;    // زمان
+   double   balance; // موجودی
+};
 
-   // --- 2. محاسبه حداقل تعداد معاملات مورد نیاز (بدون تغییر) ---
-   datetime startDate = 0, endDate = 0; // تاریخ شروع و پایان
-   if(HistoryDealsTotal() > 0) // چک معاملات
-     {
-      startDate = (datetime)HistoryDealGetInteger(0, DEAL_TIME); // تاریخ شروع
-      endDate   = (datetime)HistoryDealGetInteger(HistoryDealsTotal() - 1, DEAL_TIME); // تاریخ پایان
-     }
-   double duration_days = (endDate > startDate) ? double(endDate - startDate) / (24.0 * 3600.0) : 1.0; // محاسبه روزها
-   double required_min_trades = floor((duration_days / 365.0) * InpMinTradesPerYear); // حداقل معاملات
-   if(required_min_trades < 10) required_min_trades = 10; // حداقل 10
+// ساختار برای نگهداری سودهای ماهانه
+struct MonthlyProfit
+{
+   int    year;  // سال
+   int    month; // ماه
+   double profit; // سود خالص ماه
+};
 
-   // --- 3. فیلترهای ورودی نهایی (بدون تغییر) ---
-   if(total_trades < required_min_trades || profit_factor < 1.1 || sharpe_ratio <= 0 || net_profit <= 0) // چک فیلترها
-     {
-      return 0.0; // بازگشت صفر
-     }
-
-   // --- 4. محاسبه معیارهای پیشرفته (بدون تغییر) ---
-   double r_squared = 0, downside_consistency = 0; // متغیرهای پیشرفته
-   CalculateAdvancedMetrics(r_squared, downside_consistency); // محاسبه پیشرفته
-
-   // --- 5. *** مهندسی امتیاز: محاسبه "ضریب مجازات" با منحنی کسینوسی *** ---
-   double drawdown_penalty_factor = 0.0; // ضریب مجازات
-   if (max_balance_drawdown_percent < InpMaxAcceptableDrawdown && InpMaxAcceptableDrawdown > 0)  // چک دراوداون
-   {
-      // دراودان رو به یک زاویه بین 0 تا 90 درجه (π/2 رادیان) تبدیل می‌کنیم
-      double angle = (max_balance_drawdown_percent / InpMaxAcceptableDrawdown) * (M_PI / 2.0); // محاسبه زاویه
-      
-      // ضریب مجازات، کسینوس اون زاویه است. هرچی زاویه (دراودان) بیشتر، کسینوس (امتیاز) کمتر
-      drawdown_penalty_factor = cos(angle); // محاسبه کسینوس
-   }
-   // اگر دراودان بیشتر از حد مجاز باشه، ضریب صفر می‌مونه و کل پاس رد میشه
-
-   // --- 6. محاسبه امتیاز نهایی جامع با فرمول جدید و پیوسته ---
-   double final_score = 0.0; // امتیاز نهایی
-   if(drawdown_penalty_factor > 0) // چک مجازات
-   {
-      // استفاده از log برای نرمال‌سازی و جلوگیری از تاثیر بیش از حد اعداد بزرگ
-      double trades_factor = log(total_trades + 1); // +1 برای جلوگیری از log(0)
-      double net_profit_factor = log(net_profit + 1); // فاکتور سود خالص
-
-      final_score = (profit_factor * sharpe_ratio * r_squared * downside_consistency * trades_factor * net_profit_factor) 
-                     * drawdown_penalty_factor; // ضرب در ضریب مجازات جدید و هوشمند
-   }
-
-   // --- 7. چاپ نتیجه برای دیباگ ---
-   PrintFormat("نتیجه: Trades=%d, PF=%.2f, Sharpe=%.2f, R²=%.3f, BalDD=%.2f%%, Penalty=%.2f -> امتیاز: %.4f",
-               (int)total_trades, profit_factor, sharpe_ratio, r_squared, max_balance_drawdown_percent, drawdown_penalty_factor, final_score); // لاگ نتیجه
-
-   return final_score; // بازگشت امتیاز
+//--- توابع کمکی ریاضی برای محاسبات آماری ---
+// محاسبه میانگین یک آرایه
+double ArrayMean(const double &arr)
+{
+   int size = ArraySize(arr);
+   if(size == 0) return 0.0;
+   return ArraySum(arr) / size;
 }
 
-// تابع CalculateAdvancedMetrics بدون هیچ تغییری باقی می‌ماند
-void CalculateAdvancedMetrics(double &r_squared, double &downside_consistency)
+// محاسبه انحراف معیار یک آرایه
+double ArrayStdDev(const double &arr)
 {
-   r_squared = 0; // اولیه r_squared
-   downside_consistency = 1.0; // اولیه ثبات
+   int size = ArraySize(arr);
+   if(size < 2) return 0.0;
 
-   if(!HistorySelect(0, TimeCurrent())) return; // انتخاب تاریخچه
-   uint total_deals = HistoryDealsTotal(); // تعداد معاملات
-   if(total_deals < 5) return; // چک حداقل معاملات
+   double mean = ArrayMean(arr);
+   double sum_sq_diff = 0.0;
+   for(int i = 0; i < size; i++)
+   {
+      sum_sq_diff += pow(arr[i] - mean, 2);
+   }
+   return sqrt(sum_sq_diff / size);
+}
 
-   EquityPoint equity_curve[]; // آرایه منحنی اکویتی
-   ArrayResize(equity_curve, (int)total_deals + 2); // تغییر اندازه
 
-   double final_balance = AccountInfoDouble(ACCOUNT_BALANCE); // بالانس نهایی
-   double net_profit = TesterStatistics(STAT_PROFIT); // سود خالص
-   double initial_balance = final_balance - net_profit; // بالانس اولیه
-   
-   double current_balance = initial_balance; // بالانس فعلی
-   equity_curve[0].time      = (datetime)HistoryDealGetInteger(0, DEAL_TIME) - 1; // زمان اولیه
-   equity_curve[0].balance   = current_balance; // بالانس اولیه
+//+------------------------------------------------------------------+
+//| [جدید] محاسبه امتیاز پایداری سود ماهانه (Monthly Profit Stability)|
+//+------------------------------------------------------------------+
+//| هدف: این تابع به شدت استراتژی‌هایی را تشویق می‌کند که سودهای |
+//| ماهانه پایدار و قابل اتکایی دارند (مانند یک حقوق ماهانه). |
+//| و استراتژی‌های "لاتاری" که با یک معامله بزرگ شانس، کل سود |
+//| را کسب می‌کنند، به شدت جریمه می‌کند. |
+//+------------------------------------------------------------------+
+double CalculateMonthlyProfitStats()
+{
+   if(!HistorySelect(0, TimeCurrent())) return 0.0;
 
-   int equity_points = 1; // شمارنده نقاط
-   for(uint i = 0; i < total_deals; i++) // حلقه معاملات
-     {
-      ulong ticket = HistoryDealGetTicket(i); // تیکت
-      if(ticket > 0) // چک تیکت
-        {
-         if(HistoryDealGetInteger(ticket, DEAL_ENTRY) == DEAL_ENTRY_OUT) // چک خروج
-           {
-            current_balance += HistoryDealGetDouble(ticket, DEAL_PROFIT) + HistoryDealGetDouble(ticket, DEAL_COMMISSION) + HistoryDealGetDouble(ticket, DEAL_SWAP); // آپدیت بالانس
-            equity_curve[equity_points].time = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME); // زمان نقطه
-            equity_curve[equity_points].balance = current_balance; // بالانس نقطه
-            equity_points++; // افزایش
-           }
-        }
-     }
-   ArrayResize(equity_curve, equity_points); // تغییر اندازه نهایی
-   if(equity_points < 3) return; // چک حداقل نقاط
-   
-   double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0, sum_y2 = 0; // متغیرهای محاسباتی
-   for(int i = 0; i < equity_points; i++) // حلقه نقاط
-     {
-      double x = i + 1.0; double y = equity_curve[i].balance; // x و y
-      sum_x += x; sum_y += y; sum_xy += x * y; sum_x2 += x*x; sum_y2 += y*y; // جمع‌ها
-     }
-   double n = equity_points; // تعداد نقاط
-   double den_part1 = (n*sum_x2) - (sum_x*sum_x); // محاسبه دنومیناتور 1
-   double den_part2 = (n*sum_y2) - (sum_y*sum_y); // محاسبه دنومیناتور 2
-   if(den_part1 > 0 && den_part2 > 0) // چک مثبت بودن
-     {
-      double r = ((n*sum_xy) - (sum_x*sum_y)) / sqrt(den_part1 * den_part2); // محاسبه r
-      r_squared = r*r; // محاسبه r_squared
-     }
+   uint total_deals = HistoryDealsTotal();
+   if(total_deals < 5) return 0.0;
 
-   MonthlyTrades monthly_counts[]; // آرایه ماهانه
-   int total_months = 0; // شمارنده ماه‌ها
-   
-   for(uint i=0; i<total_deals; i++) // حلقه معاملات
-     {
-      ulong ticket = HistoryDealGetTicket(i); // تیکت
-      if(ticket > 0 && HistoryDealGetInteger(ticket, DEAL_ENTRY) == DEAL_ENTRY_OUT) // چک خروج
-        {
-         datetime deal_time = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME); // زمان معامله
-         MqlDateTime dt; // ساختار زمان
-         TimeToStruct(deal_time, dt); // تبدیل زمان
-         
-         int month_idx = -1; // ایندکس ماه
-         for(int j=0; j<total_months; j++) { // جستجو ماه
-            if(monthly_counts[j].year == dt.year && monthly_counts[j].month == dt.mon) { // چک ماه و سال
+   MonthlyProfit monthly_profits;
+   int months_count = 0;
+
+   // حلقه در تمام معاملات برای دسته‌بندی سودها بر اساس ماه
+   for(uint i = 0; i < total_deals; i++)
+   {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket > 0 && HistoryDealGetInteger(ticket, DEAL_ENTRY) == DEAL_ENTRY_OUT)
+      {
+         datetime deal_time = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+         MqlDateTime dt;
+         TimeToStruct(deal_time, dt);
+
+         int month_idx = -1;
+         // جستجو برای یافتن ماه موجود
+         for(int j = 0; j < months_count; j++)
+         {
+            if(monthly_profits[j].year == dt.year && monthly_profits[j].month == dt.mon)
+            {
                month_idx = j;
                break;
             }
          }
-         
-         if(month_idx == -1) { // اگر جدید
-            ArrayResize(monthly_counts, total_months + 1); // تغییر اندازه
-            monthly_counts[total_months].year = dt.year; // سال
-            monthly_counts[total_months].month = dt.mon; // ماه
-            monthly_counts[total_months].count = 1; // شمارنده
-            total_months++; // افزایش
-         } else { // افزایش شمارنده
-            monthly_counts[month_idx].count++;
+
+         double deal_profit = HistoryDealGetDouble(ticket, DEAL_PROFIT) +
+                              HistoryDealGetDouble(ticket, DEAL_COMMISSION) +
+                              HistoryDealGetDouble(ticket, DEAL_SWAP);
+
+         if(month_idx == -1) // اگر ماه جدید بود
+         {
+            ArrayResize(monthly_profits, months_count + 1);
+            monthly_profits[months_count].year = dt.year;
+            monthly_profits[months_count].month = dt.mon;
+            monthly_profits[months_count].profit = deal_profit;
+            months_count++;
          }
-        }
-     }
-
-   if(total_months <= 1) { // چک حداقل ماه‌ها
-      downside_consistency = 1.0; // مقدار پیش‌فرض
-      return;
-   }
-
-   double target_trades_per_month = InpMinTradesPerYear / 12.0; // هدف ماهانه
-   if (target_trades_per_month < 1) target_trades_per_month = 1; // حداقل 1
-
-
-   double sum_of_squared_downside_dev = 0; // جمع مربعات انحراف
-   for(int i = 0; i < total_months; i++) { // حلقه ماه‌ها
-      if(monthly_counts[i].count < target_trades_per_month) { // چک کمتر از هدف
-         double deviation = target_trades_per_month - monthly_counts[i].count; // انحراف
-         sum_of_squared_downside_dev += deviation * deviation; // جمع مربعات
+         else // اگر ماه قبلاً وجود داشت
+         {
+            monthly_profits[month_idx].profit += deal_profit;
+         }
       }
    }
 
-   double downside_variance = sum_of_squared_downside_dev / total_months; // واریانس
-   double downside_deviation = sqrt(downside_variance); // انحراف استاندارد
+   if(months_count <= 1) return 1.0; // اگر فقط یک ماه فعالیت داشته، پایداری کامل است
 
-   downside_consistency = 1.0 / (1.0 + downside_deviation); // محاسبه ثبات
+   // استخراج سودهای ماهانه در یک آرایه double برای محاسبات آماری
+   double profits_array;
+   ArrayResize(profits_array, months_count);
+   double total_monthly_profit = 0;
+   for(int i = 0; i < months_count; i++)
+   {
+      profits_array[i] = monthly_profits[i].profit;
+      total_monthly_profit += profits_array[i];
+   }
+
+   // اگر میانگین سود ماهانه منفی باشد، امتیاز صفر است
+   if(total_monthly_profit / months_count <= 0) return 0.0;
+
+   // محاسبه انحراف معیار سودهای ماهانه
+   double std_dev_monthly_profits = ArrayStdDev(profits_array);
+
+   // فرمول امتیاز: هرچه انحراف معیار (نوسان) کمتر باشد، امتیاز به 1 نزدیک‌تر است
+   // از یک مقدار کوچک (مانند 1.0) در مخرج برای جلوگیری از تقسیم بر صفر و نرمال‌سازی استفاده می‌شود
+   return 1.0 / (1.0 + std_dev_monthly_profits / fmax(1.0, AccountInfoDouble(ACCOUNT_BALANCE) * 0.01));
 }
 
 
+//+------------------------------------------------------------------+
+//| [جدید] محاسبه فاکتور کیفیت معامله (Trade Quality Factor) |
+//+------------------------------------------------------------------+
+//| هدف: این تابع یک مکانیسم قدرتمند ضد اورفیتینگ است. با فیلتر کردن |
+//| معاملاتی که سودشان به قدری ناچیز است که توسط هزینه‌های |
+//| واقعی (اسپرد، کمیسیون) از بین می‌رود، از انتخاب استراتژی‌های |
+//| غیرواقعی جلوگیری می‌کند. |
+//+------------------------------------------------------------------+
+double CalculateTradeQualityFactor()
+{
+   if(!HistorySelect(0, TimeCurrent())) return 0.0;
+
+   uint total_deals = HistoryDealsTotal();
+   if(total_deals == 0) return 0.0;
+
+   int high_quality_trades = 0;
+   int closed_trades_count = 0;
+
+   double point_value = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double cost_per_pip = InpEstimatedCostPerTrade * point_value;
+
+   for(uint i = 0; i < total_deals; i++)
+   {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket > 0 && HistoryDealGetInteger(ticket, DEAL_ENTRY) == DEAL_ENTRY_OUT)
+      {
+         closed_trades_count++;
+         double net_profit = HistoryDealGetDouble(ticket, DEAL_PROFIT) +
+                             HistoryDealGetDouble(ticket, DEAL_COMMISSION) +
+                             HistoryDealGetDouble(ticket, DEAL_SWAP);
+
+         double volume = HistoryDealGetDouble(ticket, DEAL_VOLUME);
+         // هزینه تخمینی معامله بر اساس حجم
+         double estimated_cost = cost_per_pip * volume / point_value;
+
+         // یک معامله باکیفیت است اگر سود خالص آن حداقل N برابر هزینه تخمینی باشد
+         if(net_profit > (estimated_cost * InpMinimumProfitToCostRatio))
+         {
+            high_quality_trades++;
+         }
+      }
+   }
+
+   if(closed_trades_count == 0) return 0.0;
+
+   // فاکتور کیفیت، درصد معاملات باکیفیت است
+   return (double)high_quality_trades / closed_trades_count;
+}
+
 
 //+------------------------------------------------------------------+
-//|     بخش بهینه‌سازی سفارشی (Custom Optimization) نسخه 10.0 - نهایی   |
-//|      با "منحنی مجازات دراوداون پیوسته" (Continuous Penalty Curve)     |
+//| [جدید] محاسبه نسبت سود به زیان (Profit/Loss Ratio) |
 //+------------------------------------------------------------------+
+//| هدف: این معیار، میانگین اندازه سودها را با میانگین اندازه ضررها |
+//| مقایسه می‌کند. یک نسبت بالا (مثلاً > 1.5) نشان می‌دهد که |
+//| استراتژی دارای یک مزیت (Edge) سالم در مدیریت ریسک به ریوارد |
+//| است. |
+//+------------------------------------------------------------------+
+double CalculateProfitLossRatio()
+{
+   double gross_profit = TesterStatistics(STAT_PROFIT_TRADES);
+   double profit_trades_count = TesterStatistics(STAT_PROFIT_TRADES_COUNT);
+   double gross_loss = fabs(TesterStatistics(STAT_LOSS_TRADES));
+   double loss_trades_count = TesterStatistics(STAT_LOSS_TRADES_COUNT);
 
-//--- ساختارهای کمکی (بدون تغییر)
-struct EquityPoint
+   if(profit_trades_count == 0 |
+
+| loss_trades_count == 0 |
+| gross_loss == 0)
+   {
+      // اگر معامله زیان‌ده وجود نداشته باشد، یک مقدار بسیار بالا برمی‌گردانیم
+      return 10.0;
+   }
+
+   double avg_win = gross_profit / profit_trades_count;
+   double avg_loss = gross_loss / loss_trades_count;
+
+   return avg_win / avg_loss;
+}
+
+
+//+------------------------------------------------------------------+
+//| [جدید و پیشرفته] محاسبه نسبت سورتینو (Sortino Ratio) |
+//+------------------------------------------------------------------+
+//| هدف: سورتینو یک نسخه برتر از نسبت شارپ است. این معیار فقط نوسانات|
+//| منفی (ریسک نزولی) را جریمه می‌کند و به نوسانات مثبت (رشدهای |
+//| سریع) پاداش می‌دهد. این معیار، ریسک را از دیدگاه یک سرمایه‌گذار|
+//| واقعی‌تر می‌سنجد. |
+//| نکته: محاسبه این معیار نیازمند پردازش منحنی اکوییتی است و کمی |
+//| سنگین‌تر از معیارهای استاندارد تستر است، اما ارزش تحلیلی |
+//| بسیار بالایی دارد. |
+//+------------------------------------------------------------------+
+double CalculateSortinoRatio(const EquityPoint &equity_curve)
 {
-   datetime time; // زمان نقطه
-   double   balance; // بالانس نقطه
-};
-struct MonthlyTrades
+   int points = ArraySize(equity_curve);
+   if(points < 5) return 0.0;
+
+   // 1. محاسبه بازده‌های دوره‌ای از روی منحنی اکوییتی
+   double returns;
+   ArrayResize(returns, points - 1);
+   for(int i = 1; i < points; i++)
+   {
+      if(equity_curve[i-1].balance > 0)
+      {
+         // استفاده از بازده لگاریتمی برای پایداری ریاضی
+         returns[i-1] = log(equity_curve[i].balance / equity_curve[i-1].balance);
+      }
+      else
+      {
+         returns[i-1] = 0.0;
+      }
+   }
+
+   // 2. محاسبه میانگین بازده‌ها
+   double average_return = ArrayMean(returns);
+   if (average_return <= 0) return 0.0;
+
+   // 3. جداسازی بازده‌های منفی برای محاسبه انحراف معیار نزولی
+   double downside_returns;
+   ArrayResize(downside_returns, ArraySize(returns));
+   int downside_count = 0;
+   for(int i = 0; i < ArraySize(returns); i++)
+   {
+      if(returns[i] < 0)
+      {
+         downside_returns[downside_count] = returns[i];
+         downside_count++;
+      }
+   }
+   if(downside_count < 2) return 10.0; // ریسک نزولی بسیار کم، امتیاز بالا
+
+   ArrayResize(downside_returns, downside_count);
+
+   // 4. محاسبه انحراف معیار نزولی (Downside Deviation)
+   double downside_deviation = ArrayStdDev(downside_returns);
+
+   if(downside_deviation == 0) return 10.0; // بدون ریسک نزولی
+
+   // 5. محاسبه نسبت سورتینو
+   // در اینجا ریسک فری ریت را صفر در نظر می‌گیریم
+   return average_return / downside_deviation;
+}
+
+
+//+------------------------------------------------------------------+
+//| [بهینه‌سازی شده] محاسبه معیارهای پیشرفته مبتنی بر منحنی اکوییتی |
+//+------------------------------------------------------------------+
+//| این تابع اکنون وظیفه ساخت منحنی اکوییتی و سپس فراخوانی توابع |
+//| محاسباتی دیگر (R-Squared و Sortino) را بر عهده دارد تا از |
+//| محاسبات تکراری جلوگیری شود. |
+//+------------------------------------------------------------------+
+void ProcessEquityCurve(double &r_squared, double &sortino_ratio)
 {
-   int      year; // سال
-   int      month; // ماه
-   int      count; // شمارنده
-};
+   // مقادیر اولیه
+   r_squared = 0.0;
+   sortino_ratio = 0.0;
+
+   if(!HistorySelect(0, TimeCurrent())) return;
+   uint total_deals = HistoryDealsTotal();
+   if(total_deals < 5) return;
+
+   // --- 1. ساخت آرایه منحنی اکوییتی (Equity Curve) ---
+   EquityPoint equity_curve;
+   ArrayResize(equity_curve, (int)total_deals + 1);
+
+   double final_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double net_profit = TesterStatistics(STAT_PROFIT);
+   double initial_balance = final_balance - net_profit;
+   
+   equity_curve.time = (HistoryDealsTotal() > 0)? (datetime)HistoryDealGetInteger(0, DEAL_TIME) - 1 : 0;
+   equity_curve.balance = initial_balance;
+
+   int equity_points = 1;
+   for(uint i = 0; i < total_deals; i++)
+   {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket > 0 && HistoryDealGetInteger(ticket, DEAL_ENTRY) == DEAL_ENTRY_OUT)
+      {
+         equity_curve[equity_points].time = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+         equity_curve[equity_points].balance = equity_curve[equity_points-1].balance +
+                                               HistoryDealGetDouble(ticket, DEAL_PROFIT) +
+                                               HistoryDealGetDouble(ticket, DEAL_COMMISSION) +
+                                               HistoryDealGetDouble(ticket, DEAL_SWAP);
+         equity_points++;
+      }
+   }
+   ArrayResize(equity_curve, equity_points);
+   if(equity_points < 3) return;
+
+   // --- 2. محاسبه R-Squared (خطی بودن منحنی) ---
+   double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0, sum_y2 = 0;
+   for(int i = 0; i < equity_points; i++)
+   {
+      double x = i + 1.0;
+      double y = equity_curve[i].balance;
+      sum_x += x; sum_y += y; sum_xy += x * y; sum_x2 += x*x; sum_y2 += y*y;
+   }
+   double n = equity_points;
+   double den_part1 = (n * sum_x2) - (sum_x * sum_x);
+   double den_part2 = (n * sum_y2) - (sum_y * sum_y);
+   if(den_part1 > 0 && den_part2 > 0)
+   {
+      double r = ((n * sum_xy) - (sum_x * sum_y)) / sqrt(den_part1 * den_part2);
+      r_squared = r * r;
+   }
+
+   // --- 3. محاسبه نسبت سورتینو با استفاده از منحنی اکوییتی ساخته شده ---
+   sortino_ratio = CalculateSortinoRatio(equity_curve);
+}
+
+
+//+------------------------------------------------------------------+
+//| [بدون تغییر] محاسبه ضریب مجازات دراوداون با منحنی کسینوسی |
+//+------------------------------------------------------------------+
+double CalculateDrawdownPenalty(double max_drawdown_percent)
+{
+   double penalty_factor = 0.0;
+   if (max_drawdown_percent < InpMaxAcceptableDrawdown && InpMaxAcceptableDrawdown > 0)
+   {
+      // تبدیل درصد دراوداون به یک زاویه بین 0 تا 90 درجه (π/2 رادیان)
+      double angle = (max_drawdown_percent / InpMaxAcceptableDrawdown) * (M_PI / 2.0);
+      // ضریب مجازات، کسینوس آن زاویه است. هرچه زاویه (دراوداون) بیشتر، کسینوس (امتیاز) کمتر
+      penalty_factor = cos(angle);
+   }
+   // اگر دراوداون بیشتر از حد مجاز باشد، ضریب صفر می‌ماند و کل پاس رد می‌شود
+   return penalty_factor;
+}
+
+
+//+------------------------------------------------------------------+
+//| تابع اصلی رویداد تستر (OnTester) - نسخه 2.0 |
+//| معماری جدید با فرمول امتیازدهی یکپارچه و چندعاملی |
+//+------------------------------------------------------------------+
+double OnTester()
+{
+   // --- مرحله 1: دریافت آمارهای استاندارد و اولیه ---
+   double total_trades = TesterStatistics(STAT_TRADES);
+   double net_profit = TesterStatistics(STAT_PROFIT);
+   double profit_factor = TesterStatistics(STAT_PROFIT_FACTOR);
+   double recovery_factor = TesterStatistics(STAT_RECOVERY_FACTOR);
+   double win_rate_factor = TesterStatistics(STAT_WINRATE) / 100.0;
+   double max_dd_percent = TesterStatistics(STAT_BALANCE_DDREL_PERCENT);
+
+   // --- مرحله 2: فیلترهای اولیه برای رد کردن پاس‌های ضعیف ---
+   datetime startDate = 0, endDate = 0;
+   if(HistoryDealsTotal() > 0)
+   {
+      startDate = (datetime)HistoryDealGetInteger(0, DEAL_TIME);
+      endDate   = (datetime)HistoryDealGetInteger(HistoryDealsTotal() - 1, DEAL_TIME);
+   }
+   double duration_days = (endDate > startDate)? double(endDate - startDate) / (24.0 * 3600.0) : 1.0;
+   double required_min_trades = floor((duration_days / 365.0) * InpMinTradesPerYear);
+   if(required_min_trades < 10) required_min_trades = 10;
+
+   if(total_trades < required_min_trades |
+
+| profit_factor < 1.1 |
+| net_profit <= 0 |
+| recovery_factor < 0.5)
+   {
+      return 0.0; // رد کردن پاس‌های بی‌کیفیت در ابتدا
+   }
+
+   // --- مرحله 3: محاسبه معیارهای پیشرفته و سفارشی ---
+   double r_squared = 0.0, sortino_ratio = 0.0;
+   ProcessEquityCurve(r_squared, sortino_ratio);
+
+   double monthly_stability_score = CalculateMonthlyProfitStats();
+   double trade_quality_factor = CalculateTradeQualityFactor();
+   double profit_loss_ratio = CalculateProfitLossRatio();
+   double drawdown_penalty = CalculateDrawdownPenalty(max_dd_percent);
+
+   // --- مرحله 4: فرمول نهایی امتیازدهی یکپارچه (Grand Unified Scoring Formula) ---
+   // این فرمول به صورت "حاصلضرب فاکتورها" طراحی شده است. این ساختار تضمین می‌کند که
+   // ضعف شدید در هر یک از بخش‌های کلیدی (مثلاً پایداری ماهانه صفر یا کیفیت معاملات پایین)
+   // کل امتیاز را به شدت کاهش داده و به سمت صفر میل می‌دهد. این یک سیستم "گیت‌های کیفیتی"
+   // متوالی است که یک استراتژی باید از همه آنها با موفقیت عبور کند.
+
+   // بخش 1: امتیاز پایه (سود و تعداد معاملات با تعدیل لگاریتمی)
+   double base_score = log(1.0 + net_profit) * log(1.0 + total_trades);
+
+   // بخش 2: فاکتورهای اصلی عملکرد و ریسک
+   // ترکیبی از معیارهای حیاتی که سلامت و کارایی استراتژی را می‌سنجند.
+   // Recovery Factor: توانایی بازیابی از ضرر.
+   // Sortino Ratio: بازده تعدیل شده با ریسک نزولی (برتر از شارپ).
+   // Profit/Loss Ratio: بزرگی سودها در مقابل ضررها.
+   // R-Squared: خطی و پایدار بودن منحنی اکوییتی.
+   double core_performance_factor = recovery_factor * fmax(0, sortino_ratio) * profit_loss_ratio * r_squared;
+
+   // بخش 3: فاکتورهای کیفیت، پایداری و واقع‌گرایی
+   // این معیارها استراتژی را در برابر اورفیتینگ و شرایط دنیای واقعی مقاوم می‌سنجند.
+   double quality_stability_factor = monthly_stability_score * trade_quality_factor * win_rate_factor;
+   
+   // محاسبه امتیاز نهایی
+   double final_score = base_score * core_performance_factor * quality_stability_factor * drawdown_penalty;
+
+   // --- مرحله 5: چاپ نتیجه برای دیباگ و تحلیل ---
+   PrintFormat("نتیجه: سود خالص=%.2f, معاملات=%d -> امتیاز نهایی: %.4f", net_profit, (int)total_trades, final_score);
+   PrintFormat("   -> جزئیات: PF=%.2f, RF=%.2f, Sortino=%.2f, R²=%.3f, P/L=%.2f", profit_factor, recovery_factor, sortino_ratio, r_squared, profit_loss_ratio);
+   PrintFormat("   -> کیفیت: پایداری ماهانه=%.3f, کیفیت معاملات=%.2f, WinRate=%.2f", monthly_stability_score, trade_quality_factor, win_rate_factor);
+   PrintFormat("   -> ریسک: دراوداون=%.2f%%, جریمه=%.3f", max_dd_percent, drawdown_penalty);
+   
+   return final_score;
+}
+//+------------------------------------------------------------------+
