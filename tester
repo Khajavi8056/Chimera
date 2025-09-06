@@ -1,33 +1,35 @@
 //+------------------------------------------------------------------+
-//| tester_v2.mqh |
-//| Copyright 2025, HipoAlgoritm - Quantum Division |
-//| t.me/hipoalgoritm |
+//| tester_v2.mqh                                                    |
+//| Copyright 2025, HipoAlgoritm - Quantum Division                  |
+//| t.me/hipoalgoritm                                                |
 //+------------------------------------------------------------------+
 //| نسخه 2.0: بازمهندسی کامل با تمرکز بر پایداری، کیفیت و مقاومت |
-//| در برابر اورفیتینگ (Anti-Overfitting) |
+//| در برابر اورفیتینگ (Anti-Overfitting)                          |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, HipoAlgoritm - Quantum Division"
 #property link      "t.me/hipoalgoritm"
 //+------------------------------------------------------------------+
 
 //--- گروه: تنظیمات بهینه‌سازی سفارشی ---
+// این گروه شامل پارامترهای ورودی برای تنظیمات اصلی بهینه‌سازی است.
 input group "تنظیمات اصلی بهینه‌سازی";
 input int    InpMinTradesPerYear      = 30;  // حداقل تعداد معاملات قابل قبول در یک سال
 input double InpMaxAcceptableDrawdown = 20.0; // حداکثر دراوداون قابل قبول به درصد
 
 input group "فیلتر کیفیت معامله (مقابله با اورفیتینگ)";
+// این گروه شامل پارامترهای ورودی برای فیلتر کیفیت معاملات جهت جلوگیری از اورفیتینگ است.
 input double InpMinimumProfitToCostRatio = 3.0; // حداقل نسبت سود خالص هر معامله به هزینه آن
 input double InpEstimatedCostPerTrade    = 1.5; // هزینه تخمینی هر معامله (اسپرد+کمیسیون) به پیپ
 
 //--- ساختارهای کمکی ---
-// ساختار برای نگهداری نقاط منحنی اکوییتی
+// ساختار برای نگهداری نقاط منحنی اکوییتی (برای محاسبات آماری مانند R-Squared و Sortino Ratio)
 struct EquityPoint
 {
-   datetime time;    // زمان
-   double   balance; // موجودی
+   datetime time;    // زمان نقطه اکوییتی
+   double   balance; // موجودی در آن زمان
 };
 
-// ساختار برای نگهداری سودهای ماهانه
+// ساختار برای نگهداری سودهای ماهانه (برای محاسبه پایداری سود ماهانه)
 struct MonthlyProfit
 {
    int    year;  // سال
@@ -36,16 +38,21 @@ struct MonthlyProfit
 };
 
 //--- توابع کمکی ریاضی برای محاسبات آماری ---
-// محاسبه میانگین یک آرایه
-double ArrayMean(const double &arr)
+// محاسبه میانگین یک آرایه (میانگین حسابی عناصر آرایه)
+double ArrayMean(const double &arr[])
 {
    int size = ArraySize(arr);
    if(size == 0) return 0.0;
-   return ArraySum(arr) / size;
+   double sum = 0.0;
+   for(int i = 0; i < size; i++)
+   {
+      sum += arr[i];
+   }
+   return sum / size;
 }
 
-// محاسبه انحراف معیار یک آرایه
-double ArrayStdDev(const double &arr)
+// محاسبه انحراف معیار یک آرایه (برای اندازه‌گیری نوسان)
+double ArrayStdDev(const double &arr[])
 {
    int size = ArraySize(arr);
    if(size < 2) return 0.0;
@@ -54,11 +61,10 @@ double ArrayStdDev(const double &arr)
    double sum_sq_diff = 0.0;
    for(int i = 0; i < size; i++)
    {
-      sum_sq_diff += pow(arr[i] - mean, 2);
+      sum_sq_diff += MathPow(arr[i] - mean, 2);
    }
-   return sqrt(sum_sq_diff / size);
+   return MathSqrt(sum_sq_diff / size);
 }
-
 
 //+------------------------------------------------------------------+
 //| [جدید] محاسبه امتیاز پایداری سود ماهانه (Monthly Profit Stability)|
@@ -66,7 +72,9 @@ double ArrayStdDev(const double &arr)
 //| هدف: این تابع به شدت استراتژی‌هایی را تشویق می‌کند که سودهای |
 //| ماهانه پایدار و قابل اتکایی دارند (مانند یک حقوق ماهانه). |
 //| و استراتژی‌های "لاتاری" که با یک معامله بزرگ شانس، کل سود |
-//| را کسب می‌کنند، به شدت جریمه می‌کند. |
+//| را کسب می‌کنند، به شدت جریمه می‌کند.                         |
+//| ورودی: هیچ (از تاریخچه معاملات استفاده می‌کند)                |
+//| خروجی: امتیاز پایداری بین 0 تا 1                              |
 //+------------------------------------------------------------------+
 double CalculateMonthlyProfitStats()
 {
@@ -75,7 +83,7 @@ double CalculateMonthlyProfitStats()
    uint total_deals = HistoryDealsTotal();
    if(total_deals < 5) return 0.0;
 
-   MonthlyProfit monthly_profits;
+   MonthlyProfit monthly_profits[]; // آرایه دینامیک برای نگهداری سودهای ماهانه
    int months_count = 0;
 
    // حلقه در تمام معاملات برای دسته‌بندی سودها بر اساس ماه
@@ -121,9 +129,9 @@ double CalculateMonthlyProfitStats()
    if(months_count <= 1) return 1.0; // اگر فقط یک ماه فعالیت داشته، پایداری کامل است
 
    // استخراج سودهای ماهانه در یک آرایه double برای محاسبات آماری
-   double profits_array;
+   double profits_array[];
    ArrayResize(profits_array, months_count);
-   double total_monthly_profit = 0;
+   double total_monthly_profit = 0.0;
    for(int i = 0; i < months_count; i++)
    {
       profits_array[i] = monthly_profits[i].profit;
@@ -138,17 +146,18 @@ double CalculateMonthlyProfitStats()
 
    // فرمول امتیاز: هرچه انحراف معیار (نوسان) کمتر باشد، امتیاز به 1 نزدیک‌تر است
    // از یک مقدار کوچک (مانند 1.0) در مخرج برای جلوگیری از تقسیم بر صفر و نرمال‌سازی استفاده می‌شود
-   return 1.0 / (1.0 + std_dev_monthly_profits / fmax(1.0, AccountInfoDouble(ACCOUNT_BALANCE) * 0.01));
+   return 1.0 / (1.0 + std_dev_monthly_profits / MathMax(1.0, AccountInfoDouble(ACCOUNT_BALANCE) * 0.01));
 }
 
-
 //+------------------------------------------------------------------+
-//| [جدید] محاسبه فاکتور کیفیت معامله (Trade Quality Factor) |
+//| [جدید] محاسبه فاکتور کیفیت معامله (Trade Quality Factor)      |
 //+------------------------------------------------------------------+
 //| هدف: این تابع یک مکانیسم قدرتمند ضد اورفیتینگ است. با فیلتر کردن |
 //| معاملاتی که سودشان به قدری ناچیز است که توسط هزینه‌های |
 //| واقعی (اسپرد، کمیسیون) از بین می‌رود، از انتخاب استراتژی‌های |
-//| غیرواقعی جلوگیری می‌کند. |
+//| غیرواقعی جلوگیری می‌کند.                                      |
+//| ورودی: هیچ (از تاریخچه معاملات استفاده می‌کند)                |
+//| خروجی: فاکتور کیفیت بین 0 تا 1                                |
 //+------------------------------------------------------------------+
 double CalculateTradeQualityFactor()
 {
@@ -191,26 +200,24 @@ double CalculateTradeQualityFactor()
    return (double)high_quality_trades / closed_trades_count;
 }
 
-
 //+------------------------------------------------------------------+
-//| [جدید] محاسبه نسبت سود به زیان (Profit/Loss Ratio) |
+//| [جدید] محاسبه نسبت سود به زیان (Profit/Loss Ratio)             |
 //+------------------------------------------------------------------+
 //| هدف: این معیار، میانگین اندازه سودها را با میانگین اندازه ضررها |
 //| مقایسه می‌کند. یک نسبت بالا (مثلاً > 1.5) نشان می‌دهد که |
 //| استراتژی دارای یک مزیت (Edge) سالم در مدیریت ریسک به ریوارد |
-//| است. |
+//| است.                                                            |
+//| ورودی: هیچ (از آمار تستر استفاده می‌کند)                      |
+//| خروجی: نسبت سود به زیان (عدد مثبت)                             |
 //+------------------------------------------------------------------+
 double CalculateProfitLossRatio()
 {
-   double gross_profit = TesterStatistics(STAT_PROFIT_TRADES);
-   double profit_trades_count = TesterStatistics(STAT_PROFIT_TRADES_COUNT);
-   double gross_loss = fabs(TesterStatistics(STAT_LOSS_TRADES));
-   double loss_trades_count = TesterStatistics(STAT_LOSS_TRADES_COUNT);
+   double gross_profit = TesterStatistics(STAT_GROSS_PROFIT);
+   double profit_trades_count = TesterStatistics(STAT_PROFIT_TRADES);
+   double gross_loss = MathAbs(TesterStatistics(STAT_GROSS_LOSS));
+   double loss_trades_count = TesterStatistics(STAT_LOSS_TRADES);
 
-   if(profit_trades_count == 0 |
-
-| loss_trades_count == 0 |
-| gross_loss == 0)
+   if(profit_trades_count == 0 || loss_trades_count == 0 || gross_loss == 0)
    {
       // اگر معامله زیان‌ده وجود نداشته باشد، یک مقدار بسیار بالا برمی‌گردانیم
       return 10.0;
@@ -222,32 +229,33 @@ double CalculateProfitLossRatio()
    return avg_win / avg_loss;
 }
 
-
 //+------------------------------------------------------------------+
-//| [جدید و پیشرفته] محاسبه نسبت سورتینو (Sortino Ratio) |
+//| [جدید و پیشرفته] محاسبه نسبت سورتینو (Sortino Ratio)          |
 //+------------------------------------------------------------------+
 //| هدف: سورتینو یک نسخه برتر از نسبت شارپ است. این معیار فقط نوسانات|
 //| منفی (ریسک نزولی) را جریمه می‌کند و به نوسانات مثبت (رشدهای |
 //| سریع) پاداش می‌دهد. این معیار، ریسک را از دیدگاه یک سرمایه‌گذار|
-//| واقعی‌تر می‌سنجد. |
+//| واقعی‌تر می‌سنجد.                                               |
 //| نکته: محاسبه این معیار نیازمند پردازش منحنی اکوییتی است و کمی |
 //| سنگین‌تر از معیارهای استاندارد تستر است، اما ارزش تحلیلی |
-//| بسیار بالایی دارد. |
+//| بسیار بالایی دارد.                                              |
+//| ورودی: آرایه منحنی اکوییتی                                    |
+//| خروجی: نسبت سورتینو (عدد مثبت، بالاتر بهتر)                    |
 //+------------------------------------------------------------------+
-double CalculateSortinoRatio(const EquityPoint &equity_curve)
+double CalculateSortinoRatio(const EquityPoint &equity_curve[])
 {
    int points = ArraySize(equity_curve);
    if(points < 5) return 0.0;
 
    // 1. محاسبه بازده‌های دوره‌ای از روی منحنی اکوییتی
-   double returns;
+   double returns[];
    ArrayResize(returns, points - 1);
    for(int i = 1; i < points; i++)
    {
       if(equity_curve[i-1].balance > 0)
       {
          // استفاده از بازده لگاریتمی برای پایداری ریاضی
-         returns[i-1] = log(equity_curve[i].balance / equity_curve[i-1].balance);
+         returns[i-1] = MathLog(equity_curve[i].balance / equity_curve[i-1].balance);
       }
       else
       {
@@ -260,9 +268,9 @@ double CalculateSortinoRatio(const EquityPoint &equity_curve)
    if (average_return <= 0) return 0.0;
 
    // 3. جداسازی بازده‌های منفی برای محاسبه انحراف معیار نزولی
-   double downside_returns;
-   ArrayResize(downside_returns, ArraySize(returns));
+   double downside_returns[];
    int downside_count = 0;
+   ArrayResize(downside_returns, ArraySize(returns)); // اندازه اولیه برای جلوگیری از ریسایز مکرر
    for(int i = 0; i < ArraySize(returns); i++)
    {
       if(returns[i] < 0)
@@ -285,13 +293,14 @@ double CalculateSortinoRatio(const EquityPoint &equity_curve)
    return average_return / downside_deviation;
 }
 
-
 //+------------------------------------------------------------------+
 //| [بهینه‌سازی شده] محاسبه معیارهای پیشرفته مبتنی بر منحنی اکوییتی |
 //+------------------------------------------------------------------+
 //| این تابع اکنون وظیفه ساخت منحنی اکوییتی و سپس فراخوانی توابع |
 //| محاسباتی دیگر (R-Squared و Sortino) را بر عهده دارد تا از |
-//| محاسبات تکراری جلوگیری شود. |
+//| محاسبات تکراری جلوگیری شود.                                    |
+//| ورودی: خروجی‌های r_squared و sortino_ratio (به عنوان رفرنس)    |
+//| خروجی: هیچ (مقادیر را در ورودی‌ها پر می‌کند)                   |
 //+------------------------------------------------------------------+
 void ProcessEquityCurve(double &r_squared, double &sortino_ratio)
 {
@@ -304,15 +313,15 @@ void ProcessEquityCurve(double &r_squared, double &sortino_ratio)
    if(total_deals < 5) return;
 
    // --- 1. ساخت آرایه منحنی اکوییتی (Equity Curve) ---
-   EquityPoint equity_curve;
+   EquityPoint equity_curve[];
    ArrayResize(equity_curve, (int)total_deals + 1);
 
    double final_balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double net_profit = TesterStatistics(STAT_PROFIT);
    double initial_balance = final_balance - net_profit;
    
-   equity_curve.time = (HistoryDealsTotal() > 0)? (datetime)HistoryDealGetInteger(0, DEAL_TIME) - 1 : 0;
-   equity_curve.balance = initial_balance;
+   equity_curve[0].time = (total_deals > 0) ? (datetime)HistoryDealGetInteger(0, DEAL_TIME) - 1 : 0;
+   equity_curve[0].balance = initial_balance;
 
    int equity_points = 1;
    for(uint i = 0; i < total_deals; i++)
@@ -344,7 +353,7 @@ void ProcessEquityCurve(double &r_squared, double &sortino_ratio)
    double den_part2 = (n * sum_y2) - (sum_y * sum_y);
    if(den_part1 > 0 && den_part2 > 0)
    {
-      double r = ((n * sum_xy) - (sum_x * sum_y)) / sqrt(den_part1 * den_part2);
+      double r = ((n * sum_xy) - (sum_x * sum_y)) / MathSqrt(den_part1 * den_part2);
       r_squared = r * r;
    }
 
@@ -352,9 +361,13 @@ void ProcessEquityCurve(double &r_squared, double &sortino_ratio)
    sortino_ratio = CalculateSortinoRatio(equity_curve);
 }
 
-
 //+------------------------------------------------------------------+
-//| [بدون تغییر] محاسبه ضریب مجازات دراوداون با منحنی کسینوسی |
+//| [بدون تغییر] محاسبه ضریب مجازات دراوداون با منحنی کسینوسی   |
+//+------------------------------------------------------------------+
+//| هدف: محاسبه یک ضریب جریمه برای دراوداون بر اساس یک منحنی کسینوسی.|
+//| هرچه دراوداون بیشتر، جریمه بیشتر (نزدیک به صفر).             |
+//| ورودی: درصد حداکثر دراوداون                                    |
+//| خروجی: ضریب جریمه بین 0 تا 1                                  |
 //+------------------------------------------------------------------+
 double CalculateDrawdownPenalty(double max_drawdown_percent)
 {
@@ -364,16 +377,20 @@ double CalculateDrawdownPenalty(double max_drawdown_percent)
       // تبدیل درصد دراوداون به یک زاویه بین 0 تا 90 درجه (π/2 رادیان)
       double angle = (max_drawdown_percent / InpMaxAcceptableDrawdown) * (M_PI / 2.0);
       // ضریب مجازات، کسینوس آن زاویه است. هرچه زاویه (دراوداون) بیشتر، کسینوس (امتیاز) کمتر
-      penalty_factor = cos(angle);
+      penalty_factor = MathCos(angle);
    }
    // اگر دراوداون بیشتر از حد مجاز باشد، ضریب صفر می‌ماند و کل پاس رد می‌شود
    return penalty_factor;
 }
 
-
 //+------------------------------------------------------------------+
-//| تابع اصلی رویداد تستر (OnTester) - نسخه 2.0 |
-//| معماری جدید با فرمول امتیازدهی یکپارچه و چندعاملی |
+//| تابع اصلی رویداد تستر (OnTester) - نسخه 2.0                    |
+//| معماری جدید با فرمول امتیازدهی یکپارچه و چندعاملی             |
+//+------------------------------------------------------------------+
+//| هدف: محاسبه امتیاز نهایی برای بهینه‌سازی استراتژی بر اساس معیارهای |
+//| پیشرفته مانند پایداری، کیفیت معاملات، سورتینو و غیره.        |
+//| ورودی: هیچ                                                       |
+//| خروجی: امتیاز نهایی (عدد مثبت، بالاتر بهتر)                   |
 //+------------------------------------------------------------------+
 double OnTester()
 {
@@ -382,7 +399,8 @@ double OnTester()
    double net_profit = TesterStatistics(STAT_PROFIT);
    double profit_factor = TesterStatistics(STAT_PROFIT_FACTOR);
    double recovery_factor = TesterStatistics(STAT_RECOVERY_FACTOR);
-   double win_rate_factor = TesterStatistics(STAT_WINRATE) / 100.0;
+   double profit_trades = TesterStatistics(STAT_PROFIT_TRADES);
+   double win_rate_factor = (total_trades > 0) ? (profit_trades / total_trades) : 0.0;
    double max_dd_percent = TesterStatistics(STAT_BALANCE_DDREL_PERCENT);
 
    // --- مرحله 2: فیلترهای اولیه برای رد کردن پاس‌های ضعیف ---
@@ -393,14 +411,13 @@ double OnTester()
       endDate   = (datetime)HistoryDealGetInteger(HistoryDealsTotal() - 1, DEAL_TIME);
    }
    double duration_days = (endDate > startDate)? double(endDate - startDate) / (24.0 * 3600.0) : 1.0;
-   double required_min_trades = floor((duration_days / 365.0) * InpMinTradesPerYear);
+   double required_min_trades = MathFloor((duration_days / 365.0) * InpMinTradesPerYear);
    if(required_min_trades < 10) required_min_trades = 10;
 
-   if(total_trades < required_min_trades |
-
-| profit_factor < 1.1 |
-| net_profit <= 0 |
-| recovery_factor < 0.5)
+   if(total_trades < required_min_trades ||
+      profit_factor < 1.1 ||
+      net_profit <= 0 ||
+      recovery_factor < 0.5)
    {
       return 0.0; // رد کردن پاس‌های بی‌کیفیت در ابتدا
    }
@@ -421,7 +438,7 @@ double OnTester()
    // متوالی است که یک استراتژی باید از همه آنها با موفقیت عبور کند.
 
    // بخش 1: امتیاز پایه (سود و تعداد معاملات با تعدیل لگاریتمی)
-   double base_score = log(1.0 + net_profit) * log(1.0 + total_trades);
+   double base_score = MathLog(1.0 + net_profit) * MathLog(1.0 + total_trades);
 
    // بخش 2: فاکتورهای اصلی عملکرد و ریسک
    // ترکیبی از معیارهای حیاتی که سلامت و کارایی استراتژی را می‌سنجند.
@@ -429,7 +446,7 @@ double OnTester()
    // Sortino Ratio: بازده تعدیل شده با ریسک نزولی (برتر از شارپ).
    // Profit/Loss Ratio: بزرگی سودها در مقابل ضررها.
    // R-Squared: خطی و پایدار بودن منحنی اکوییتی.
-   double core_performance_factor = recovery_factor * fmax(0, sortino_ratio) * profit_loss_ratio * r_squared;
+   double core_performance_factor = recovery_factor * MathMax(0, sortino_ratio) * profit_loss_ratio * r_squared;
 
    // بخش 3: فاکتورهای کیفیت، پایداری و واقع‌گرایی
    // این معیارها استراتژی را در برابر اورفیتینگ و شرایط دنیای واقعی مقاوم می‌سنجند.
